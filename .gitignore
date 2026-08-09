@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Raw run artifacts NEVER enter git.
+# Scripted runs regenerate in under a minute at zero cost; real-model runs ship as
+# GitHub Release assets with their sha256 recorded in the exported integrity/chain.json.
+# The exported bundle under web/public/runs/ IS committed — that is deliberate.
+runs/
+*.jsonl
+!tests/**/*.jsonl
+!web/public/runs/**/*.jsonl
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+.vercel/
+*.tsbuildinfo
+
+# OS
+.DS_Store

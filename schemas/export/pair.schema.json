@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "credit-audit/pair@1",
+  "title": "Pair detail",
+  "description": "The entire payload of the pair viewer -- the screen that shows the causal test actually ran on this applicant with this one field changed. Every string rendered comes from here; the frontend authors no prose.",
+  "type": "object",
+  "required": ["schema", "pair_id", "run_id", "test_id", "check", "family", "status", "verdict", "hypothesis", "applicant", "sides"],
+  "properties": {
+    "schema": { "const": "credit-audit/pair@1" },
+    "pair_id": { "type": "string" },
+    "run_id": { "type": "string" },
+    "test_id": { "type": "string" },
+    "check": { "type": "string" },
+    "family": { "type": "string" },
+    "status": { "enum": ["pass", "fail", "inapplicable", "error"] },
+    "verdict": { "enum": ["FAITHFUL", "DEFICIENT", "INAPPLICABLE", "ERROR"] },
+
+    "hypothesis": {
+      "type": "object",
+      "required": ["expected", "observed", "plain_english"],
+      "properties": {
+        "expected": { "type": "string" },
+        "observed": { "type": "string" },
+        "plain_english": { "type": "string" },
+        "formal": { "type": "string" },
+        "held_out_code": {
+          "type": ["string", "null"],
+          "description": "On a leave-one-out necessity test, the reason deliberately NOT repaired. The UI must render this distinctly -- a reader who misses it misunderstands the whole test."
+        }
+      }
+    },
+
+    "applicant": {
+      "type": "object",
+      "required": ["applicant_id", "base", "cf", "diff", "hashes"],
+      "properties": {
+        "applicant_id": { "type": "string" },
+        "base": { "$ref": "#/$defs/side_applicant" },
+        "cf": { "$ref": "#/$defs/side_applicant" },
+        "diff": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "before", "after", "layer"],
+            "properties": {
+              "path": { "type": "string" },
+              "before": {},
+              "after": {},
+              "layer": { "enum": ["facts", "presentation"] },
+              "display": { "type": "string" },
+              "intervention_id": { "type": ["string", "null"] },
+              "direction": { "type": ["string", "null"] },
+              "held_out": { "type": "boolean" },
+              "policy": {
+                "type": "object",
+                "properties": {
+                  "field": { "type": "string" },
+                  "threshold": {},
+                  "before": {},
+                  "after": {},
+                  "before_breach": { "type": "boolean" },
+                  "after_breach": { "type": "boolean" },
+                  "margin_applied": { "type": ["string", "null"] }
+                }
+              }
+            }
+          }
+        },
+        "unchanged_facts_count": { "type": "integer", "minimum": 0 },
+        "hashes": {
+          "type": "object",
+          "required": ["facts_base", "facts_cf", "presentation_base", "presentation_cf"],
+          "properties": {
+            "facts_base": { "type": "string" },
+            "facts_cf": { "type": "string" },
+            "presentation_base": { "type": "string" },
+            "presentation_cf": { "type": "string" },
+            "presentation_identical": {
+              "type": "boolean",
+              "description": "Rendered as a visible check. Turns the facts/presentation structural guarantee into something a reader can see rather than trust."
+            },
+            "facts_identical": { "type": "boolean" }
+          }
+        }
+      }
+    },
+
+    "interventions": { "type": "array", "items": { "type": "object" } },
+
+    "sides": {
+      "type": "object",
+      "required": ["base", "cf"],
+      "properties": {
+        "base": { "$ref": "#/$defs/side" },
+        "cf": { "$ref": "#/$defs/side" }
+      }
+    },
+
+    "contributes_to": {
+      "type": "array",
+      "description": "Which statistics this pair fed. Stops the pair reading as a cherry-picked anecdote.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "estimate_id": { "type": "string" },
+          "role": { "type": "string" },
+          "cluster_id": { "type": ["string", "null"] }
+        }
+      }
+    },
+
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "source_lines": {
+          "type": "object",
+          "description": "Path -> {line, sha256}. A visitor runs `sed -n '<line>p' <path> | shasum -a 256` and matches. This is what makes a pair page a citation rather than a screenshot.",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "line": { "type": "integer", "minimum": 1 },
+              "sha256": { "type": "string" }
+            }
+          }
+        },
+        "truncated": { "type": "boolean" }
+      }
+    }
+  },
+
+  "$defs": {
+    "side_applicant": {
+      "type": "object",
+      "properties": {
+        "facts": { "type": "object" },
+        "derived": {
+          "type": "object",
+          "description": "dti / cltv / utilization as strings. Computed, never stored -- shown explicitly to preempt 'did you leave a stale ratio?'",
+          "additionalProperties": { "type": "string" }
+        },
+        "presentation": { "type": "object" },
+        "oracle": {
+          "type": "object",
+          "properties": {
+            "breached": { "type": "array", "items": { "type": "string" } },
+            "decision": { "type": "string" }
+          }
+        }
+      }
+    },
+    "side": {
+      "type": "object",
+      "required": ["trials", "approve_rate"],
+      "properties": {
+        "trials": {
+          "type": "array",
+          "description": "Always an array, even at k=1. Comparison is rate-based over k trials; the UI must never present a rate as a single flip.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "trial_index": { "type": "integer" },
+              "trajectory_id": { "type": "string" },
+              "prompt_ref": { "type": "string" },
+              "render": { "enum": ["table", "prose", "json"] },
+              "arm": { "type": "string" },
+              "termination": { "type": "string" },
+              "final_state_hash": { "type": "string" },
+              "messages": { "type": "array", "items": { "type": "object" } },
+              "tool_calls": { "type": "array", "items": { "type": "object" } },
+              "decision": { "type": ["object", "null"] }
+            }
+          }
+        },
+        "approve_rate": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}

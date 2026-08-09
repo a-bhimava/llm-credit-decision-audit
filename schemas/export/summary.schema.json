@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "credit-audit/summary@1",
+  "title": "Run summary",
+  "description": "Headline claims and family rollups. The exporter FAILS if any headline lacks a resolvable support.estimate_id -- that is the mechanical guarantee that no number on the site is unsupported.",
+  "type": "object",
+  "required": ["schema", "run_id", "kind", "headline", "families", "verdicts", "operational"],
+  "properties": {
+    "schema": { "const": "credit-audit/summary@1" },
+    "run_id": { "type": "string" },
+    "kind": { "enum": ["scripted", "model"] },
+    "bundle_sha256": { "type": "string" },
+    "headline": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "statement", "value", "ci95", "n", "support"],
+        "properties": {
+          "id": { "type": "string" },
+          "label": { "type": "string" },
+          "statement": {
+            "type": "string",
+            "description": "Plain English. On scripted runs the exporter lints this against model-claim phrasings and fails, so a known-answer result can never ship phrased as a finding about a real model."
+          },
+          "value": { "type": "number" },
+          "ci95": {
+            "type": "array",
+            "items": { "type": "number" },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "ci_method": { "type": "string" },
+          "n": { "type": "integer", "minimum": 0 },
+          "n_clusters": { "type": "integer", "minimum": 0 },
+          "denominator_label": { "type": "string" },
+          "direction": { "enum": ["lower_is_better", "higher_is_better", "none"] },
+          "null_value": { "type": "number" },
+          "prereg": { "type": "boolean" },
+          "support": {
+            "type": "object",
+            "required": ["check", "estimate_id", "n_test_ids"],
+            "properties": {
+              "check": { "type": "string" },
+              "estimate_id": { "type": "string" },
+              "n_test_ids": { "type": "integer", "minimum": 1 },
+              "exemplar_pair_id": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    },
+    "families": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["family", "label", "n_tests", "pass", "fail", "inapplicable", "error"],
+        "properties": {
+          "family": { "type": "string" },
+          "label": { "type": "string" },
+          "n_tests": { "type": "integer" },
+          "pass": { "type": "integer" },
+          "fail": { "type": "integer" },
+          "inapplicable": { "type": "integer" },
+          "error": { "type": "integer" },
+          "pass_rate": { "type": ["number", "null"] },
+          "ci95": { "type": ["array", "null"], "items": { "type": "number" } },
+          "fdr": {
+            "type": "object",
+            "properties": {
+              "method": { "type": "string" },
+              "q_target": { "type": "number" },
+              "n_hypotheses": { "type": "integer" },
+              "n_rejected": { "type": "integer" }
+            }
+          },
+          "checks": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "verdicts": {
+      "type": "object",
+      "properties": {
+        "FAITHFUL": { "type": "integer" },
+        "DEFICIENT": { "type": "integer" },
+        "INAPPLICABLE": { "type": "integer" },
+        "ERROR": { "type": "integer" }
+      }
+    },
+    "operational": {
+      "type": "object",
+      "description": "The run's own weak spots, rendered on the home page. Volunteering these before a reviewer finds them is worth more than any headline number.",
+      "properties": {
+        "refusal_rate": { "type": "number" },
+        "pair_completion_rate": { "type": "number" },
+        "parse_status": { "type": "object", "additionalProperties": { "type": "number" } },
+        "llm_remap_rate": {
+          "type": "number",
+          "description": "Above 0.10 this is itself a headline finding: stated reasons are not machine-mappable. It is also the number that would compromise the judge-free claim, so it is always reported."
+        },
+        "reason_count_violations": { "type": "integer" }
+      }
+    },
+    "power": {
+      "type": "object",
+      "properties": {
+        "mde_at_80pct": { "type": ["number", "null"] },
+        "alpha": { "type": "number" },
+        "n_pairs": { "type": "integer" }
+      }
+    },
+    "limitations_ref": { "type": "string" }
+  }
+}

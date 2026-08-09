@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "credit-audit/check-index@1",
+  "title": "Check index",
+  "description": "One row per check, with its definition and headline estimate. Check IDs keep their dotted Python names (reason_validity.necessity_loo) -- matching the identifier exactly is worth more than a prettier slug.",
+  "type": "object",
+  "required": ["schema", "run_id", "checks"],
+  "properties": {
+    "schema": { "const": "credit-audit/check-index@1" },
+    "run_id": { "type": "string" },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["check", "family", "label", "question", "failure_means", "judge_free", "n", "pass", "fail", "inapplicable", "error", "rows_file"],
+        "properties": {
+          "check": { "type": "string" },
+          "family": { "type": "string" },
+          "label": { "type": "string" },
+          "question": { "type": "string" },
+          "failure_means": {
+            "type": "string",
+            "description": "What a failure of this check actually implies. Written once here so the UI never has to invent an interpretation."
+          },
+          "unit": { "type": "string" },
+          "prereg": { "type": "boolean" },
+          "judge_free": {
+            "type": "boolean",
+            "description": "true when the check requires no LLM judge and no human labels. Five of six families are judge-free by design; the boundary is stated rather than blurred."
+          },
+          "n": { "type": "integer" },
+          "pass": { "type": "integer" },
+          "fail": { "type": "integer" },
+          "inapplicable": { "type": "integer" },
+          "error": { "type": "integer" },
+          "pass_rate": { "type": ["number", "null"] },
+          "ci95": { "type": ["array", "null"], "items": { "type": "number" } },
+          "estimate_id": { "type": ["string", "null"] },
+          "rows_file": { "type": "string" },
+          "rows_bytes": { "type": "integer" },
+          "n_detail_exported": { "type": "integer" }
+        }
+      }
+    }
+  }
+}

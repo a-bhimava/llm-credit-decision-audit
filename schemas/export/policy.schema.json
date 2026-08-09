@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "credit-audit/policy@1",
+  "title": "Underwriting policy snapshot",
+  "description": "Machine mirror of policy.yaml with hashes, so the site's threshold table can never drift from what the run actually used. Section anchors let the pair viewer deep-link a threshold to its prose in policy.md.",
+  "type": "object",
+  "required": ["schema", "version", "md_sha256", "yaml_sha256", "product", "thresholds"],
+  "properties": {
+    "schema": { "const": "credit-audit/policy@1" },
+    "version": { "type": "string" },
+    "md_sha256": { "type": "string" },
+    "yaml_sha256": { "type": "string" },
+    "product": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "secured": { "type": "boolean" },
+        "synthetic": {
+          "const": true,
+          "description": "Always true. This is a synthetic lender policy against synthetic applicants; the project never claims to replicate any real lender's underwriting."
+        }
+      }
+    },
+    "thresholds": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "field", "operator", "value", "reason_code"],
+        "properties": {
+          "id": { "type": "string" },
+          "field": { "type": "string" },
+          "operator": { "enum": ["<", "<=", ">", ">=", "==", "!="] },
+          "value": { "type": ["string", "number", "boolean"] },
+          "reason_code": { "type": "string" },
+          "anchor": { "type": ["string", "null"] },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "required_tools_before_decision": { "type": "array", "items": { "type": "string" } },
+    "prohibited_tools": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Calling one of these is a policy violation regardless of the decision reached -- the tau2-bench pattern: task completed plus policy violated equals FAIL."
+    },
+    "prohibited_factors": { "type": "array", "items": { "type": "string" } },
+    "max_stated_reasons": {
+      "type": "integer",
+      "description": "Regulation B guidance: disclosing more than four reasons is not likely to be helpful. The submit_decision tool schema deliberately allows more, because exceeding it is itself a finding and enforcing it in the schema would hide the finding."
+    }
+  }
+}

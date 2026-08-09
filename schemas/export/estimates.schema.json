@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "credit-audit/estimates@1",
+  "title": "Statistical estimates",
+  "description": "Every estimate the site can render: point, clustered CI, paired test, BH-adjusted q, power, pass^k. Pre-registered and exploratory estimates are distinguished so the UI can visually demote the latter.",
+  "type": "object",
+  "required": ["schema", "estimates"],
+  "properties": {
+    "schema": { "const": "credit-audit/estimates@1" },
+    "prereg": {
+      "type": "object",
+      "properties": {
+        "sha256": { "type": "string" },
+        "git_tag": { "type": ["string", "null"] },
+        "frozen_at": { "type": ["string", "null"], "format": "date-time" }
+      }
+    },
+    "bh_groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "family": { "type": "string" },
+          "n_hypotheses": { "type": "integer" },
+          "q_target": { "type": "number" },
+          "n_rejected": { "type": "integer" }
+        }
+      }
+    },
+    "estimates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["estimate_id", "check", "family", "label", "point", "n", "prereg"],
+        "properties": {
+          "estimate_id": { "type": "string" },
+          "check": { "type": "string" },
+          "family": { "type": "string" },
+          "label": { "type": "string" },
+          "stratum": { "type": ["string", "null"] },
+          "prereg": { "type": "boolean" },
+          "exploratory": {
+            "type": "boolean",
+            "description": "Rendered with a dashed rail and an explicit chip, grouped below the pre-registered estimates. Non-negotiable."
+          },
+          "point": { "type": "number" },
+          "ci95": { "type": ["array", "null"], "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+          "null_value": { "type": "number" },
+          "ci": {
+            "type": "object",
+            "properties": {
+              "method": { "enum": ["BCa", "percentile", "wilson", "none"] },
+              "B": { "type": ["integer", "null"] },
+              "cluster": {
+                "type": ["string", "null"],
+                "description": "The resampling unit. Should be pair_id -- resampling at the response level understates the CI."
+              },
+              "z0": { "type": ["number", "null"] },
+              "a": { "type": ["number", "null"] },
+              "seed": { "type": ["integer", "null"] },
+              "fallback_used": {
+                "type": "boolean",
+                "description": "true when BCa failed and percentile bootstrap was used instead. Propagates to the UI automatically, so the site can never claim BCa when percentile ran."
+              }
+            }
+          },
+          "n": { "type": "integer", "minimum": 0 },
+          "n_clusters": { "type": ["integer", "null"] },
+          "test": {
+            "type": ["object", "null"],
+            "properties": {
+              "name": { "type": "string" },
+              "b": { "type": ["integer", "null"], "description": "Discordant pair count, base-deny to cf-approve." },
+              "c": { "type": ["integer", "null"] },
+              "p": { "type": ["number", "null"] },
+              "q_bh": { "type": ["number", "null"] },
+              "rejected": { "type": ["boolean", "null"] }
+            }
+          },
+          "delta_prereg": { "type": ["number", "null"] },
+          "support_test_ids": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "power": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "check": { "type": "string" },
+          "alpha": { "type": "number" },
+          "target_power": { "type": "number" },
+          "mde": { "type": ["number", "null"] },
+          "n_pairs": { "type": "integer" },
+          "assumed_discordance": { "type": ["number", "null"] },
+          "achieved_power_at_observed": { "type": ["number", "null"] }
+        }
+      }
+    },
+    "pass_k": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["check", "k", "stratum"],
+        "properties": {
+          "check": { "type": "string" },
+          "k": { "type": "integer", "minimum": 1 },
+          "pass_1": { "type": ["number", "null"] },
+          "pass_k": { "type": ["number", "null"] },
+          "stratum": {
+            "type": "string",
+            "description": "Which sample pass^k was computed on. Required so the caption can never be omitted."
+          },
+          "n": { "type": "integer" },
+          "ci95": { "type": ["array", "null"], "items": { "type": "number" } }
+        }
+      }
+    }
+  }
+}
