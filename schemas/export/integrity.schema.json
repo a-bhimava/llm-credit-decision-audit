@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "credit-audit/integrity@1",
+  "title": "Integrity chain",
+  "description": "The full provenance chain from exported bundle back to raw artifacts, inputs, and git. Paired with integrity/SHA256SUMS. The `verify` array carries literal runnable commands so the site can state a claim and the command that checks it side by side.",
+  "type": "object",
+  "required": ["schema", "run_id", "git", "bundle_sha256", "inputs", "exporter", "verify"],
+  "properties": {
+    "schema": { "const": "credit-audit/integrity@1" },
+    "run_id": { "type": "string" },
+    "git": {
+      "type": "object",
+      "required": ["commit", "dirty"],
+      "properties": {
+        "commit": { "type": "string" },
+        "dirty": { "type": "boolean" },
+        "tag": { "type": ["string", "null"] }
+      }
+    },
+    "bundle_sha256": { "type": "string" },
+    "hash_functions": {
+      "type": "object",
+      "description": "Two hash functions appear in this bundle on purpose. Documented here so a reviewer who notices finds the reason rather than a smell.",
+      "properties": {
+        "content_ids": { "const": "blake2b-128" },
+        "integrity_manifest": { "const": "sha256" },
+        "rationale": { "type": "string" }
+      }
+    },
+    "source_artifacts": {
+      "type": "array",
+      "description": "Raw JSONL the bundle was exported from. Never committed to git -- scripted runs regenerate in under a minute at zero cost; model runs ship as Release assets. The chain still closes via sha256 + download URL.",
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": { "type": "string" },
+          "sha256": { "type": "string" },
+          "bytes": { "type": "integer" },
+          "lines": { "type": "integer" },
+          "in_repo": { "type": "boolean" },
+          "download": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["role", "path", "sha256", "in_repo"],
+        "properties": {
+          "role": { "type": "string" },
+          "path": { "type": "string" },
+          "sha256": { "type": "string" },
+          "in_repo": { "type": "boolean" },
+          "git_tag": { "type": ["string", "null"] },
+          "tagged_at": { "type": ["string", "null"], "format": "date-time" },
+          "frozen_before_run": {
+            "type": ["boolean", "null"],
+            "description": "For the pre-registration file: whether the tag predates the run. A false here invalidates the pre-registration claim and must be surfaced."
+          }
+        }
+      }
+    },
+    "exporter": {
+      "type": "object",
+      "required": ["version", "deterministic"],
+      "properties": {
+        "version": { "type": "string" },
+        "argv": { "type": "array", "items": { "type": "string" } },
+        "python": { "type": "string" },
+        "deterministic": { "type": "boolean" }
+      }
+    },
+    "verify": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["claim", "cmd"],
+        "properties": {
+          "claim": { "type": "string" },
+          "cmd": { "type": "string" }
+        }
+      }
+    }
+  }
+}

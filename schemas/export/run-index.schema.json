@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "credit-audit/run-index@1",
+  "title": "Run index",
+  "description": "Registry of every exported run. Served at /runs/index.json and drives the run switcher.",
+  "type": "object",
+  "required": ["schema", "schema_version", "default_run_id", "runs"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": "credit-audit/run-index@1" },
+    "schema_version": { "type": "string" },
+    "default_run_id": { "type": "string" },
+    "runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["run_id", "label", "kind", "suite", "created_at", "path", "counts"],
+        "additionalProperties": false,
+        "properties": {
+          "run_id": { "type": "string" },
+          "label": { "type": "string" },
+          "kind": {
+            "enum": ["scripted", "model"],
+            "description": "A scripted run is a known-answer validation of the harness, not a finding about any model. This single field drives the non-dismissible provenance banner on every route."
+          },
+          "suite": { "enum": ["smoke", "core", "full"] },
+          "model": {
+            "type": "object",
+            "properties": {
+              "provider": { "type": "string" },
+              "model_id": { "type": "string" },
+              "temperature": { "type": ["number", "null"] }
+            }
+          },
+          "created_at": { "type": "string", "format": "date-time" },
+          "git_commit_short": { "type": "string" },
+          "counts": {
+            "type": "object",
+            "properties": {
+              "applicants": { "type": "integer", "minimum": 0 },
+              "episodes": { "type": "integer", "minimum": 0 },
+              "tests": { "type": "integer", "minimum": 0 },
+              "pairs": { "type": "integer", "minimum": 0 }
+            }
+          },
+          "headline_id": { "type": ["string", "null"] },
+          "validates_harness": { "type": "boolean" },
+          "validated_by_run_id": {
+            "type": ["string", "null"],
+            "description": "On a model run, points back at the scripted run whose planted-defect table validates the harness. Lets that evidence transfer without being restated as a model finding."
+          },
+          "bundle_bytes": { "type": "integer", "minimum": 0 },
+          "path": { "type": "string" }
+        }
+      }
+    }
+  }
+}

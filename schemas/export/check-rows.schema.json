@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "credit-audit/check-rows@1",
+  "title": "Check rows (columnar)",
+  "description": "Per-check result rows in columnar form with string dictionaries. Row-of-objects JSON at 2,000 rows is mostly repeated key strings; columnar is roughly 5x smaller and trivially decoded client-side.",
+  "type": "object",
+  "required": ["schema", "check", "run_id", "dict", "columns", "rows", "n"],
+  "properties": {
+    "schema": { "const": "credit-audit/check-rows@1" },
+    "check": { "type": "string" },
+    "run_id": { "type": "string" },
+    "dict": {
+      "type": "object",
+      "description": "Column name -> ordered value list. Integer cells in `rows` index into these.",
+      "additionalProperties": { "type": "array", "items": { "type": "string" } }
+    },
+    "columns": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Must include base_approve_rate, cf_approve_rate and k -- comparison is rate-based over k trials, so the UI can render '4 of 5 trials flipped' rather than a bare boolean."
+    },
+    "rows": {
+      "type": "array",
+      "items": { "type": "array" }
+    },
+    "n": { "type": "integer", "minimum": 0 },
+    "notes": {
+      "type": "object",
+      "description": "test_id -> note, for rows needing a caveat (e.g. repair_implausible: income clamped at plausibility bound).",
+      "additionalProperties": { "type": "string" }
+    }
+  }
+}

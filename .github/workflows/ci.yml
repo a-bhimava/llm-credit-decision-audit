@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install
+        run: pip install -e '.[dev]'
+
+      - name: Lint
+        run: ruff check . && ruff format --check .
+
+      - name: Test
+        # Phases 0-8 make zero API calls by design, so CI needs no secrets.
+        run: pytest -q
+
+      # Determinism gate. Content-addressed IDs must not depend on dict or set iteration
+      # order; a regression here would silently break cross-machine reproducibility of the
+      # published evidence bundle, which is the project's central integrity claim.
+      - name: Assert hash stability across PYTHONHASHSEED
+        run: |
+          a=$(PYTHONHASHSEED=0 python -c "from credit_audit.ids import content_id; print(content_id({'b':[3,1,2],'a':{'z':1,'y':2}}))")
+          b=$(PYTHONHASHSEED=12345 python -c "from credit_audit.ids import content_id; print(content_id({'b':[3,1,2],'a':{'z':1,'y':2}}))")
+          test "$a" = "$b" || { echo "content_id varies with PYTHONHASHSEED: $a vs $b"; exit 1; }
+          echo "stable: $a"

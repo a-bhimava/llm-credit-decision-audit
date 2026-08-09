@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "credit-audit/replay@1",
+  "title": "Recorded episode replay",
+  "description": "A step-through of a real recorded episode, driven from the committed cassette. The site never calls a live model: a replay of a hash-verified recorded episode is strictly better evidence, because a live call proves nothing about what the published run actually did.",
+  "type": "object",
+  "required": ["schema", "episode_id", "run_id", "recorded", "steps"],
+  "properties": {
+    "schema": { "const": "credit-audit/replay@1" },
+    "episode_id": { "type": "string" },
+    "trajectory_id": { "type": "string" },
+    "run_id": { "type": "string" },
+    "pair_id": { "type": ["string", "null"] },
+    "side": { "enum": ["base", "cf"] },
+    "recorded": {
+      "const": true,
+      "description": "Always true, and surfaced as a persistent non-dismissible label. Nothing here is live."
+    },
+    "recorded_at": { "type": "string", "format": "date-time" },
+    "cassette": {
+      "type": "object",
+      "properties": {
+        "path": { "type": "string" },
+        "sha256": { "type": "string" },
+        "record_index": { "type": "integer" }
+      }
+    },
+    "applicant_packet": {
+      "type": "object",
+      "properties": {
+        "render": { "enum": ["table", "prose", "json"] },
+        "text": { "type": "string" }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["i", "kind"],
+        "properties": {
+          "i": { "type": "integer", "minimum": 0 },
+          "kind": { "enum": ["system", "user", "assistant", "tool_call", "decision"] },
+          "title": { "type": "string" },
+          "body": { "type": "string" },
+          "body_ref": { "type": "string" },
+          "name": { "type": "string" },
+          "arguments": { "type": "object" },
+          "result": { "type": "object" },
+          "ok": { "type": "boolean" },
+          "latency_ms": {
+            "type": "integer",
+            "description": "The recorded latency. The UI time-compresses playback and says so; it never fabricates dramatic pauses."
+          },
+          "policy": {
+            "type": "object",
+            "properties": {
+              "rule": { "type": "string" },
+              "kind": { "type": "string" },
+              "effect": { "enum": ["satisfied", "violated", "n/a"] },
+              "trap": { "type": "boolean" }
+            }
+          },
+          "decision": { "type": "object" },
+          "spans": { "type": "array", "items": { "type": "object" } }
+        }
+      }
+    },
+    "state_timeline": {
+      "type": "array",
+      "description": "Policy state after each step. This is what turns a chat transcript into an audit, and it is the reason the replay is worth building at all.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "after_step": { "type": "integer" },
+          "credit_report_pulled": { "type": "boolean" },
+          "income_verified": { "type": "boolean" },
+          "trap_called": { "type": "boolean" },
+          "violations": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "badges": { "type": "array", "items": { "type": "string" } }
+  }
+}

@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "credit-audit/manifest@1",
+  "title": "Run manifest",
+  "description": "Mirror of the Python RunManifest plus an export block. Every claim on the site is traceable to this file.",
+  "type": "object",
+  "required": ["schema", "run_id", "created_at", "suite", "kind", "git", "model", "seed", "profile_set", "policy_ref", "counts", "export"],
+  "properties": {
+    "schema": { "const": "credit-audit/manifest@1" },
+    "run_id": { "type": "string" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "suite": { "enum": ["smoke", "core", "full"] },
+    "kind": { "enum": ["scripted", "model"] },
+    "git": {
+      "type": "object",
+      "required": ["commit", "dirty"],
+      "properties": {
+        "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "short": { "type": "string" },
+        "dirty": {
+          "type": "boolean",
+          "description": "true renders a permanent warning band: the run is not exactly reproducible from this commit. Never hidden."
+        },
+        "remote": { "type": ["string", "null"] },
+        "tag": { "type": ["string", "null"] }
+      }
+    },
+    "package_version": { "type": "string" },
+    "python_version": { "type": "string" },
+    "platform": { "type": "string" },
+    "model": {
+      "type": "object",
+      "required": ["provider", "model_id"],
+      "properties": {
+        "provider": { "type": "string" },
+        "model_id": { "type": "string" },
+        "temperature": { "type": ["number", "null"] },
+        "top_p": { "type": ["number", "null"] },
+        "max_tokens": { "type": ["integer", "null"] },
+        "max_steps": { "type": "integer" },
+        "system_prompt_hash": { "type": "string" },
+        "reason_mode": { "enum": ["coded", "freetext"] }
+      }
+    },
+    "seed": { "type": "integer" },
+    "profile_set": {
+      "type": "object",
+      "required": ["path", "sha256", "n"],
+      "properties": {
+        "path": { "type": "string" },
+        "sha256": { "type": "string" },
+        "n": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "policy_ref": {
+      "type": "object",
+      "required": ["md_sha256", "yaml_sha256", "version"],
+      "properties": {
+        "md_sha256": { "type": "string" },
+        "yaml_sha256": { "type": "string" },
+        "version": { "type": "string" }
+      }
+    },
+    "prereg_ref": {
+      "type": ["object", "null"],
+      "properties": {
+        "sha256": { "type": "string" },
+        "git_tag": { "type": ["string", "null"] },
+        "frozen_at": { "type": ["string", "null"], "format": "date-time" }
+      }
+    },
+    "arms": { "type": "array", "items": { "type": "string" } },
+    "renders": { "type": "array", "items": { "enum": ["table", "prose", "json"] } },
+    "k_trials": { "type": "integer", "minimum": 1 },
+    "counts": {
+      "type": "object",
+      "properties": {
+        "planned": { "type": "integer" },
+        "executed": { "type": "integer" },
+        "cached": { "type": "integer" },
+        "replayed": { "type": "integer" },
+        "skipped": { "type": "integer" },
+        "applicants": { "type": "integer" },
+        "denied": { "type": "integer" },
+        "tests": { "type": "integer" },
+        "pairs": { "type": "integer" }
+      }
+    },
+    "cost": {
+      "type": "object",
+      "properties": {
+        "usd_total": { "type": "number", "minimum": 0 },
+        "input_tokens": { "type": "integer" },
+        "output_tokens": { "type": "integer" },
+        "cached_tokens": { "type": "integer" },
+        "cache_hit_rate": {
+          "type": ["number", "null"],
+          "description": "Measured from provider-reported usage, never assumed."
+        }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "repo-relative path -> sha256 of the raw JSONL artifact it was exported from."
+    },
+    "export": {
+      "type": "object",
+      "required": ["schema_version", "exporter_version", "deterministic"],
+      "properties": {
+        "schema_version": { "type": "string" },
+        "exporter_version": { "type": "string" },
+        "exported_at": { "type": "string", "format": "date-time" },
+        "profile": { "enum": ["full", "lite"] },
+        "deterministic": {
+          "type": "boolean",
+          "description": "false only when --stamp-now was used. Surfaced as a warning on /integrity, because a non-deterministic export cannot be diff-verified by a stranger."
+        },
+        "sampling": { "type": "object" },
+        "redactions": { "type": "array", "items": { "type": "string" } },
+        "bundle_sha256": { "type": "string" }
+      }
+    }
+  }
+}
