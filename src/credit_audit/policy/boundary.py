@@ -1,11 +1,26 @@
-"""Independent per-rule fixture setters.
+"""Independent per-rule boundary setters.
+
+Two consumers, one definition -- promoted here from what was originally a test-only
+module (``tests/unit/policy/setters.py``) so Phase 1's boundary-fixture tests and Phase
+3's Stage B deliberate multi-breach construction cannot silently drift apart:
+
+1. Phase 1's ``tests/unit/policy/test_oracle.py`` -- the 45-case boundary matrix.
+2. Phase 3's ``profiles/selection.py`` -- constructing deliberately multi-constraint
+   applicants from a clean pool member.
 
 Deliberately does NOT share code with ``oracle.read_accessor`` or ``oracle.evaluate_rule``
--- if the boundary-fixture tests computed their expected values with the same code path
-they are testing, a bug in that code path would make the test agree with itself. Each
-setter here is a small, separately hand-written function that knows only "what primitive
-field(s) make this one accessor read a given value," independent of how the oracle reads
-that accessor back.
+-- if a boundary-fixture test computed its expected value with the same code path it is
+testing, a bug in that code path would make the test agree with itself. Each setter here
+is a small, separately hand-written function that knows only "what primitive field(s)
+make this one accessor read a given value," independent of how the oracle reads that
+accessor back.
+
+**Setter order matters and intent is not truth.** ``set_dti``/``set_loan_to_income``
+compute an "exact" target against the facts *at call time* -- e.g. applying an income
+setter after a DTI setter silently changes what DTI value results, since DTI's
+denominator just moved. Any caller applying more than one setter must always verify the
+actual result via :func:`credit_audit.policy.oracle.evaluate` and classify by the
+oracle's real returned breach set, never by which setters were applied.
 """
 
 from __future__ import annotations
@@ -132,3 +147,38 @@ SETTERS: dict[str, Setter] = {
     "eligible_employment_status": set_employment_status,
     "income_must_be_documented": set_income_documented,
 }
+
+# Rule clusters for Stage B's cross-cluster construction (profiles/selection.py). A
+# cross-cluster breach pair (e.g. credit_quality + employment_documentation) is the
+# adversarial, laundering-relevant case: same-cluster co-breaches happen naturally
+# because one latent factor drives them together, but cross-cluster co-breaches don't
+# arise by chance and have to be constructed deliberately.
+RULE_CLUSTERS: dict[str, tuple[str, ...]] = {
+    "credit_quality": (
+        "min_credit_score",
+        "max_revolving_utilization",
+        "max_minor_delinquencies",
+        "max_major_delinquencies",
+        "min_oldest_tradeline_months",
+        "min_open_tradelines",
+        "max_inquiries_6m",
+    ),
+    "capacity": (
+        "min_annual_income",
+        "max_dti",
+        "max_loan_to_income",
+        "max_loan_amount",
+    ),
+    "employment_documentation": (
+        "min_employment_months",
+        "eligible_employment_status",
+        "income_must_be_documented",
+    ),
+    "derogatory_legal": (
+        "bankruptcy_seasoning_months",
+        "public_record_seasoning_months",
+    ),
+}
+
+
+__all__ = ["RULE_CLUSTERS", "SETTERS", "Setter"]

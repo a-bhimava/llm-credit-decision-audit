@@ -19,6 +19,7 @@ runs/
 *.jsonl
 !tests/**/*.jsonl
 !web/public/runs/**/*.jsonl
+!src/credit_audit/profiles/fixtures/*.jsonl
 
 # Secrets
 .env

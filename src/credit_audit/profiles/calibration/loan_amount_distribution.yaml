@@ -1,0 +1,28 @@
+# Personal-loan amount distribution -- used by profiles/selection.py to draw
+# loan_amount_cents *independently* of HMDA (HMDA is mortgage data; see docs/limitations.md
+# for why mortgage loan amounts are never used to seed this product's loan sizes).
+schema: "credit-audit/loan-amount-distribution@1"
+
+citation:
+  source: >
+    Experian, "Average Personal Loan Balance Grows 1.7% in 2025" (Ask Experian Research)
+  url: "https://www.experian.com/blogs/ask-experian/research/personal-loan-study/"
+  data_as_of: "2025-09"
+  published: "2026-03-30"
+  fetched: "2026-08-10"
+  note: >
+    Experian reports a single national average outstanding personal-loan balance, not a
+    full distribution. We anchor a lognormal distribution's median to this cited average
+    and choose sigma ourselves to keep the bulk of draws inside the product's own
+    $1,000-$100,000 bounds (policy.yaml's product.min_amount_cents/max_amount_cents). The
+    shape (lognormal, sigma=0.65) is our own modeling choice, NOT independently cited --
+    only the central tendency (median_cents) is a cited fact.
+
+average_balance_cents: 1933300
+
+distribution:
+  kind: lognormal
+  median_cents: 1933300
+  sigma: "0.65"
+  min_cents: 100000
+  max_cents: 10000000
