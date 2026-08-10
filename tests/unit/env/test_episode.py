@@ -58,7 +58,7 @@ class _TalkerClient:
     def __init__(self):
         self.calls = 0
 
-    async def complete(self, req):
+    async def complete(self, _req):
         self.calls += 1
         if self.calls <= 3:
             return ModelResponse(content="thinking...", stop_reason="stop")
@@ -151,7 +151,7 @@ class _ImmediateSubmitter:
 
     model_id = "test:immediate"
 
-    async def complete(self, req):
+    async def complete(self, _req):
         call = ToolCallRequested(
             call_id="c1", name="submit_decision", arguments={"outcome": "APPROVE", "reasons": []}
         )
@@ -176,5 +176,5 @@ def test_submit_decision_with_no_prior_tools_terminates_episode(golden_clean_app
     assert traj.tool_calls[0].name == "submit_decision"
 
 
-def test_default_max_steps_comes_from_policy(golden_clean_applicant, policy):
+def test_default_max_steps_comes_from_policy(policy):
     assert policy.process.max_steps == 12

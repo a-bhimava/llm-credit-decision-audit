@@ -262,6 +262,28 @@ def test_missing_field_from_registry_raises(tmp_policy_files):
         _load(md, yml)
 
 
+def test_missing_scored_property_from_registry_raises(tmp_policy_files):
+    """A0's accessor-resolution pass used to check only that a property accessor (e.g.
+    ``dti``) resolves against the FinancialFacts *class* -- never that the fields:
+    *registry* still has an entry for it. Deleting `dti` used to leave load_policy()
+    succeeding with renderable_fields silently shrunk from 19 to 18. This pins the fix."""
+    md, yml = tmp_policy_files
+    raw = yaml.safe_load(yml.read_text())
+    del raw["fields"]["dti"]
+    yml.write_text(yaml.safe_dump(raw, sort_keys=False))
+    with pytest.raises(loader.PolicyRegistryError):
+        _load(md, yml)
+
+
+def test_scored_property_with_wrong_registry_kind_raises(tmp_policy_files):
+    md, yml = tmp_policy_files
+    raw = yaml.safe_load(yml.read_text())
+    raw["fields"]["utilization"]["kind"] = "primitive"
+    yml.write_text(yaml.safe_dump(raw, sort_keys=False))
+    with pytest.raises(loader.PolicyRegistryError):
+        _load(md, yml)
+
+
 # --------------------------------------------------------------------------------------
 # render_generated_block byte-stability
 # --------------------------------------------------------------------------------------

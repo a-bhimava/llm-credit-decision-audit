@@ -1,7 +1,7 @@
 generator_version: phase3-v1
 n_profiles: 225
 pool_size: 4000
-profiles_sha256: sha256:ae6c38158f35225996ffbbce40ea954aeeef66d69c917bfabf198c89ca392cfa
+profiles_sha256: sha256:1a9e48e0ed497bb77c6d909bce02222ee7913185a742f370322a9ca996be18c6
 run_seed: 20260810
 schema: credit-audit/generator-config@1
 target_size: 225

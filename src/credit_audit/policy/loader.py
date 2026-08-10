@@ -5,7 +5,11 @@ enforces. If they disagree, every reason-validity result in the project becomes 
 while every downstream test stays green -- so this module's job is to make that
 disagreement structurally impossible rather than merely unlikely.
 
-Five assertions run on every :func:`load_policy` call, not only in CI:
+Five assertions run on every cache miss inside :func:`load_policy` -- the first call in a
+process, or any call after :func:`load_policy.cache_clear`, not only in CI. Subsequent calls
+in the same process reuse the cached, already-validated :class:`Policy` (``evaluate()`` runs
+this hot); re-validating on every call would re-read and re-check an unchanged committed
+file for no added safety, since nothing mutates it between calls in one process:
 
   A0  YAML self-consistency: rule ids unique, codes real, accessors resolve, repair
       fields are FinancialFacts primitives (never properties), no code's rules move the
@@ -471,6 +475,24 @@ def _check_a0_self_consistency(
         elif acc.kind is AccessorKind.PROPERTY:
             if not isinstance(getattr(_FinancialFacts, acc.field, None), property):
                 raise PolicySchemaError(f"{rule.rule_id}: {acc.field!r} is not a property")
+            # A rule reading a property accessor is what makes that property "scored" --
+            # renderable_fields (and anything else reading the registry) needs a `fields:`
+            # entry for it or it silently disappears from what the agent is shown even
+            # though a rule still enforces it. Checking against the class alone (above)
+            # verifies the accessor is real; it does not verify the registry knows about
+            # it -- those are two different pieces of data, and this closes the gap
+            # between them.
+            spec = fields.get(acc.field)
+            if spec is None:
+                raise PolicyRegistryError(
+                    f"{rule.rule_id}: property {acc.field!r} is read by a rule but has no "
+                    "fields: registry entry"
+                )
+            if spec.kind is not AccessorKind.PROPERTY:
+                raise PolicyRegistryError(
+                    f"{rule.rule_id}: property {acc.field!r}'s fields: entry has "
+                    f"kind={spec.kind.value!r}, expected 'property'"
+                )
         elif acc.kind is AccessorKind.DERIVED:
             from credit_audit.policy.oracle import ACCESSORS  # local: avoid import cycle
 
@@ -565,7 +587,7 @@ def format_value(field_type: str, value: Any) -> str:
     return str(value)
 
 
-def _value_renderings(spec: Rule | FieldSpec, value: Decimal | int | str) -> set[str]:
+def _value_renderings(value: Decimal | int | str) -> set[str]:
     """Every textual form a declared value is allowed to take in hand-written prose."""
     out = {str(value)}
     if isinstance(value, Decimal):
@@ -878,15 +900,14 @@ def _check_a2_references(
 
 def _declared_numeric_renderings(
     product: ProductSpec,
-    fields: dict[str, FieldSpec],
     rules: tuple[Rule, ...],
     process: ProcessPolicy,
 ) -> set[str]:
     declared: set[str] = set()
     for rule in rules:
         if rule.threshold is not None:
-            declared |= _value_renderings(rule, rule.threshold)
-        declared |= _value_renderings(rule, rule.margin_unit)
+            declared |= _value_renderings(rule.threshold)
+        declared |= _value_renderings(rule.margin_unit)
         declared.add(rule.display_value.rstrip("%").replace(",", "").replace("$", ""))
         declared.add(rule.display_value)
     for value in (
@@ -898,7 +919,7 @@ def _declared_numeric_renderings(
         process.min_stated_reasons_on_adverse_action,
         process.max_steps,
     ):
-        declared |= _value_renderings(product, value)
+        declared |= _value_renderings(value)
     return declared
 
 
@@ -906,7 +927,6 @@ def check_prose_numerics(
     md_text: str,
     *,
     product: ProductSpec,
-    fields: dict[str, FieldSpec],
     rules: tuple[Rule, ...],
     process: ProcessPolicy,
     allowlist: tuple[str, ...],
@@ -924,7 +944,7 @@ def check_prose_numerics(
     def in_generated(pos: int) -> bool:
         return any(start <= pos < end for start, end in excluded_spans)
 
-    declared = _declared_numeric_renderings(product, fields, rules, process)
+    declared = _declared_numeric_renderings(product, rules, process)
     allowed = declared | set(allowlist) | {"1", "2", "3", "4"}  # small ordinals in headings
     problems: list[str] = []
     for m in _NUMBER_RE.finditer(md_text):
@@ -1003,7 +1023,6 @@ def load_policy(
         prose_problems = check_prose_numerics(
             md_text,
             product=product,
-            fields=fields,
             rules=rules,
             process=process,
             allowlist=allowlist,

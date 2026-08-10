@@ -210,6 +210,58 @@ def test_all_records_inherit_frozen_base():
         assert record.model_config.get("frozen") is True, f"{record.__name__} is not frozen"
 
 
+def test_dict_fields_are_actually_immutable_and_hashable():
+    """frozen=True alone only blocks attribute reassignment -- a plain dict field's
+    contents could still be mutated in place, and a plain dict is unhashable regardless.
+    FrozenDict closes both gaps; this test is the demonstration that it actually does."""
+    call = T.ToolCall(step=0, name="x", arguments={"a": 1}, result={"r": 1})
+    assert isinstance(call.arguments, T.FrozenDict)
+    with pytest.raises(TypeError):
+        call.arguments["a"] = 999  # type: ignore[index]
+    hash(call)  # must not raise
+
+    spec = T.InterventionSpec(
+        intervention_id="i1",
+        family=T.Family.REASON_REPAIR,
+        name="n",
+        layer=T.Layer.FACTS,
+        params={"k": "v"},
+    )
+    assert isinstance(spec.params, T.FrozenDict)
+    hash(spec)
+
+
+def test_frozen_dict_behaves_like_a_read_only_dict():
+    fd = T.FrozenDict({"a": 1, "b": 2})
+    assert fd["a"] == 1
+    assert dict(fd) == {"a": 1, "b": 2}
+    assert {**fd} == {"a": 1, "b": 2}
+    assert fd == {"a": 1, "b": 2}
+    assert sorted(fd.items()) == [("a", 1), ("b", 2)]
+    assert hash(fd) == hash(T.FrozenDict({"b": 2, "a": 1}))  # order-independent
+
+
+def test_ratio_properties_are_isolated_from_the_ambient_decimal_context():
+    """FinancialFacts.dti/cltv/utilization must not be able to raise (or silently lose
+    precision) just because some other imported library mutated the global Decimal
+    context -- see FIXED_DECIMAL_CTX's docstring. Mirrors the exact repro used to find
+    this: getcontext().prec = 3 previously made facts.dti raise InvalidOperation."""
+    import decimal
+
+    facts = _facts(annual_income_cents=6_000_000, monthly_debt_cents=60_000)
+    expected_dti = facts.dti
+    expected_cltv = facts.cltv
+    expected_utilization = facts.utilization
+    original_prec = decimal.getcontext().prec
+    try:
+        decimal.getcontext().prec = 3
+        assert facts.dti == expected_dti
+        assert facts.cltv == expected_cltv
+        assert facts.utilization == expected_utilization
+    finally:
+        decimal.getcontext().prec = original_prec
+
+
 def test_field_constraints_reject_impossible_values():
     with pytest.raises(ValidationError):
         _facts(credit_score=200)  # below the 300 floor

@@ -61,7 +61,8 @@ def _format_field(applicant: Applicant, field) -> str:
 
 
 def render(applicant: Applicant, mode: RenderMode, policy: Policy) -> str:
-    assert mode is RenderMode.TABLE
+    if mode is not RenderMode.TABLE:
+        raise ValueError(f"render/table.py can only render RenderMode.TABLE, got {mode!r}")
     fields = policy.renderable_fields
     label_width = max(len(f.display) for f in fields) + 2
 

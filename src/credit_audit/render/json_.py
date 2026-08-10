@@ -2,6 +2,12 @@
 from the flat sorted-key dict the Phase 2 ``render_stub`` fixture used
 (``tests/conftest.py``). Grouped as ``credit_file.delinquencies.{...}``,
 ``credit_file.revolving.{...}``, ``employment.{...}``, not one flat namespace.
+
+**Field-set guarantee enforced by a loud runtime check**, same rationale and mechanism as
+``render/prose.py`` -- see that module's docstring. The nested shape below is hand-authored,
+not built by iterating ``policy.renderable_fields``, so it can't auto-adapt to a policy
+change either; ``render()`` raises immediately if the field set drifts from what this
+payload was written against.
 """
 
 from __future__ import annotations
@@ -14,13 +20,52 @@ from credit_audit.policy.loader import Policy
 from credit_audit.render.reference import applicant_reference_for
 from credit_audit.types import Applicant, RenderMode
 
+_EXPECTED_RENDERABLE_FIELDS = frozenset(
+    {
+        "annual_income_cents",
+        "monthly_debt_cents",
+        "dti",
+        "loan_amount_cents",
+        "loan_term_months",
+        "credit_score",
+        "open_tradelines",
+        "revolving_balance_cents",
+        "revolving_limit_cents",
+        "utilization",
+        "oldest_tradeline_months",
+        "inquiries_6m",
+        "delinq_30d_24m",
+        "delinq_60d_24m",
+        "delinq_90p_24m",
+        "public_records",
+        "employment_months",
+        "employment_status",
+        "income_documented",
+    }
+)
+
+
+def _check_field_set(policy: Policy) -> None:
+    actual = {f.name for f in policy.renderable_fields}
+    if actual != _EXPECTED_RENDERABLE_FIELDS:
+        diff = actual ^ _EXPECTED_RENDERABLE_FIELDS
+        raise RuntimeError(
+            f"policy.renderable_fields no longer matches what render/json_.py's payload was "
+            f"hand-written against (differing fields: {sorted(diff)}). This renderer is "
+            "hand-authored, not field-driven like table.py, so it cannot auto-adapt to a "
+            "policy.yaml change -- update the payload and _EXPECTED_RENDERABLE_FIELDS "
+            "together, then update this constant."
+        )
+
 
 def _dec(value: Decimal) -> str:
     return str(value)
 
 
 def render(applicant: Applicant, mode: RenderMode, policy: Policy) -> str:
-    assert mode is RenderMode.JSON
+    if mode is not RenderMode.JSON:
+        raise ValueError(f"render/json_.py can only render RenderMode.JSON, got {mode!r}")
+    _check_field_set(policy)
     f = applicant.facts
 
     payload: dict[str, Any] = {

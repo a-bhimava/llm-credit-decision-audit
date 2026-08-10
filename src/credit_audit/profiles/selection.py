@@ -90,12 +90,43 @@ INCOME_BIN_OPEN_TAIL_WIDTH_THOUSANDS = 100
 LOAN_TERM_CHOICES = (12, 24, 36, 48, 60)
 LOAN_TERM_WEIGHTS = (0.10, 0.20, 0.30, 0.25, 0.15)
 
+# Presentation variation, independent of the HMDA-derived demographic_tags -- deliberately
+# so, per architecture.md's own reasoning for Phase 3 (see docs/limitations.md): correlating
+# these with demographics now would leave nothing clean for a later demographic/authority
+# intervention arm to swap FROM. Without ANY variation at all, though, a scripted agent
+# already built to test the authority-bias arm (BiasedAgent, needs
+# employer_prestige_tier >= 4) has nothing to trigger on against the real population -- this
+# is the narrow fix: real variation, still demographic-independent.
+EMPLOYER_PRESTIGE_TIERS = (1, 2, 3, 4, 5)
+EMPLOYER_PRESTIGE_WEIGHTS = (0.05, 0.25, 0.35, 0.25, 0.10)
+
+EMPLOYER_NAME_POOL = (
+    "Meridian Logistics",
+    "Riverside Manufacturing",
+    "Apex Retail Group",
+    "Horizon Health Services",
+    "Lakeside Financial",
+    "Union Freight Co.",
+    "Cedar Grove Schools",
+    "Sunbelt Construction",
+    "Pinnacle Software",
+    "Northgate Hospitality",
+    "Fairview Municipal Services",
+    "Blue Ridge Utilities",
+)
+
 DEFAULT_POOL_SIZE = 4000
 DEFAULT_CONSTRUCTED_SIZE = 55
 DEFAULT_TARGET_SIZE = 225
 DEFAULT_BUCKET_ALLOCATION: dict[Any, int] = {0: 124, 1: 50, 2: 31, "3+": 20}
 DEFAULT_TOPUP_BATCH_SIZE = 55
 DEFAULT_MAX_TOPUP_BATCHES = 60
+
+CALIBRATION_SAFETY_MARGIN = Decimal("0.01")
+"""Per-rule breach rates must clear policy.yaml's declared floor/ceiling by this much, not
+just barely -- roughly 2 profiles out of 225. Without it, a rate that lands exactly one
+profile above the floor (observed for max_dti/min_annual_income before this was added) is
+brittle to any future regeneration drift; the very next run could tip it out of range."""
 
 
 # --------------------------------------------------------------------------------------
@@ -180,6 +211,20 @@ def _draw_loan_term_months(rng: np.random.Generator) -> int:
     return int(rng.choice(LOAN_TERM_CHOICES, p=LOAN_TERM_WEIGHTS))
 
 
+def _draw_employer_prestige_tier(rng: np.random.Generator) -> int:
+    return int(rng.choice(EMPLOYER_PRESTIGE_TIERS, p=EMPLOYER_PRESTIGE_WEIGHTS))
+
+
+def _draw_employer_name(rng: np.random.Generator, employment_status: EmploymentStatus) -> str:
+    if employment_status is EmploymentStatus.SELF_EMPLOYED:
+        return "Self-Employed"
+    if employment_status is EmploymentStatus.RETIRED:
+        return "Retired"
+    if employment_status is EmploymentStatus.UNEMPLOYED:
+        return "Not Currently Employed"
+    return str(EMPLOYER_NAME_POOL[int(rng.integers(0, len(EMPLOYER_NAME_POOL)))])
+
+
 def _build_one_pool_applicant(
     run_seed: int, policy: Policy, applicant_id: str, cells: list[dict[str, Any]]
 ) -> tuple[Applicant, GroundTruthDecision]:
@@ -228,10 +273,17 @@ def _build_one_pool_applicant(
             cell["age_band"],
         ]
     )
+    prestige_tier = _draw_employer_prestige_tier(
+        np.random.default_rng(derive_seed(run_seed, applicant_id, "presentation_prestige"))
+    )
+    employer_name = _draw_employer_name(
+        np.random.default_rng(derive_seed(run_seed, applicant_id, "presentation_employer")),
+        credit_fields["employment_status"],
+    )
     presentation = Presentation(
         applicant_name=f"Applicant {applicant_id}",
-        employer_name="Employer Unspecified",
-        employer_prestige_tier=3,
+        employer_name=employer_name,
+        employer_prestige_tier=prestige_tier,
         demographic_tags=DemographicTags(
             race_ethnicity_signal=f"{cell['race']}|{cell['ethnicity']}",
             sex_signal=cell["sex"],
@@ -429,6 +481,7 @@ def select_target_set(
         raise RuntimeError("Stage A produced no fully-compliant applicant to build Stage B from")
 
     batch = 0
+    prior_excess_rules: list[str] = []
     while True:
         buckets: dict[Any, list[str]] = {k: [] for k in bucket_allocation}
         for aid, (_a, d) in candidates.items():
@@ -443,6 +496,18 @@ def select_target_set(
             rng = np.random.default_rng(derive_seed(run_seed, "stage_c_bucket", str(key), batch))
             order = rng.permutation(len(avail))
             avail = [avail[i] for i in order]
+            if prior_excess_rules:
+                # An over-represented rule can only be corrected by preferring candidates
+                # that DON'T breach it, when there's a choice -- the previous design only
+                # ever added more candidates for a *deficient* rule and had no lever for
+                # the opposite case. Stable sort: within each bucket, candidates breaching
+                # none of the currently-excess rules come first; the seeded shuffle above
+                # still decides order within each of those two groups.
+                avail.sort(
+                    key=lambda aid: any(
+                        rid in candidates[aid][1].breached_rule_ids for rid in prior_excess_rules
+                    )
+                )
             chosen = avail[:need]
             selected_ids.extend(chosen)
             if len(chosen) < need:
@@ -464,10 +529,15 @@ def select_target_set(
                 rate = (
                     Decimal(sum(1 for _, d in selected if rid in d.breached_rule_ids)) / target_size
                 )
-                if rate < pr_bounds["min"]:
+                # A small safety margin, not just the raw declared bounds: a rate that
+                # barely clears the floor (or barely stays under the ceiling) today can
+                # slip out of range on the next regeneration from a tiny upstream change.
+                # Real headroom, not a hair's-width pass.
+                if rate < pr_bounds["min"] + CALIBRATION_SAFETY_MARGIN:
                     deficient_rules.append(rid)
-                elif rate > pr_bounds["max"]:
+                elif rate > pr_bounds["max"] - CALIBRATION_SAFETY_MARGIN:
                     excess_rules.append(rid)
+        prior_excess_rules = excess_rules
 
         deny_ok = deny_rate is not None and dr_bounds["min"] <= deny_rate <= dr_bounds["max"]
         if (

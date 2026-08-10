@@ -6,6 +6,14 @@ real alternative to the table/json renders for.
 Every one of ``policy.renderable_fields``' 19 fields is referenced somewhere below by name --
 verified in ``tests/unit/render/test_distinctness.py`` -- and only those fields; no
 ``property_value``/``collateral``/``cltv`` wording appears anywhere in this module.
+
+**This guarantee is enforced by a loud runtime check, not by iterating the registry.**
+Unlike ``table.py``, this is hand-authored prose -- it can't dynamically drop a clause the
+way a table row can just disappear without breaking the sentence around it. So instead of
+silently drifting from the policy if ``renderable_fields`` ever changes, ``render()`` asserts
+the field set still matches exactly what this template was written against, and raises
+immediately (telling you to update the template) if it doesn't. See
+``tests/unit/render/test_no_leak.py``'s field-set-changed case.
 """
 
 from __future__ import annotations
@@ -23,6 +31,43 @@ _EMPLOYMENT_STATUS_PROSE: dict[str, str] = {
     "UNEMPLOYED": "currently unemployed",
 }
 
+_EXPECTED_RENDERABLE_FIELDS = frozenset(
+    {
+        "annual_income_cents",
+        "monthly_debt_cents",
+        "dti",
+        "loan_amount_cents",
+        "loan_term_months",
+        "credit_score",
+        "open_tradelines",
+        "revolving_balance_cents",
+        "revolving_limit_cents",
+        "utilization",
+        "oldest_tradeline_months",
+        "inquiries_6m",
+        "delinq_30d_24m",
+        "delinq_60d_24m",
+        "delinq_90p_24m",
+        "public_records",
+        "employment_months",
+        "employment_status",
+        "income_documented",
+    }
+)
+
+
+def _check_field_set(policy: Policy) -> None:
+    actual = {f.name for f in policy.renderable_fields}
+    if actual != _EXPECTED_RENDERABLE_FIELDS:
+        diff = actual ^ _EXPECTED_RENDERABLE_FIELDS
+        raise RuntimeError(
+            f"policy.renderable_fields no longer matches what render/prose.py's template "
+            f"was hand-written against (differing fields: {sorted(diff)}). This renderer is "
+            "hand-authored prose, not field-driven like table.py, so it cannot auto-adapt to "
+            "a policy.yaml change -- update the prose template and "
+            "_EXPECTED_RENDERABLE_FIELDS together, then update this constant."
+        )
+
 
 def _public_records_sentence(applicant: Applicant) -> str:
     records = applicant.facts.public_records
@@ -37,7 +82,9 @@ def _public_records_sentence(applicant: Applicant) -> str:
 
 
 def render(applicant: Applicant, mode: RenderMode, policy: Policy) -> str:
-    assert mode is RenderMode.PROSE
+    if mode is not RenderMode.PROSE:
+        raise ValueError(f"render/prose.py can only render RenderMode.PROSE, got {mode!r}")
+    _check_field_set(policy)
     f = applicant.facts
     ref = applicant_reference_for(applicant)
 

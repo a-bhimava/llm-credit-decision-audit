@@ -3,13 +3,17 @@ invariant, Stage B's cross-cluster construction, and Stage C's bucket/calibratio
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 from credit_audit.policy.boundary import RULE_CLUSTERS
 from credit_audit.policy.loader import load_policy
 from credit_audit.profiles.selection import (
+    CALIBRATION_SAFETY_MARGIN,
     DEFAULT_BUCKET_ALLOCATION,
     INCOME_ROUNDING_CENTS,
     build_pool,
     construct_batch,
+    load_calibration_targets,
     load_hmda_table,
     load_loan_amount_distribution,
     select_target_set,
@@ -101,3 +105,37 @@ def test_select_target_set_matches_bucket_allocation():
         n = len(d.breached)
         buckets[n if n < 3 else "3+"] += 1
     assert buckets == DEFAULT_BUCKET_ALLOCATION
+
+
+def test_select_target_set_corrects_an_engineered_excess_rule():
+    """F13: an over-represented rule used to have no correction mechanism -- the top-up
+    loop only ever added candidates for a *deficient* rule. Here the candidate pool is
+    deliberately flooded with forced max_inquiries_6m breaches (a naturally rare one) far
+    beyond what Stage A alone would ever produce; select_target_set must still land the
+    final selection's rate for that rule inside the margin-adjusted ceiling, not just
+    reflect whatever oversupply happened to be sitting in the pool."""
+    policy = load_policy()
+    natural_pool = build_pool(run_seed=99, policy=policy, pool_size=800)
+    clean_bases = [a for a, d in natural_pool if not d.breached]
+
+    flooded = construct_batch(
+        run_seed=99,
+        policy=policy,
+        clean_bases=clean_bases,
+        batch_id="flood",
+        n=300,
+        force_rule_id="max_inquiries_6m",
+    )
+    combined_pool = natural_pool + flooded
+
+    selected = select_target_set(run_seed=99, policy=policy, pool=combined_pool, target_size=225)
+    assert len(selected) == 225
+
+    pr = load_calibration_targets()["per_rule_breach_rate"]
+    rate = Decimal(sum(1 for _a, d in selected if "max_inquiries_6m" in d.breached_rule_ids)) / len(
+        selected
+    )
+    assert rate <= pr["max"] - CALIBRATION_SAFETY_MARGIN, (
+        f"max_inquiries_6m rate {rate} was not corrected despite an engineered oversupply "
+        f"of {len(flooded)} forced-breach candidates in the pool"
+    )

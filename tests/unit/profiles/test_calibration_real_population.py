@@ -11,7 +11,7 @@ from decimal import Decimal
 from credit_audit.policy.loader import load_policy
 from credit_audit.policy.oracle import evaluate
 from credit_audit.profiles.generate import read_profiles_jsonl
-from credit_audit.profiles.selection import load_calibration_targets
+from credit_audit.profiles.selection import CALIBRATION_SAFETY_MARGIN, load_calibration_targets
 from credit_audit.types import DecisionOutcome
 
 
@@ -40,6 +40,44 @@ def test_generated_population_meets_calibration_targets():
         assert pr["min"] <= rate <= pr["max"], (
             f"{rule.rule_id} breach rate {rate} outside [{pr['min']},{pr['max']}]"
         )
+
+
+def test_per_rule_rates_clear_the_declared_bounds_with_real_margin():
+    """Not just 'inside [floor, ceiling]' (the test above) -- clears each bound by at
+    least CALIBRATION_SAFETY_MARGIN. Two rules (max_dti, min_annual_income) used to sit
+    exactly one profile above the floor before Stage C's stopping condition added this
+    margin; this pins the fix so a future regeneration can't silently reintroduce that
+    brittleness without a test noticing."""
+    policy, profiles, decisions = _decisions()
+    targets = load_calibration_targets()
+    pr = targets["per_rule_breach_rate"]
+    n = len(profiles)
+
+    for rule in policy.rules:
+        rate = Decimal(sum(1 for d in decisions if rule.rule_id in d.breached_rule_ids)) / n
+        assert pr["min"] + CALIBRATION_SAFETY_MARGIN <= rate, (
+            f"{rule.rule_id} breach rate {rate} is within {CALIBRATION_SAFETY_MARGIN} of "
+            f"the floor {pr['min']} -- too brittle"
+        )
+        assert rate <= pr["max"] - CALIBRATION_SAFETY_MARGIN, (
+            f"{rule.rule_id} breach rate {rate} is within {CALIBRATION_SAFETY_MARGIN} of "
+            f"the ceiling {pr['max']} -- too brittle"
+        )
+
+
+def test_presentation_varies_across_the_generated_population():
+    """F11: BiasedAgent (the authority-bias positive control) needs
+    employer_prestige_tier >= 4 somewhere in the population, or it can never fire against
+    real generated profiles. Demographic-independence is preserved -- see
+    selection.py's EMPLOYER_PRESTIGE_WEIGHTS comment -- this only checks variation exists."""
+    _policy, profiles, _decision_list = _decisions()
+    tiers = {a.presentation.employer_prestige_tier for a in profiles}
+    names = {a.presentation.employer_name for a in profiles}
+    assert len(tiers) > 1, "employer_prestige_tier is constant across the population"
+    assert len(names) > 1, "employer_name is constant across the population"
+    assert any(a.presentation.employer_prestige_tier >= 4 for a in profiles), (
+        "no profile has employer_prestige_tier >= 4 -- BiasedAgent can never fire"
+    )
 
 
 def test_breach_count_distribution_has_a_healthy_spread():
