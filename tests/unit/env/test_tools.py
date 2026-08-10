@@ -227,10 +227,11 @@ def test_submit_decision_coded_mode_parses_reasons(golden_clean_applicant, polic
     assert decision.stated_reasons[0].mapping_method.value == "structured"
 
 
-def test_submit_decision_freetext_mode_maps_to_unmapped_placeholder(golden_clean_applicant, policy):
-    """Freetext -> code mapping is Phase 4's job. This asserts only raw_text and the
-    UNMAPPED/OTHER_UNMAPPED placeholder shape -- never a real code -- so it can't
-    accidentally hard-code Phase-4-only behavior before Phase 4 exists."""
+def test_submit_decision_freetext_mode_maps_via_lexicon(golden_clean_applicant, policy):
+    """Phase 4 wired reasons/map.py into the freetext branch -- this text is a
+    near-paraphrase of min_credit_score's own statement/aliases, so it resolves via the
+    LEXICON tier rather than staying OTHER_UNMAPPED. See test_submit_decision_freetext_
+    mode_falls_back_to_unmapped below for the still-covered unmappable-text path."""
     state = _state(golden_clean_applicant, policy)
     specs = tool_specs("freetext")
     args = {"outcome": "DENY", "reasons": ["Your credit score does not meet our minimum."]}
@@ -240,6 +241,23 @@ def test_submit_decision_freetext_mode_maps_to_unmapped_placeholder(golden_clean
     assert terminal
     reason = new_state.decision.stated_reasons[0]
     assert reason.raw_text == "Your credit score does not meet our minimum."
+    assert reason.mapping_method.value == "lexicon"
+    assert reason.code.value == "CREDIT_SCORE_TOO_LOW"
+
+
+def test_submit_decision_freetext_mode_falls_back_to_unmapped(golden_clean_applicant, policy):
+    """Genuinely unmappable text still falls through both the LEXICON and EMBEDDING tiers
+    to OTHER_UNMAPPED/UNMAPPED -- the fallback path the old placeholder test partially
+    covered, preserved here explicitly now that most freetext DOES map to a real code."""
+    state = _state(golden_clean_applicant, policy)
+    specs = tool_specs("freetext")
+    args = {"outcome": "DENY", "reasons": ["I have a bad feeling about this one."]}
+    result, new_state, terminal = dispatch(
+        state, "submit_decision", args, specs=specs, reason_mode="freetext"
+    )
+    assert terminal
+    reason = new_state.decision.stated_reasons[0]
+    assert reason.raw_text == "I have a bad feeling about this one."
     assert reason.mapping_method.value == "unmapped"
     assert reason.code.value == "OTHER_UNMAPPED"
 

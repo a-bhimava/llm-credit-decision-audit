@@ -21,6 +21,7 @@ from credit_audit.env.state import CreditEnvState
 from credit_audit.env.types import ToolResult, ToolSpec
 from credit_audit.ids import canonical_json, derive_seed
 from credit_audit.policy.loader import Policy
+from credit_audit.reasons.map import map_reason
 from credit_audit.types import (
     Decision,
     DecisionOutcome,
@@ -214,20 +215,21 @@ def _parse_submit_decision(
                 )
             )
     else:
-        # Freetext -> code mapping is Phase 4's job. For now every freetext reason is
-        # OTHER_UNMAPPED/UNMAPPED -- both already exist in the enums Phase 0 defined, so
-        # this needs nothing from Phase 4. Callers must never assert on `.code` for a
-        # freetext-mode decision produced here; only `.raw_text` is meaningful yet.
-        for i, text in enumerate(raw_reasons, start=1):
-            stated.append(
-                StatedReason(
-                    rank=i,
-                    raw_text=text,
-                    code=ReasonCode.OTHER_UNMAPPED,
-                    mapping_method=MappingMethod.UNMAPPED,
-                    mapping_confidence=0.0,
+        # Freetext -> code mapping via reasons/map.py (Phase 4). One raw string can split
+        # into more than one StatedReason (map_reason splits on conjunctions/delimiters),
+        # so this is flatten-then-renumber rather than the coded branch's 1:1 loop above.
+        for text in raw_reasons:
+            for clause in map_reason(text, state.policy):
+                stated.append(
+                    StatedReason(
+                        rank=len(stated) + 1,
+                        raw_text=clause.text,
+                        code=clause.code,
+                        mapping_method=clause.method,
+                        mapping_confidence=clause.confidence,
+                        split_from=text if clause.split else None,
+                    )
                 )
-            )
 
     credit_limit = arguments.get("credit_limit_cents")
     facts = state.applicant.facts
