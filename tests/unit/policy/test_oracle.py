@@ -4,7 +4,7 @@ sides of every threshold -- without hand-writing 48 fixtures.
 One hand-written clean baseline (GOLDEN_CLEAN) plus one declared override baseline
 (OVERRIDE_R05, needed because max_loan_to_income and max_loan_amount cannot both be
 isolated from a single baseline -- see the module docstring below) generate 45 boundary
-cases via the independent setter registry in setters.py.
+cases via the independent setter registry in policy/boundary.py.
 """
 
 from __future__ import annotations
@@ -17,10 +17,9 @@ import pytest
 
 from credit_audit.ids import canonical_json
 from credit_audit.policy import oracle
+from credit_audit.policy.boundary import SETTERS
 from credit_audit.policy.loader import AccessorKind, PredicateKind, load_policy
 from credit_audit.types import EmploymentStatus, FinancialFacts, ReasonCode
-
-from .setters import SETTERS
 
 POLICY = load_policy()
 

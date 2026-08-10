@@ -1,0 +1,42 @@
+# National FICO Score 8 distribution -- used to calibrate the Gaussian-copula credit-score
+# construction in profiles/creditfile.py. Every number below is a cited, dated fact; nothing
+# here is fitted or invented. See docs/limitations.md for how this is used and its limits.
+schema: "credit-audit/fico-calibration@1"
+
+citation:
+  source: >
+    Experian, "What Is the Average Credit Score in the U.S.?" (Ask Experian blog)
+  url: "https://www.experian.com/blogs/ask-experian/what-is-the-average-credit-score-in-the-u-s/"
+  data_as_of: "2025-09"
+  fetched: "2026-08-10"
+  note: >
+    Verified live on 2026-08-10. The article reports a full 5-band distribution (not only
+    the 4 headline numbers assumed available when this phase was planned), so this file
+    uses all 5 bands directly rather than approximating a coarser split.
+
+national_average_fico: 713
+
+# Upper/lower-inclusive FICO cutoffs per band, ascending, with Experian's own cited,
+# individually-rounded population share. The five shares sum to 1.000 exactly as published;
+# no renormalization needed (verified: 0.147 + 0.149 + 0.201 + 0.275 + 0.228 = 1.000).
+bands:
+  - name: poor
+    score_min: 300
+    score_max: 579
+    population_share: "0.147"
+  - name: fair
+    score_min: 580
+    score_max: 669
+    population_share: "0.149"
+  - name: good
+    score_min: 670
+    score_max: 739
+    population_share: "0.201"
+  - name: very_good
+    score_min: 740
+    score_max: 799
+    population_share: "0.275"
+  - name: exceptional
+    score_min: 800
+    score_max: 850
+    population_share: "0.228"
