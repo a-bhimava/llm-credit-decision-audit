@@ -27,8 +27,15 @@ classifiers = [
 
 dependencies = [
     "pydantic>=2.9",
-    "numpy>=1.26",
-    "scipy>=1.11",
+    # numpy/scipy are pinned to a narrow minor-version range, not left open like the rest
+    # of these: profiles/fixtures/profiles.jsonl's byte-identical regeneration depends on
+    # numpy.random.Generator (guaranteed stream-stable across versions) AND
+    # scipy.stats.norm.ppf/.cdf (creditfile.py's FICO calibration -- scipy makes no
+    # equivalent cross-version bit-stability guarantee). This bounds future silent drift;
+    # it does not retroactively prove the exact versions below are bit-stable across every
+    # Python version in CI's matrix, which would need an actual CI run to confirm.
+    "numpy>=2.5,<2.6",
+    "scipy>=1.18,<1.19",
     "typer>=0.12",
     "rich>=13.7",
     "pyyaml>=6.0",
@@ -65,4 +72,4 @@ line-length = 100
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM"]
+select = ["E", "F", "I", "UP", "B", "SIM", "ARG"]

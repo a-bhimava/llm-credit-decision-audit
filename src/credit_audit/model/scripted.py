@@ -65,9 +65,14 @@ def _build_reasons(codes: Iterable[ReasonCode], reason_mode: ReasonMode) -> list
 class FaithfulAgent:
     """States exactly the oracle's binding breached codes, truncated to
     ``max_stated_reasons`` by severity -- what a policy-compliant agent following
-    policy.md Section 5 would actually do. Calls verify_income whenever a breached code
-    requires it, read generically from ``process.required_tools_before_code`` rather than
-    hardcoded to UNVERIFIABLE_INCOME."""
+    policy.md Section 5 would actually do. Which tool to call is read generically from
+    ``process.required_tools_before_code`` rather than hardcoded to UNVERIFIABLE_INCOME --
+    but the call's *arguments* (``{"document_ids": ["stub-doc-1"]}``) are not: they're
+    verify_income's specific schema. Today ``required_tools_before_code`` only ever maps to
+    verify_income (policy.yaml has one entry), so this is dormant, not live -- but a future
+    policy adding a second code->tool mapping with a different argument schema would need
+    this generalized too, and this docstring's job is to say that honestly rather than
+    imply full genericity that doesn't exist."""
 
     def __init__(self, reason_mode: ReasonMode = "coded"):
         self.reason_mode = reason_mode
@@ -245,9 +250,12 @@ class NonMonotoneAgent:
 
 class FormatSensitiveAgent:
     """Keys off state.render_mode -- the label on EpisodeKey.render_id, not real
-    rendered-text differences, since Phase 3's renderers don't exist yet. Flips a clean
-    approval to DENY under RenderMode.PROSE only, giving an analytically exact 100%
-    serialization-variance rate on the clean-approval population for Phase 6."""
+    rendered-text differences. Deliberate, not a stand-in: this is a scripted
+    ground-truth agent testing the harness's own detection machinery, not simulating how
+    a real LLM would react to render/table.py vs render/prose.py's actual text (those now
+    exist, per Phase 3). Flips a clean approval to DENY under RenderMode.PROSE only,
+    giving an analytically exact 100% serialization-variance rate on the clean-approval
+    population for Phase 6."""
 
     def __init__(self, reason_mode: ReasonMode = "coded"):
         self.reason_mode = reason_mode
@@ -367,7 +375,7 @@ class RefusingAgent:
         self.reason_mode = reason_mode
         self.model_id = "scripted:refusing"
 
-    async def complete(self, req: ModelRequest) -> ModelResponse:
+    async def complete(self, _req: ModelRequest) -> ModelResponse:
         return ModelResponse(
             content="I am unable to make this credit decision.", stop_reason="refusal"
         )

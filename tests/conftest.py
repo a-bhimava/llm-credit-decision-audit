@@ -1,6 +1,6 @@
-"""Shared fixtures for Phase 2 (and later) tests: a hand-written Applicant population,
-since Phase 3's profile generator doesn't exist yet, and a temporary placeholder
-renderer.
+"""Shared fixtures for Phase 2 (and later) tests: a hand-written Applicant population and
+a lightweight placeholder renderer, both deliberately kept even though Phase 3's real
+generator/renderers now exist -- see render_stub's own docstring below for why.
 
 These are new fixture objects, not the FinancialFacts objects built in
 tests/unit/policy/test_oracle.py -- that file stays Phase-1-scoped.
@@ -112,9 +112,15 @@ def low_prestige_boundary_applicant() -> Applicant:
 
 @pytest.fixture
 def render_stub():
-    """TEMPORARY placeholder Renderer, conforming to env.types.Renderer's signature.
-    Deleted in spirit (not literally, since it costs nothing to leave) once Phase 3
-    ships real renderers. Iterates policy.renderable_fields ONLY, never
+    """Lightweight placeholder Renderer, conforming to env.types.Renderer's signature.
+    Phase 3 shipped real renderers (src/credit_audit/render/) and this fixture was
+    deliberately NOT deleted or replaced with them: golden/env tests that use this stub
+    want an isolated, minimal-surface-area rendering for testing agent/episode logic in
+    its own right, independent of the real renderers' own correctness -- which is what
+    tests/unit/render/*'s own dedicated tests are for instead. A single integration test
+    (tests/unit/env/test_real_renderer_integration.py) exists specifically to prove the
+    real renderers compose correctly with a real episode; this stub is not that test and
+    isn't trying to be. Iterates policy.renderable_fields ONLY, never
     FinancialFacts.model_fields directly -- the only way to guarantee it can never leak
     property_value_cents/cltv, which is exactly the property that makes
     OutOfSchemaAgent's canonical "insufficient collateral" example meaningful. See

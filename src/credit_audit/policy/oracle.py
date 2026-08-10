@@ -14,7 +14,7 @@ of scope for v0.1 -- see docs/limitations.md.
 from __future__ import annotations
 
 from collections.abc import Callable, Collection, Mapping
-from decimal import Context, Decimal, localcontext
+from decimal import Decimal, localcontext
 from enum import StrEnum
 from typing import Any
 
@@ -28,6 +28,7 @@ from credit_audit.policy.loader import (
 from credit_audit.policy.loader import Policy as _Policy
 from credit_audit.policy.loader import load_policy as _load_policy
 from credit_audit.types import (
+    FIXED_DECIMAL_CTX,
     DecisionOutcome,
     FinancialFacts,
     Frozen,
@@ -40,11 +41,12 @@ NO_RECORD_SENTINEL_MONTHS = 1200
 is never mistaken for a real recency, and it makes "no record" simply a very compliant
 value rather than a special case every caller must branch on."""
 
-_DECIMAL_CTX = Context(prec=28)
-"""The one division in this module (slack / margin_unit) runs inside this fixed context.
-The global Decimal context can be mutated by any imported library; the project's whole
-export/verification story depends on evaluate() being byte-identical run to run, so this
-division cannot be allowed to silently pick up someone else's precision setting."""
+_DECIMAL_CTX = FIXED_DECIMAL_CTX
+"""The one division in this module (slack / margin_unit) runs inside this fixed context --
+imported from types.py rather than declared here, so FinancialFacts.dti/cltv/utilization and
+this module's own margin division share exactly one fixed-precision Decimal context, not two
+independently-declared ones that happen to agree today. See types.py's FIXED_DECIMAL_CTX
+docstring for why this can't be the ambient global context."""
 
 
 # --------------------------------------------------------------------------------------

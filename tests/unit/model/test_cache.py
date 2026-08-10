@@ -123,7 +123,7 @@ class _OnceClient:
     def __init__(self):
         self.calls = 0
 
-    async def complete(self, req):
+    async def complete(self, _req):
         self.calls += 1
         return ModelResponse(content="answer", stop_reason="stop")
 

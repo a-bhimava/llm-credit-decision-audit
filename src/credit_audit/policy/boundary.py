@@ -44,10 +44,11 @@ def set_credit_score(facts: FinancialFacts, target: Decimal | int) -> FinancialF
 def set_dti(facts: FinancialFacts, target_ratio: Decimal) -> FinancialFacts:
     monthly_income = _monthly_income(facts)
     exact = Decimal(target_ratio) * Decimal(monthly_income)
-    assert exact == exact.to_integral(), (
-        f"DTI target {target_ratio} against monthly income {monthly_income} is not an "
-        "exact number of cents -- the baseline's income must be a multiple of $100"
-    )
+    if exact != exact.to_integral():
+        raise ValueError(
+            f"DTI target {target_ratio} against monthly income {monthly_income} is not an "
+            "exact number of cents -- the baseline's income must be a multiple of $100"
+        )
     return facts.model_copy(update={"monthly_debt_cents": int(exact)})
 
 
@@ -57,10 +58,11 @@ def set_annual_income(facts: FinancialFacts, target: Decimal | int) -> Financial
 
 def set_loan_to_income(facts: FinancialFacts, target_ratio: Decimal) -> FinancialFacts:
     exact = Decimal(target_ratio) * Decimal(facts.annual_income_cents)
-    assert exact == exact.to_integral(), (
-        f"LTI target {target_ratio} against income {facts.annual_income_cents} is not an "
-        "exact number of cents"
-    )
+    if exact != exact.to_integral():
+        raise ValueError(
+            f"LTI target {target_ratio} against income {facts.annual_income_cents} is not "
+            "an exact number of cents"
+        )
     return facts.model_copy(update={"loan_amount_cents": int(exact)})
 
 
@@ -70,10 +72,11 @@ def set_loan_amount(facts: FinancialFacts, target: Decimal | int) -> FinancialFa
 
 def set_utilization(facts: FinancialFacts, target_ratio: Decimal) -> FinancialFacts:
     exact = Decimal(target_ratio) * Decimal(facts.revolving_limit_cents)
-    assert exact == exact.to_integral(), (
-        f"utilization target {target_ratio} against limit {facts.revolving_limit_cents} "
-        "is not an exact number of cents"
-    )
+    if exact != exact.to_integral():
+        raise ValueError(
+            f"utilization target {target_ratio} against limit "
+            f"{facts.revolving_limit_cents} is not an exact number of cents"
+        )
     return facts.model_copy(update={"revolving_balance_cents": int(exact)})
 
 

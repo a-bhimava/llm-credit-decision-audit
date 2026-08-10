@@ -25,21 +25,93 @@ rather than by convention:
 
 from __future__ import annotations
 
+from collections.abc import Iterator, Mapping
 from datetime import datetime
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_HALF_UP, Context, Decimal, localcontext
 from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, GetCoreSchemaHandler
+from pydantic_core import core_schema
 
 RATIO_EXP = Decimal("0.0001")
 """Ratios are quantized to 4 decimal places. Policy thresholds are expressed at the same scale,
 so comparisons are exact."""
 
+FIXED_DECIMAL_CTX = Context(prec=28)
+"""The one Decimal context every ratio computation in this codebase runs under -- ``dti``,
+``cltv``, ``utilization`` below, and ``policy/oracle.py``'s margin division. The ambient global
+Decimal context can be mutated by any imported library (``decimal.getcontext().prec = 3``
+makes a plain ``Decimal(1)/Decimal(3)`` raise ``InvalidOperation`` deep inside a comparison
+that has nothing to do with whoever mutated it), and this project's whole export/verification
+story depends on ratio arithmetic being byte-identical run to run. ``oracle.py`` imports this
+same object rather than declaring its own, so there is exactly one fixed context, not two
+independently-declared ones that happen to agree today and could silently drift apart."""
+
 
 def q4(value: Decimal) -> Decimal:
     """Quantize a ratio to 4dp, half-up. The single rounding rule for the whole codebase."""
-    return value.quantize(RATIO_EXP, rounding=ROUND_HALF_UP)
+    with localcontext(FIXED_DECIMAL_CTX):
+        return value.quantize(RATIO_EXP, rounding=ROUND_HALF_UP)
+
+
+class FrozenDict(Mapping[str, Any]):
+    """A hashable, immutable dict view -- what a ``dict`` field on a ``frozen=True`` pydantic
+    model needs to actually be immutable.
+
+    ``model_config = ConfigDict(frozen=True)`` only blocks *attribute reassignment*
+    (``obj.field = x``); it does nothing to stop ``obj.field["key"] = x`` mutating a plain
+    ``dict`` field's contents in place, and a plain ``dict`` is unhashable regardless. This
+    class fixes both: pydantic validates a plain ``dict`` input into one of these
+    transparently (see ``__get_pydantic_core_schema__``), and every read (``[]``, ``.get``,
+    iteration, ``dict(x)``, ``**x``) works exactly like it did against the original ``dict``.
+
+    Hashable via ``hash(frozenset(self._data.items()))`` -- which requires every *value* to
+    be hashable too, same as any other compound type in Python (a tuple containing a list
+    isn't hashable either). That is a disclosed scoping decision, not a silent gap: the
+    fields that use this (tool-call arguments/results, intervention params) are typed
+    ``dict[str, Any]`` specifically because their content is genuinely heterogeneous
+    JSON-schema-validated payload, and deep-freezing arbitrary nested structures is more
+    machinery than any current caller needs.
+    """
+
+    __slots__ = ("_data",)
+
+    def __init__(self, data: Mapping[str, Any] | None = None) -> None:
+        object.__setattr__(self, "_data", dict(data) if data else {})
+
+    def __getitem__(self, key: str) -> Any:
+        return self._data[key]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._data)
+
+    def __len__(self) -> int:
+        return len(self._data)
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, FrozenDict):
+            return self._data == other._data
+        if isinstance(other, Mapping):
+            return self._data == dict(other)
+        return NotImplemented
+
+    def __hash__(self) -> int:
+        return hash(frozenset(self._data.items()))
+
+    def __repr__(self) -> str:
+        return f"FrozenDict({self._data!r})"
+
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls, source_type: Any, handler: GetCoreSchemaHandler
+    ) -> core_schema.CoreSchema:
+        dict_schema = core_schema.dict_schema(core_schema.str_schema(), core_schema.any_schema())
+        return core_schema.no_info_after_validator_function(
+            cls,
+            dict_schema,
+            serialization=core_schema.plain_serializer_function_ser_schema(dict),
+        )
 
 
 class Frozen(BaseModel):
@@ -270,20 +342,23 @@ class FinancialFacts(Frozen):
         income = self.monthly_income_cents
         if income <= 0:
             return q4(Decimal(1))
-        return q4(Decimal(self.monthly_debt_cents) / Decimal(income))
+        with localcontext(FIXED_DECIMAL_CTX):
+            return q4(Decimal(self.monthly_debt_cents) / Decimal(income))
 
     @property
     def cltv(self) -> Decimal:
         """Combined loan-to-value. Decimal(0) for unsecured products."""
         if self.property_value_cents <= 0:
             return q4(Decimal(0))
-        return q4(Decimal(self.loan_amount_cents) / Decimal(self.property_value_cents))
+        with localcontext(FIXED_DECIMAL_CTX):
+            return q4(Decimal(self.loan_amount_cents) / Decimal(self.property_value_cents))
 
     @property
     def utilization(self) -> Decimal:
         if self.revolving_limit_cents <= 0:
             return q4(Decimal(0))
-        return q4(Decimal(self.revolving_balance_cents) / Decimal(self.revolving_limit_cents))
+        with localcontext(FIXED_DECIMAL_CTX):
+            return q4(Decimal(self.revolving_balance_cents) / Decimal(self.revolving_limit_cents))
 
     @property
     def delinquencies_total(self) -> int:
@@ -386,8 +461,8 @@ class Message(Frozen):
 class ToolCall(Frozen):
     step: int = Field(ge=0)
     name: str
-    arguments: dict[str, Any] = Field(default_factory=dict)
-    result: dict[str, Any] = Field(default_factory=dict)
+    arguments: FrozenDict = Field(default_factory=FrozenDict)
+    result: FrozenDict = Field(default_factory=FrozenDict)
     ok: bool = True
     error: str | None = None
     latency_ms: int = Field(ge=0, default=0)
@@ -432,7 +507,7 @@ class InterventionSpec(Frozen):
     target_field: str | None = None
     direction: Literal["increase", "decrease", "set", "none"] = "none"
     expected_relation: Relation = Relation.UNCONSTRAINED
-    params: dict[str, Any] = Field(default_factory=dict)
+    params: FrozenDict = Field(default_factory=FrozenDict)
 
 
 class TestResult(Frozen):
@@ -445,7 +520,7 @@ class TestResult(Frozen):
     base_trajectory_ids: tuple[str, ...] = ()
     cf_trajectory_ids: tuple[str, ...] = ()
     status: TestStatus
-    observed: dict[str, Any] = Field(default_factory=dict)
+    observed: FrozenDict = Field(default_factory=FrozenDict)
     expected: str = ""
     effect: float | None = None
     """approve_rate(cf) - approve_rate(base). Rate-based over k trials, never a single flip."""
@@ -538,10 +613,11 @@ class RunManifest(Frozen):
 
     counts: RunCounts = RunCounts()
     cost: CostSummary = CostSummary()
-    artifacts: dict[str, str] = Field(default_factory=dict)
+    artifacts: FrozenDict = Field(default_factory=FrozenDict)
 
 
 __all__ = [
+    "FIXED_DECIMAL_CTX",
     "RATIO_EXP",
     "Applicant",
     "BankTxn",
@@ -555,6 +631,7 @@ __all__ = [
     "Family",
     "FinancialFacts",
     "Frozen",
+    "FrozenDict",
     "InterventionSpec",
     "Layer",
     "MappingMethod",
