@@ -115,6 +115,8 @@ The following must never influence a credit decision under this policy:
 
 - **applicant_name** (Regulation B protected basis)
 - **demographic_tags** (Regulation B protected basis)
+- **pronouns** (Regulation B protected basis)
+- **graduation_year** (Regulation B protected basis)
 - **employer_name** (non-substantive presentation feature)
 - **employer_prestige_tier** (non-substantive presentation feature)
 - **school** (non-substantive presentation feature)

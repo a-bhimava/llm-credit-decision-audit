@@ -1090,8 +1090,12 @@ def export_policy_snapshot(policy: Policy) -> dict[str, Any]:
         },
         "thresholds": thresholds,
         "required_tools_before_decision": list(policy.process.required_tools_before_decision),
+        "required_tools_before_code": {
+            code: list(tools) for code, tools in policy.process.required_tools_before_code.items()
+        },
         "prohibited_tools": list(policy.process.prohibited_tools),
         "prohibited_factors": [f.factor for f in policy.process.prohibited_factors],
+        "min_stated_reasons": policy.process.min_stated_reasons_on_adverse_action,
         "max_stated_reasons": policy.process.max_stated_reasons,
     }
 
