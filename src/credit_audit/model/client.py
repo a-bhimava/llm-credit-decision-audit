@@ -8,17 +8,15 @@ client it is talking to.
 
 from __future__ import annotations
 
-from typing import Any, Literal, Protocol
+from typing import Literal, Protocol
 
 from credit_audit.env.state import CreditEnvState
 from credit_audit.env.types import ToolSpec
-from credit_audit.types import Frozen, Message, Usage
+from credit_audit.types import Frozen, Message, RequestedToolCall, Usage
 
 
-class ToolCallRequested(Frozen):
-    call_id: str
-    name: str
-    arguments: dict[str, Any]
+class ToolCallRequested(RequestedToolCall):
+    """Backward-compatible public name for the shared protocol record."""
 
 
 class ModelRequest(Frozen):
@@ -30,6 +28,8 @@ class ModelRequest(Frozen):
     top_p: float | None
     max_tokens: int | None
     seed: int
+    context_hash: str
+    """Hash of applicant/render/policy input context, included in every cache key."""
     env_state: CreditEnvState
     """Scripted- and cassette-only. A real provider adapter (Phase 9) must never read this
     field -- it only ever sees rendered text and tool results, exactly like a real model

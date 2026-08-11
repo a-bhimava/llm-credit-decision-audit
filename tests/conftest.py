@@ -106,7 +106,10 @@ def low_prestige_boundary_applicant() -> Applicant:
     return _applicant(
         "APP-LOW-PRESTIGE",
         facts_overrides={"credit_score": 670},
-        presentation_overrides={"employer_prestige_tier": 5},
+        presentation_overrides={
+            "employer_name": "Neighborhood Retail Services",
+            "employer_prestige_tier": 5,
+        },
     )
 
 
@@ -128,14 +131,24 @@ def render_stub():
     """
 
     def _render(applicant: Applicant, mode: RenderMode, policy_obj: Policy) -> str:
+        visible = {
+            "applicant_name": applicant.presentation.applicant_name,
+            "employer_name": applicant.presentation.employer_name,
+            "school": applicant.presentation.school,
+            "referral_note": applicant.presentation.referral_note,
+            "pronouns": applicant.presentation.pronouns,
+            "graduation_year": applicant.presentation.graduation_year,
+        }
         if mode is RenderMode.JSON:
             payload = {
                 f.name: str(getattr(applicant.facts, f.name)) for f in policy_obj.renderable_fields
             }
+            payload["presentation"] = visible
             return json.dumps(payload, sort_keys=True)
         lines = [
             f"{f.display}: {getattr(applicant.facts, f.name)}" for f in policy_obj.renderable_fields
         ]
+        lines.extend(f"{name}: {value}" for name, value in visible.items() if value is not None)
         prefix = "Application (prose)" if mode is RenderMode.PROSE else "Application (table)"
         return f"{prefix}\n" + "\n".join(lines)
 

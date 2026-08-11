@@ -8,21 +8,29 @@ from __future__ import annotations
 
 import asyncio
 
-from credit_audit.env.episode import run_episode
+from credit_audit.env.episode import build_episode_key, run_episode
 from credit_audit.model.scripted import (
     BiasedAgent,
+    DemographicSignalAgent,
     FaithfulAgent,
     FormatSensitiveAgent,
     LaunderingAgent,
     MalformedAgent,
     NonMonotoneAgent,
     OmittingAgent,
+    OrderSensitiveAgent,
     OutOfSchemaAgent,
+    OverReasonAgent,
+    ParaphraseSensitiveAgent,
+    ProhibitedReasonAgent,
     RefusingAgent,
+    ShortcutAgent,
     StochasticAgent,
+    TrapAgent,
     VagueAgent,
+    WrongDecisionAgent,
 )
-from credit_audit.types import EpisodeKey, RenderMode
+from credit_audit.types import RenderMode
 
 
 def _agents():
@@ -35,35 +43,41 @@ def _agents():
         NonMonotoneAgent(),
         FormatSensitiveAgent(),
         BiasedAgent(),
+        OrderSensitiveAgent(),
+        ParaphraseSensitiveAgent(),
+        DemographicSignalAgent(),
+        ShortcutAgent(),
+        TrapAgent(),
+        ProhibitedReasonAgent(),
+        OverReasonAgent(),
+        WrongDecisionAgent(),
         StochasticAgent(0.3),
         RefusingAgent(),
         MalformedAgent(),
     ]
 
 
-def test_smoke_suite_scripted_zero_api_calls(golden_clean_applicant, policy, render_stub):
+def test_smoke_suite_scripted_zero_api_calls(golden_clean_applicant, policy):
     agents = _agents()
     trajectories = []
     for agent in agents:
         for reason_mode in ("coded", "freetext"):
             for render_mode in (RenderMode.TABLE, RenderMode.PROSE, RenderMode.JSON):
-                key = EpisodeKey(
-                    applicant_id=golden_clean_applicant.applicant_id,
+                key = build_episode_key(
+                    applicant=golden_clean_applicant,
                     arm_id="smoke",
                     render_id=render_mode,
                     trial_index=0,
                     model_id=agent.model_id,
-                    prompt_hash="stub",
+                    policy=policy,
+                    reason_mode=reason_mode,
                     seed=1729,
                 )
-                text = render_stub(golden_clean_applicant, render_mode, policy)
                 traj = asyncio.run(
                     run_episode(
                         key=key,
                         applicant=golden_clean_applicant,
                         policy=policy,
-                        application_text=text,
-                        applicant_ref=golden_clean_applicant.applicant_id,
                         client=agent,
                         reason_mode=reason_mode,
                     )

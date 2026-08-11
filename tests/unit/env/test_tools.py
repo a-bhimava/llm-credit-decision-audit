@@ -3,33 +3,45 @@ that need to be pinned down directly rather than left to trust:
 
 1. submit_decision succeeds with no prior tool calls -- the central invariant of the
    whole environment (see env/tools.py's module docstring).
-2. fetch_credit_report's applicant_ref check is soft -- a mismatched-but-present ref
-   still succeeds.
+2. fetch_credit_report rejects a mismatched applicant reference before exposing data.
 """
 
 from __future__ import annotations
 
+import pytest
+
 from credit_audit.env.state import CreditEnvState
 from credit_audit.env.tools import dispatch, tool_specs
-from credit_audit.types import EpisodeKey, RenderMode
+from credit_audit.ids import applicant_content_id, episode_input_hash
+from credit_audit.render.reference import applicant_reference_for
+from credit_audit.types import EpisodeKey, ParseStatus, RenderMode
 
 
 def _state(applicant, policy_obj, **overrides) -> CreditEnvState:
+    application_text = overrides.pop("application_text", "stub app text")
+    applicant_ref = applicant_reference_for(applicant)
     key = EpisodeKey(
         applicant_id=applicant.applicant_id,
+        applicant_content_id=applicant_content_id(applicant),
         arm_id="control",
         render_id=RenderMode.TABLE,
         trial_index=0,
         model_id="test",
         prompt_hash="stub",
+        input_hash=episode_input_hash(
+            applicant,
+            application_text=application_text,
+            applicant_ref=applicant_ref,
+            render_mode=RenderMode.TABLE,
+        ),
         seed=1,
     )
     base = dict(
         episode_key=key,
         applicant=applicant,
         policy=policy_obj,
-        application_text="stub app text",
-        applicant_ref=applicant.applicant_id,
+        application_text=application_text,
+        applicant_ref=applicant_ref,
         render_mode=RenderMode.TABLE,
     )
     base.update(overrides)
@@ -55,7 +67,11 @@ def test_fetch_credit_report_never_exposes_out_of_scope_or_income_fields(
     state = _state(golden_clean_applicant, policy)
     specs = tool_specs("coded")
     result, new_state, _ = dispatch(
-        state, "fetch_credit_report", {"applicant_ref": "x"}, specs=specs, reason_mode="coded"
+        state,
+        "fetch_credit_report",
+        {"applicant_ref": state.applicant_ref},
+        specs=specs,
+        reason_mode="coded",
     )
     assert result.ok
     assert "property_value_cents" not in result.data
@@ -65,11 +81,7 @@ def test_fetch_credit_report_never_exposes_out_of_scope_or_income_fields(
     assert new_state.credit_report_pulled is True
 
 
-def test_fetch_credit_report_ref_mismatch_still_succeeds(golden_clean_applicant, policy):
-    """Deliberate, tested trade-off -- see env/tools.py's docstring on _fetch_credit_report.
-    A present-but-wrong ref still succeeds; only a schema-invalid ref fails. Phase 3
-    hasn't finalized how applicant_ref is embedded in rendered text, and hard-rejecting
-    on that contract from here would risk a systematic Phase 9 failure mode."""
+def test_fetch_credit_report_ref_mismatch_fails(golden_clean_applicant, policy):
     state = _state(golden_clean_applicant, policy)
     specs = tool_specs("coded")
     result, _, _ = dispatch(
@@ -79,7 +91,8 @@ def test_fetch_credit_report_ref_mismatch_still_succeeds(golden_clean_applicant,
         specs=specs,
         reason_mode="coded",
     )
-    assert result.ok
+    assert not result.ok
+    assert "does not match" in result.error
 
 
 def test_fetch_credit_report_missing_ref_fails_schema(golden_clean_applicant, policy):
@@ -243,6 +256,7 @@ def test_submit_decision_freetext_mode_maps_via_lexicon(golden_clean_applicant, 
     assert reason.raw_text == "Your credit score does not meet our minimum."
     assert reason.mapping_method.value == "lexicon"
     assert reason.code.value == "CREDIT_SCORE_TOO_LOW"
+    assert new_state.decision.parse_status is ParseStatus.HEURISTIC
 
 
 def test_submit_decision_freetext_mode_falls_back_to_unmapped(golden_clean_applicant, policy):
@@ -260,6 +274,26 @@ def test_submit_decision_freetext_mode_falls_back_to_unmapped(golden_clean_appli
     assert reason.raw_text == "I have a bad feeling about this one."
     assert reason.mapping_method.value == "unmapped"
     assert reason.code.value == "OTHER_UNMAPPED"
+    assert new_state.decision.parse_status is ParseStatus.UNPARSEABLE
+
+
+def test_submit_decision_freetext_embedding_mapping_is_remapped(golden_clean_applicant, policy):
+    state = _state(golden_clean_applicant, policy)
+    specs = tool_specs("freetext")
+    text = (
+        "tradelines reporting count applicant open two minimum twenty four months old "
+        "oldest account age"
+    )
+    result, new_state, terminal = dispatch(
+        state,
+        "submit_decision",
+        {"outcome": "DENY", "reasons": [text]},
+        specs=specs,
+        reason_mode="freetext",
+    )
+    assert result.ok and terminal
+    assert new_state.decision.stated_reasons[0].mapping_method.value == "embedding"
+    assert new_state.decision.parse_status is ParseStatus.REMAPPED
 
 
 def test_submit_decision_invalid_outcome_fails_schema(golden_clean_applicant, policy):
@@ -278,8 +312,8 @@ def test_submit_decision_invalid_outcome_fails_schema(golden_clean_applicant, po
 
 
 def test_submit_decision_more_than_four_reasons_is_not_rejected(golden_clean_applicant, policy):
-    """maxItems is 10, not 4. Exceeding 4 is itself a §1002.9 finding to be OBSERVED
-    later, not something the schema silently prevents or truncates."""
+    """The protocol must expose violations of the synthetic policy's configured maximum
+    rather than silently preventing or truncating them at the schema boundary."""
     state = _state(golden_clean_applicant, policy)
     specs = tool_specs("coded")
     reasons = [{"code": "CREDIT_SCORE_TOO_LOW", "detail": f"reason {i}"} for i in range(6)]
@@ -318,3 +352,22 @@ def test_dispatch_unknown_tool_fails_gracefully(golden_clean_applicant, policy):
     assert not result.ok
     assert not terminal
     assert new_state.step == 1  # the attempt is still logged
+
+
+def test_tool_schemas_are_recursively_immutable_and_dispatch_thaws_them(
+    golden_clean_applicant, policy
+):
+    specs = tool_specs("coded")
+    fetch = next(spec for spec in specs if spec.name == "fetch_credit_report")
+    with pytest.raises(TypeError):
+        fetch.parameters["properties"]["applicant_ref"]["minLength"] = 2  # type: ignore[index]
+
+    state = _state(golden_clean_applicant, policy)
+    result, _, _ = dispatch(
+        state,
+        "fetch_credit_report",
+        {"applicant_ref": state.applicant_ref},
+        specs=specs,
+        reason_mode="coded",
+    )
+    assert result.ok

@@ -1,36 +1,28 @@
-"""One integration test proving the pieces actually compose: a real committed Phase 3
-profile, rendered by a real Phase 3 renderer (not the conftest.py stub every other
-golden/env test deliberately uses for isolation), run through a full episode against a
-real Phase 2 scripted agent.
-
-Before this test, nothing in the suite ever exercised this combination -- every episode
-and golden test renders via ``render_stub``, and render/'s own unit tests call renderers
-directly without ever starting an episode. Both halves were tested; the seam between them
-wasn't.
-"""
+"""Committed profiles composed with all canonical renderers through a full episode."""
 
 from __future__ import annotations
 
 import asyncio
 
-from credit_audit.env.episode import run_episode
+from credit_audit.env.episode import build_episode_key, run_episode
 from credit_audit.model.scripted import FaithfulAgent
 from credit_audit.policy.loader import load_policy
 from credit_audit.policy.oracle import evaluate
 from credit_audit.profiles.generate import read_profiles_jsonl
 from credit_audit.render.reference import applicant_reference_for
 from credit_audit.render.registry import RENDERERS
-from credit_audit.types import DecisionOutcome, EpisodeKey, RenderMode, Termination
+from credit_audit.types import DecisionOutcome, RenderMode, Termination
 
 
-def _key(applicant_id: str, render_id: RenderMode) -> EpisodeKey:
-    return EpisodeKey(
-        applicant_id=applicant_id,
+def _key(applicant, policy, client, render_id: RenderMode):
+    return build_episode_key(
+        applicant=applicant,
         arm_id="control",
         render_id=render_id,
         trial_index=0,
-        model_id="scripted:faithful",
-        prompt_hash="stub",
+        model_id=client.model_id,
+        policy=policy,
+        reason_mode="coded",
         seed=1,
     )
 
@@ -45,15 +37,15 @@ def test_faithful_agent_full_episode_against_a_real_renderer():
     # stub string standing in for it.
     assert applicant_reference_for(applicant) in application_text
 
-    key = _key(applicant.applicant_id, render_mode)
+    client = FaithfulAgent()
+    key = _key(applicant, policy, client, render_mode)
     traj = asyncio.run(
         run_episode(
             key=key,
             applicant=applicant,
             policy=policy,
             application_text=application_text,
-            applicant_ref=applicant.applicant_id,
-            client=FaithfulAgent(),
+            client=client,
             reason_mode="coded",
         )
     )
@@ -82,15 +74,15 @@ def test_prose_and_json_renders_also_compose_with_a_real_episode():
 
     for render_mode in (RenderMode.PROSE, RenderMode.JSON):
         application_text = RENDERERS[render_mode](applicant, render_mode, policy)
-        key = _key(applicant.applicant_id, render_mode)
+        client = FaithfulAgent()
+        key = _key(applicant, policy, client, render_mode)
         traj = asyncio.run(
             run_episode(
                 key=key,
                 applicant=applicant,
                 policy=policy,
                 application_text=application_text,
-                applicant_ref=applicant.applicant_id,
-                client=FaithfulAgent(),
+                client=client,
                 reason_mode="coded",
             )
         )

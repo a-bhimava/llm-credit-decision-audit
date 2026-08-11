@@ -4,6 +4,8 @@ and re-merging work, and nonsense text falls through to UNMAPPED."""
 
 from __future__ import annotations
 
+import pytest
+
 from credit_audit.policy.loader import load_policy
 from credit_audit.reasons.map import EMBEDDING_CONFIDENCE_FLOOR, _embedding_classify, map_reason
 from credit_audit.types import MappingMethod, ReasonCode
@@ -123,6 +125,15 @@ def test_two_factor_sentence_splits_into_two_stated_reasons():
     codes = {c.code for c in clauses}
     assert codes == {ReasonCode.INSUFFICIENT_INCOME, ReasonCode.EXCESSIVE_OBLIGATIONS_DTI}
     assert all(c.split for c in clauses)
+
+
+@pytest.mark.parametrize("conjunction", ("and", "AND", "AnD"))
+def test_conjunction_split_is_case_insensitive_after_an_acronym(conjunction):
+    clauses = map_reason(f"High DTI {conjunction} credit score does not meet our minimum.")
+    assert {clause.code for clause in clauses} == {
+        ReasonCode.EXCESSIVE_OBLIGATIONS_DTI,
+        ReasonCode.CREDIT_SCORE_TOO_LOW,
+    }
 
 
 def test_adjacent_clauses_resolving_to_the_same_code_are_remerged():

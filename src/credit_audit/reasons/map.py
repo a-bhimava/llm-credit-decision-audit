@@ -53,7 +53,10 @@ LEXICON_PATH = Path(__file__).parent / "lexicon.yaml"
 
 EMBEDDING_CONFIDENCE_FLOOR = 0.35
 
-_SPLIT_RE = re.compile(r"\s*(?:;|\n|(?<=[a-z])\s+and\s+(?=[A-Za-z]))\s*")
+_SPLIT_RE = re.compile(
+    r"\s*(?:;|\n|(?<=[A-Za-z])\s+and\s+(?=[A-Za-z]))\s*",
+    flags=re.IGNORECASE,
+)
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 
 
@@ -94,10 +97,8 @@ _REFERENCE_VECTOR_CACHE: dict[str, tuple[tuple[ReasonCode, Counter], ...]] = {}
 def _reference_vectors(policy: Policy) -> tuple[tuple[ReasonCode, Counter], ...]:
     """One token-count vector per repairable rule-driven code, built from that code's
     rule statement(s) plus its Form C-1 phrase (if any). Cached by ``policy.yaml_sha256``
-    (a hashable string) rather than the ``Policy`` object itself: ``Policy`` has a plain
-    ``dict`` field (``fields``) and is not hashable, so it cannot be an ``lru_cache`` key
-    directly -- a manual dict keyed by the content hash sidesteps that without needing
-    Policy itself to change."""
+    rather than the complete, recursively frozen ``Policy`` object. The content hash keeps
+    the cache key compact and makes the intended invalidation boundary explicit."""
     cached = _REFERENCE_VECTOR_CACHE.get(policy.yaml_sha256)
     if cached is not None:
         return cached

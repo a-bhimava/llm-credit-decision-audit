@@ -18,20 +18,27 @@ rather than by convention:
    "identical financial profile, only the name changed" a structural guarantee rather than a
    claim we ask the reader to trust.
 
-4. :attr:`TestResult.pair_id` is required. It is the bootstrap cluster identifier, so making it
-   mandatory forces every check author to declare the clustering -- the mistake most evaluation
-   repos make when they resample at the response level instead of the pair level.
+4. :attr:`TestResult.pair_id` and ``cluster_id`` are required and distinct: the former names a
+   contrast, while the latter names the originating experimental unit Phase 7 must resample.
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
-from datetime import datetime
+from datetime import date, datetime
 from decimal import ROUND_HALF_UP, Context, Decimal, localcontext
 from enum import StrEnum
-from typing import Any, Literal
+from pathlib import Path
+from typing import Any, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, GetCoreSchemaHandler
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    GetCoreSchemaHandler,
+    model_serializer,
+    model_validator,
+)
 from pydantic_core import core_schema
 
 RATIO_EXP = Decimal("0.0001")
@@ -55,9 +62,59 @@ def q4(value: Decimal) -> Decimal:
         return value.quantize(RATIO_EXP, rounding=ROUND_HALF_UP)
 
 
+def freeze_json(value: Any) -> Any:
+    """Recursively freeze a JSON-like value.
+
+    Pydantic's ``frozen=True`` only prevents assigning model attributes.  Evidence payloads
+    are commonly nested mappings and arrays, so leaving either mutable would let a cached
+    policy, tool call, or test result change *after* its content ID had been computed.  This
+    function is deliberately small and lossless for JSON-shaped data: mappings become
+    :class:`FrozenDict`, arrays become tuples, and scalar values are returned unchanged.
+
+    ``frozenset`` support is included for hashability of the occasional internal value even
+    though provider/tool payloads themselves are JSON and therefore never contain sets.
+    """
+    if isinstance(value, FrozenDict):
+        return value
+    if isinstance(value, Mapping):
+        return FrozenDict(value)
+    if isinstance(value, tuple):
+        return tuple(freeze_json(item) for item in value)
+    if isinstance(value, list):
+        return tuple(freeze_json(item) for item in value)
+    if isinstance(value, (set, frozenset)):
+        return frozenset(freeze_json(item) for item in value)
+    if isinstance(value, (bytearray, memoryview)):
+        return bytes(value)
+    if value is None or isinstance(
+        value,
+        (bool, int, float, str, bytes, Decimal, date, datetime, StrEnum, Path),
+    ):
+        return value
+    if isinstance(value, Frozen):
+        return value
+    raise TypeError(f"unsupported mutable or non-JSON payload type: {type(value).__name__}")
+
+
+def thaw_json(value: Any) -> Any:
+    """Return ordinary JSON containers for provider and JSON-Schema boundaries.
+
+    The evidence model stays recursively immutable in memory.  Libraries such as
+    ``jsonschema`` and provider SDKs sometimes insist on concrete ``dict``/``list`` values,
+    so conversion happens explicitly at those boundaries rather than weakening the stored
+    records.
+    """
+    if isinstance(value, Mapping):
+        return {str(key): thaw_json(item) for key, item in value.items()}
+    if isinstance(value, (tuple, list)):
+        return [thaw_json(item) for item in value]
+    if isinstance(value, (set, frozenset)):
+        return [thaw_json(item) for item in sorted(value, key=repr)]
+    return value
+
+
 class FrozenDict(Mapping[str, Any]):
-    """A hashable, immutable dict view -- what a ``dict`` field on a ``frozen=True`` pydantic
-    model needs to actually be immutable.
+    """A recursively immutable and hashable mapping for evidence payloads.
 
     ``model_config = ConfigDict(frozen=True)`` only blocks *attribute reassignment*
     (``obj.field = x``); it does nothing to stop ``obj.field["key"] = x`` mutating a plain
@@ -66,19 +123,18 @@ class FrozenDict(Mapping[str, Any]):
     transparently (see ``__get_pydantic_core_schema__``), and every read (``[]``, ``.get``,
     iteration, ``dict(x)``, ``**x``) works exactly like it did against the original ``dict``.
 
-    Hashable via ``hash(frozenset(self._data.items()))`` -- which requires every *value* to
-    be hashable too, same as any other compound type in Python (a tuple containing a list
-    isn't hashable either). That is a disclosed scoping decision, not a silent gap: the
-    fields that use this (tool-call arguments/results, intervention params) are typed
-    ``dict[str, Any]`` specifically because their content is genuinely heterogeneous
-    JSON-schema-validated payload, and deep-freezing arbitrary nested structures is more
-    machinery than any current caller needs.
+    Nested mappings and arrays are frozen on construction, so the whole value -- not only
+    its outer shell -- is safe to content-address and hash.
     """
 
     __slots__ = ("_data",)
 
     def __init__(self, data: Mapping[str, Any] | None = None) -> None:
-        object.__setattr__(self, "_data", dict(data) if data else {})
+        object.__setattr__(
+            self,
+            "_data",
+            {str(key): freeze_json(value) for key, value in data.items()} if data else {},
+        )
 
     def __getitem__(self, key: str) -> Any:
         return self._data[key]
@@ -110,7 +166,7 @@ class FrozenDict(Mapping[str, Any]):
         return core_schema.no_info_after_validator_function(
             cls,
             dict_schema,
-            serialization=core_schema.plain_serializer_function_ser_schema(dict),
+            serialization=core_schema.plain_serializer_function_ser_schema(thaw_json),
         )
 
 
@@ -118,6 +174,37 @@ class Frozen(BaseModel):
     """Immutable, extra-forbidding base. Every record in this module inherits it."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
+
+    @model_validator(mode="after")
+    def _recursively_freeze_containers(self) -> Self:
+        """Close the nested-container mutability hole for every frozen record.
+
+        Several policy records predate :class:`FrozenDict` and retain ``dict`` annotations.
+        Freezing centrally keeps those public annotations source-compatible while ensuring
+        loaded/cached records cannot be mutated in place.
+        """
+        for name in type(self).model_fields:
+            value = getattr(self, name)
+            frozen = freeze_json(value)
+            if frozen is not value:
+                object.__setattr__(self, name, frozen)
+        return self
+
+    @model_serializer(mode="plain")
+    def _serialize_frozen(self) -> dict[str, Any]:
+        """Serialize legacy dict-annotated fields after their runtime deep-freeze.
+
+        Pydantic compiles serializers from annotations, so a field annotated ``dict`` but
+        sealed to ``FrozenDict`` after validation otherwise raises at export time.  Returning
+        the record's public fields through ``thaw_json`` restores ordinary JSON containers;
+        nested Pydantic records and scalar encoders remain handled by pydantic-core.
+        """
+        return {name: thaw_json(getattr(self, name)) for name in type(self).model_fields}
+
+    def model_copy(self, *, update: Mapping[str, Any] | None = None, deep: bool = False) -> Self:
+        """Preserve recursive immutability across Pydantic's non-validating copy path."""
+        copied = super().model_copy(update=update, deep=deep)
+        return copied._recursively_freeze_containers()
 
 
 # --------------------------------------------------------------------------------------
@@ -137,8 +224,8 @@ class ReasonCode(StrEnum):
     """Adverse-action reason vocabulary.
 
     Modelled on the Regulation B Appendix C sample notice plus standard credit-file codes. The
-    per-code metadata table (repairable, target field, repair kind, severity) lands in
-    ``reasons/codes.py`` in Phase 4; this enum is only the vocabulary.
+    per-code metadata table (repairable, target field, repair kind, severity) lives in
+    ``reasons/codes.py``; this enum is only the vocabulary.
     """
 
     INSUFFICIENT_INCOME = "INSUFFICIENT_INCOME"
@@ -225,6 +312,7 @@ class Layer(StrEnum):
 
     FACTS = "facts"
     PRESENTATION = "presentation"
+    RENDER = "render"
 
 
 class MappingMethod(StrEnum):
@@ -250,6 +338,7 @@ class ParseStatus(StrEnum):
 
 class Termination(StrEnum):
     SUBMITTED = "submitted"
+    STOP = "stop"
     MAX_STEPS = "max_steps"
     MAX_TOKENS = "max_tokens"
     ERROR = "error"
@@ -375,11 +464,16 @@ class Presentation(Frozen):
     applicant_name: str
     employer_name: str
     employer_prestige_tier: int = Field(ge=1, le=5)
-    """Authority arm. 1 = most prestigious. ICE-Guard (arXiv:2603.18530) measured authority
-    bias in finance at 22.6% against demographic bias at 2.2%, so this arm carries more
-    signal than the name swap."""
+    """Synthetic authority-arm control label. 1 is the highest prestige tier.
+
+    The tier itself is never rendered; provider-visible employer, school, and referral
+    descriptors realize the intervention. Statistical significance is deliberately
+    deferred to Phase 7.
+    """
     school: str | None = None
     referral_note: str | None = None
+    pronouns: str | None = None
+    graduation_year: int | None = Field(default=None, ge=1900, le=2100)
     narrative_tone: Literal["neutral", "positive", "negative"] = "neutral"
     demographic_tags: DemographicTags = DemographicTags()
     bank_statement_lines: tuple[BankTxn, ...] = ()
@@ -444,21 +538,45 @@ class Decision(Frozen):
 
 class EpisodeKey(Frozen):
     applicant_id: str
+    applicant_content_id: str
     arm_id: str
     render_id: RenderMode
     trial_index: int = Field(ge=0)
     model_id: str
     prompt_hash: str
+    input_hash: str
     seed: int
+
+    @property
+    def episode_id(self) -> str:
+        """Stable identity of the planned episode, independent of its realized trace."""
+        # Local import avoids the intentional ids -> pydantic-types dependency pointing
+        # back into this module at import time.
+        from credit_audit.ids import content_id
+
+        return content_id(self)
+
+
+class RequestedToolCall(Frozen):
+    """Provider-neutral assistant request retained verbatim in message history."""
+
+    call_id: str = Field(min_length=1)
+    name: str
+    arguments: FrozenDict = Field(default_factory=FrozenDict)
 
 
 class Message(Frozen):
     role: Literal["system", "user", "assistant", "tool"]
     content: str
     step: int = Field(ge=0)
+    turn_index: int = Field(ge=0, default=0)
+    tool_call_id: str | None = None
+    tool_calls: tuple[RequestedToolCall, ...] = ()
 
 
 class ToolCall(Frozen):
+    call_id: str = Field(min_length=1)
+    turn_index: int = Field(ge=0)
     step: int = Field(ge=0)
     name: str
     arguments: FrozenDict = Field(default_factory=FrozenDict)
@@ -482,6 +600,7 @@ class Usage(Frozen):
 
 
 class Trajectory(Frozen):
+    episode_id: str
     trajectory_id: str
     key: EpisodeKey
     messages: tuple[Message, ...] = ()
@@ -490,6 +609,57 @@ class Trajectory(Frozen):
     decision: Decision | None = None
     usage: Usage = Usage()
     termination: Termination = Termination.SUBMITTED
+
+    @model_validator(mode="after")
+    def _validate_content_identities(self) -> Trajectory:
+        from credit_audit.ids import trajectory_content_id
+
+        if self.episode_id != self.key.episode_id:
+            raise ValueError("Trajectory episode_id does not match EpisodeKey")
+        expected = trajectory_content_id(
+            episode_id=self.episode_id,
+            messages=self.messages,
+            tool_calls=self.tool_calls,
+            decision=self.decision,
+            termination=self.termination,
+        )
+        if self.trajectory_id != expected:
+            raise ValueError("Trajectory trajectory_id does not match semantic history")
+        if self.termination is Termination.SUBMITTED and self.decision is None:
+            raise ValueError("submitted Trajectory requires a decision")
+        if self.termination is not Termination.SUBMITTED and self.decision is not None:
+            raise ValueError("non-submitted Trajectory cannot carry a decision")
+
+        requested: dict[str, RequestedToolCall] = {}
+        for message in self.messages:
+            for request in message.tool_calls:
+                if message.role != "assistant":
+                    raise ValueError("requested tool calls must belong to assistant messages")
+                if request.call_id in requested:
+                    raise ValueError("Trajectory contains a duplicate requested tool call_id")
+                requested[request.call_id] = request
+        calls: dict[str, ToolCall] = {}
+        for call in self.tool_calls:
+            if call.call_id in calls:
+                raise ValueError("Trajectory contains a duplicate executed tool call_id")
+            calls[call.call_id] = call
+            request = requested.get(call.call_id)
+            if request is None:
+                raise ValueError("executed ToolCall lacks a correlated assistant request")
+            if request.name != call.name or request.arguments != call.arguments:
+                raise ValueError("executed ToolCall does not match its correlated request")
+        tool_result_ids = {
+            message.tool_call_id
+            for message in self.messages
+            if message.role == "tool" and message.tool_call_id is not None
+        }
+        if tool_result_ids != set(calls):
+            raise ValueError("ToolCall records and correlated tool-result messages disagree")
+        if self.termination is Termination.SUBMITTED and not any(
+            call.name == "submit_decision" and call.ok for call in self.tool_calls
+        ):
+            raise ValueError("submitted Trajectory requires a successful submit_decision call")
+        return self
 
 
 # --------------------------------------------------------------------------------------
@@ -525,8 +695,16 @@ class TestResult(Frozen):
     effect: float | None = None
     """approve_rate(cf) - approve_rate(base). Rate-based over k trials, never a single flip."""
     pair_id: str
-    """Required. The bootstrap cluster identifier -- see invariant 4."""
+    """Required. Identifies one planned contrast and its matched trials."""
+    cluster_id: str
+    """Required. Identifies the originating experimental unit for Phase 7 resampling."""
     notes: str = ""
+
+    @model_validator(mode="after")
+    def _separate_contrast_and_cluster_identity(self) -> TestResult:
+        if self.pair_id == self.cluster_id:
+            raise ValueError("TestResult pair_id and cluster_id must be distinct")
+        return self
 
 
 # --------------------------------------------------------------------------------------
@@ -580,7 +758,12 @@ class CostSummary(Frozen):
     input_tokens: int = 0
     output_tokens: int = 0
     cached_tokens: int = 0
+    thought_tokens: int = 0
+    cache_hits: int = 0
+    replayed_responses: int = 0
     cache_hit_rate: float | None = None
+    current_run_cost: bool = True
+    """True when ``usd_total`` excludes replayed responses, which cost this run zero."""
 
 
 class RunManifest(Frozen):
@@ -632,6 +815,7 @@ __all__ = [
     "FinancialFacts",
     "Frozen",
     "FrozenDict",
+    "freeze_json",
     "InterventionSpec",
     "Layer",
     "MappingMethod",
@@ -644,6 +828,7 @@ __all__ = [
     "Provenance",
     "PublicRecord",
     "PublicRecordKind",
+    "RequestedToolCall",
     "ReasonCode",
     "Relation",
     "RenderMode",
@@ -657,4 +842,5 @@ __all__ = [
     "Trajectory",
     "Usage",
     "q4",
+    "thaw_json",
 ]

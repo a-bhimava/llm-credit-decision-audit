@@ -17,15 +17,18 @@ from decimal import Decimal
 import pytest
 
 from credit_audit.ids import (
+    applicant_content_id,
     canonical_json,
+    cluster_id_for,
     content_id,
     derive_seed,
     sha256_bytes,
     sha256_file,
     short_id,
+    trajectory_content_id,
 )
 from credit_audit.io.jsonl import count_lines, line_sha256, read_jsonl, write_jsonl
-from credit_audit.types import EmploymentStatus, Provenance, ReasonCode
+from credit_audit.types import EmploymentStatus, Provenance, ReasonCode, ToolCall
 
 # -- canonical JSON ---------------------------------------------------------------------
 
@@ -47,15 +50,16 @@ def test_decimal_survives_as_string():
     assert json.loads(payload)["dti"] == "0.4300"
 
 
-def test_float_is_fixed_precision():
-    """Platform repr differences would otherwise break determinism for equal values."""
-    assert canonical_json({"p": 0.1 + 0.2}) == canonical_json({"p": 0.3})
+def test_float_encoding_is_lossless():
+    """Distinct IEEE-754 values must never collapse to one evidence identity."""
+    assert canonical_json({"p": 0.1 + 0.2}) != canonical_json({"p": 0.3})
+    assert content_id({"p": 0.3500001}) != content_id({"p": 0.3500002})
 
 
 def test_nan_and_infinity_are_rejected():
     """Non-finite floats must raise, not serialize.
 
-    Floats are formatted to fixed-precision strings before the JSON encoder sees them, so
+    Floats are formatted to lossless hexadecimal strings before the JSON encoder sees them, so
     ``allow_nan=False`` cannot catch this -- NaN would otherwise land in a published bundle as
     the literal string "nan", which reads as data.
     """
@@ -118,6 +122,60 @@ def test_content_id_is_prefixed_and_stable():
 
 def test_content_id_distinguishes_different_content():
     assert content_id({"a": 1}) != content_id({"a": 2})
+
+
+def test_trajectory_identity_excludes_operational_latency():
+    common = dict(
+        call_id="call-1",
+        turn_index=1,
+        step=0,
+        name="get_application",
+        arguments={"applicant_ref": "MPL-1"},
+        result={"ok": True},
+    )
+    fast = ToolCall(**common, latency_ms=1)
+    slow = ToolCall(**common, latency_ms=999)
+
+    assert trajectory_content_id(
+        episode_id="episode",
+        messages=(),
+        tool_calls=(fast,),
+        decision=None,
+        termination="stop",
+    ) == trajectory_content_id(
+        episode_id="episode",
+        messages=(),
+        tool_calls=(slow,),
+        decision=None,
+        termination="stop",
+    )
+
+
+def test_applicant_unit_content_and_cluster_identities_are_separate(
+    golden_clean_applicant,
+):
+    base = golden_clean_applicant
+    presentation_variant = base.model_copy(
+        update={
+            "presentation": base.presentation.model_copy(
+                update={"applicant_name": "Visible Variant"}
+            )
+        }
+    )
+    sibling = base.model_copy(
+        update={
+            "applicant_id": "APP-SIBLING",
+            "provenance": base.provenance.model_copy(
+                update={"parent_applicant_id": base.applicant_id}
+            ),
+        }
+    )
+
+    assert presentation_variant.applicant_id == base.applicant_id
+    assert applicant_content_id(presentation_variant) != applicant_content_id(base)
+    assert cluster_id_for(presentation_variant) == cluster_id_for(base)
+    assert sibling.applicant_id != base.applicant_id
+    assert cluster_id_for(sibling) == cluster_id_for(base)
 
 
 def test_ids_are_stable_across_hash_seeds():

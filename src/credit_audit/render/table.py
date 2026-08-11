@@ -7,7 +7,7 @@ see ``tests/unit/render/test_no_leak.py``.
 from __future__ import annotations
 
 from credit_audit.policy.loader import Policy, format_value
-from credit_audit.render.reference import applicant_reference_for
+from credit_audit.render.packet import SemanticApplicationPacket, build_application_packet
 from credit_audit.types import Applicant, RenderMode
 
 _SECTION_TITLES: dict[str, str] = {
@@ -46,9 +46,33 @@ _FIELD_SECTIONS: dict[str, str] = {
 }
 
 
-def _format_field(applicant: Applicant, field) -> str:
+def _packet_value(packet: SemanticApplicationPacket, name: str):
+    values = {
+        "annual_income_cents": packet.income.annual_income_cents,
+        "monthly_debt_cents": packet.income.monthly_debt_cents,
+        "dti": packet.income.debt_to_income_ratio,
+        "loan_amount_cents": packet.loan_request.amount_cents,
+        "loan_term_months": packet.loan_request.term_months,
+        "credit_score": packet.credit_file.credit_score,
+        "open_tradelines": packet.credit_file.tradelines.open_count,
+        "revolving_balance_cents": packet.credit_file.revolving.balance_cents,
+        "revolving_limit_cents": packet.credit_file.revolving.limit_cents,
+        "utilization": packet.credit_file.revolving.utilization,
+        "oldest_tradeline_months": packet.credit_file.tradelines.oldest_age_months,
+        "inquiries_6m": packet.credit_file.inquiries_6m,
+        "delinq_30d_24m": packet.credit_file.delinquencies.days_30_59_24mo,
+        "delinq_60d_24m": packet.credit_file.delinquencies.days_60_89_24mo,
+        "delinq_90p_24m": packet.credit_file.delinquencies.days_90_plus_24mo,
+        "employment_months": packet.employment.months,
+        "employment_status": packet.employment.status,
+        "income_documented": packet.income.income_documented,
+    }
+    return values[name]
+
+
+def _format_field(packet: SemanticApplicationPacket, field) -> str:
     if field.name == "public_records":
-        records = applicant.facts.public_records
+        records = packet.credit_file.public_records
         if not records:
             return "none on file"
         return "; ".join(
@@ -56,13 +80,14 @@ def _format_field(applicant: Applicant, field) -> str:
             f"{format_value('int_cents', r.amount_cents)}"
             for r in records
         )
-    value = getattr(applicant.facts, field.name)
+    value = _packet_value(packet, field.name)
     return format_value(field.type, value)
 
 
 def render(applicant: Applicant, mode: RenderMode, policy: Policy) -> str:
     if mode is not RenderMode.TABLE:
         raise ValueError(f"render/table.py can only render RenderMode.TABLE, got {mode!r}")
+    packet = build_application_packet(applicant)
     fields = policy.renderable_fields
     label_width = max(len(f.display) for f in fields) + 2
 
@@ -70,7 +95,23 @@ def render(applicant: Applicant, mode: RenderMode, policy: Policy) -> str:
     for field in fields:
         by_section[_FIELD_SECTIONS.get(field.name, "4.1")].append(field)
 
-    lines = [f"Application {applicant_reference_for(applicant)}", ""]
+    identity = packet.identity
+    lines = [
+        f"Application {packet.application_reference}",
+        "",
+        "Applicant presentation",
+        f"  {'Applicant name:'.ljust(label_width)}{identity.applicant_name}",
+        f"  {'Employer:'.ljust(label_width)}{identity.employer_name}",
+    ]
+    for label, value in (
+        ("School", identity.school),
+        ("Referral", identity.referral_note),
+        ("Pronouns", identity.pronouns),
+        ("Graduation year", identity.graduation_year),
+    ):
+        if value is not None:
+            lines.append(f"  {(label + ':').ljust(label_width)}{value}")
+    lines.append("")
     for section in _SECTION_ORDER:
         section_fields = by_section[section]
         if not section_fields:
@@ -78,7 +119,17 @@ def render(applicant: Applicant, mode: RenderMode, policy: Policy) -> str:
         lines.append(_SECTION_TITLES[section])
         for field in section_fields:
             label = f"{field.display}:".ljust(label_width)
-            lines.append(f"  {label}{_format_field(applicant, field)}")
+            lines.append(f"  {label}{_format_field(packet, field)}")
+        lines.append("")
+    if packet.statement_lines:
+        lines.append("Bank statement")
+        for txn in packet.statement_lines:
+            amount = format_value("int_cents", txn.amount_cents)
+            lines.append(f"  Day {txn.day:02d}  {txn.description}: {amount}")
+        lines.append("")
+    if packet.notes:
+        lines.append("Application notes")
+        lines.extend(f"  {note}" for note in packet.notes)
         lines.append("")
     return "\n".join(lines).rstrip("\n") + "\n"
 

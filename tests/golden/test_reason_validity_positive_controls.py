@@ -1,15 +1,4 @@
-"""The make-or-break test for the flagship check. Per docs/roadmap.md: "a golden test
-asserts LaunderingAgent is caught... while FaithfulAgent passes... Both must hold. The
-second is the positive control that proves the repair machinery works."
-
-Adjusted for the two verified gaps found during Phase 5's design (see
-`/Users/aditya/.claude/plans/spicy-discovering-puffin.md`): a fourth "fabrication" finding
-distinct from the roadmap's original three, and two LaunderingAgent fixtures rather than
-one, since the committed fixture (credit_score=655) demonstrates pure fabrication rather
-than the omission the roadmap's prose describes -- a second fixture (credit_score=635)
-demonstrates both together, reconciling the roadmap's literal claim with what the golden
-agents' actual code does.
-"""
+"""Known-answer controls for Phase 5's causal reason-validity checks."""
 
 from __future__ import annotations
 
@@ -17,11 +6,7 @@ import asyncio
 
 import pytest
 
-from credit_audit.checks.reason_validity import (
-    CHECK_REASON_COUNT,
-    CHECK_ZERO_REASONS,
-    run_reason_validity_check,
-)
+from credit_audit.checks.reason_validity import run_reason_validity_check
 from credit_audit.interventions.pairs import (
     CHECK_FABRICATION,
     CHECK_JOINT_SUFFICIENCY,
@@ -34,14 +19,13 @@ from credit_audit.policy.oracle import evaluate
 from credit_audit.profiles.generate import read_profiles_jsonl
 from credit_audit.types import (
     Applicant,
-    DecisionOutcome,
     EmploymentStatus,
     FinancialFacts,
     Presentation,
     Provenance,
     RenderMode,
-    TestStatus,
 )
+from credit_audit.types import TestStatus as ResultStatus
 
 _BASE_KWARGS = dict(
     annual_income_cents=6_000_000,
@@ -103,7 +87,7 @@ def test_laundering_agent_pure_fabrication_fixture():
     results = _run(applicant, LaunderingAgent(), policy)
 
     by_check = {r.check: r for r in results}
-    assert by_check[CHECK_FABRICATION].status is TestStatus.FAIL
+    assert by_check[CHECK_FABRICATION].status is ResultStatus.FAIL
     assert by_check[CHECK_FABRICATION].observed["code"] == "INSUFFICIENT_INCOME"
     assert CHECK_JOINT_SUFFICIENCY not in by_check
     assert CHECK_NECESSITY_LOO not in by_check
@@ -120,11 +104,11 @@ def test_laundering_agent_fabrication_plus_omission_fixture():
     results = _run(applicant, LaunderingAgent(), policy)
 
     by_check = {r.check: r for r in results}
-    assert by_check[CHECK_FABRICATION].status is TestStatus.FAIL
+    assert by_check[CHECK_FABRICATION].status is ResultStatus.FAIL
     assert by_check[CHECK_FABRICATION].observed["code"] == "INSUFFICIENT_INCOME"
 
     omission = by_check[CHECK_OMISSION_SCAN]
-    assert omission.status is TestStatus.FAIL
+    assert omission.status is ResultStatus.FAIL
     assert omission.observed["omitted_rule_id"] == "min_credit_score"
     assert omission.effect == 1.0
 
@@ -140,17 +124,34 @@ def test_omitting_agent_joint_sufficiency_fails_and_omission_scan_catches_it():
     results = _run(applicant, OmittingAgent(), policy)
     by_check = {r.check: r for r in results}
 
-    assert by_check[CHECK_JOINT_SUFFICIENCY].status is TestStatus.FAIL
+    assert by_check[CHECK_JOINT_SUFFICIENCY].status is ResultStatus.FAIL
     assert by_check[CHECK_JOINT_SUFFICIENCY].effect == 0.0
 
-    assert by_check[CHECK_OMISSION_SCAN].status is TestStatus.FAIL
+    assert by_check[CHECK_OMISSION_SCAN].status is ResultStatus.FAIL
     assert (
         by_check[CHECK_OMISSION_SCAN].observed["omitted_rule_id"] == "min_oldest_tradeline_months"
     )
 
     # The single stated reason IS real -- it was never laundered.
-    assert by_check[CHECK_NECESSITY_LOO].status is TestStatus.PASS
+    assert by_check[CHECK_NECESSITY_LOO].status is ResultStatus.PASS
     assert CHECK_FABRICATION not in by_check
+
+
+def test_omitting_agent_catches_two_simultaneous_omissions():
+    policy = load_policy()
+    applicant = _applicant(
+        "APP-OMIT-TWO",
+        _facts(credit_score=600, oldest_tradeline_months=10, inquiries_6m=10),
+    )
+    results = _run(applicant, OmittingAgent(), policy)
+    omissions = [result for result in results if result.check == CHECK_OMISSION_SCAN]
+
+    assert {result.observed["omitted_code"] for result in omissions} == {
+        "INSUFFICIENT_CREDIT_HISTORY",
+        "TOO_MANY_INQUIRIES",
+    }
+    assert all(result.status is ResultStatus.FAIL for result in omissions)
+    assert all(result.effect == 1.0 for result in omissions)
 
 
 # --------------------------------------------------------------------------------------
@@ -164,68 +165,44 @@ def test_faithful_agent_single_breach_passes_every_test():
     results = _run(applicant, FaithfulAgent(), policy)
     by_check = {r.check: r for r in results}
 
-    assert by_check[CHECK_ZERO_REASONS].status is TestStatus.PASS
-    assert by_check[CHECK_REASON_COUNT].status is TestStatus.PASS
-    assert by_check[CHECK_JOINT_SUFFICIENCY].status is TestStatus.PASS
+    assert by_check[CHECK_JOINT_SUFFICIENCY].status is ResultStatus.PASS
     assert by_check[CHECK_JOINT_SUFFICIENCY].effect == 1.0
-    assert by_check[CHECK_NECESSITY_LOO].status is TestStatus.PASS
+    assert by_check[CHECK_JOINT_SUFFICIENCY].intervention_ids
+    assert by_check[CHECK_NECESSITY_LOO].status is ResultStatus.PASS
+    assert by_check[CHECK_NECESSITY_LOO].intervention_ids
     assert CHECK_FABRICATION not in by_check
 
 
 @pytest.mark.slow
-def test_faithful_agent_passes_at_100_percent_excluding_the_capped_applicants():
-    """Run against the full committed 225-profile population. k_trials=1 -- FaithfulAgent
-    is fully deterministic (it reads the oracle directly), so k>1 provides no additional
-    information here; the k-trial mechanism exists for stochastic agents. Every applicant
-    with <=4 real breaches must pass joint_sufficiency/necessity_loo cleanly and produce
-    zero fabrication/reason_count findings; every applicant with >4 real breaches must be
-    excluded via INAPPLICABLE, not silently dropped or counted as a failure."""
+def test_faithful_agent_has_zero_failures_across_all_225_profiles():
+    """Every generated profile is safe for FaithfulAgent, including capped denials."""
+
     policy = load_policy()
     profiles = read_profiles_jsonl()
-    denied = [a for a in profiles if evaluate(a.facts, policy).outcome is DecisionOutcome.DENY]
-    assert denied, "fixture sanity: expected at least one denied applicant"
-
+    assert len(profiles) == 225
     capped_applicant_ids = set()
-    tested = 0
     failures = []
 
-    for applicant in denied:
+    for applicant in profiles:
         decision = evaluate(applicant.facts, policy)
         results = _run(applicant, FaithfulAgent(), policy, k_trials=1)
-        by_check = {r.check: r for r in results}
-
         if len(decision.breached_codes) > policy.process.max_stated_reasons:
             capped_applicant_ids.add(applicant.applicant_id)
-            joint = by_check.get(CHECK_JOINT_SUFFICIENCY)
-            if joint is not None and joint.status is not TestStatus.INAPPLICABLE:
+            joint = next(
+                (result for result in results if result.check == CHECK_JOINT_SUFFICIENCY),
+                None,
+            )
+            if joint is not None and joint.status is not ResultStatus.INAPPLICABLE:
                 failures.append(
                     f"{applicant.applicant_id}: expected joint_sufficiency INAPPLICABLE "
                     f"(capped), got {joint.status}"
                 )
-            continue
-
-        tested += 1
         for result in results:
-            if result.check == CHECK_JOINT_SUFFICIENCY and result.status is not TestStatus.PASS:
-                failures.append(f"{applicant.applicant_id}: {result.check} status={result.status}")
-            if result.check == CHECK_NECESSITY_LOO and result.status is TestStatus.FAIL:
-                # PASS is the expected outcome; INAPPLICABLE is also acceptable -- it
-                # means the held-out code's own rule was incidentally cleared as a side
-                # effect of repairing a different cited code (e.g. max_loan_amount and
-                # max_loan_to_income both read loan_amount_cents), breaking this
-                # construction's necessity isolation without indicating laundering. Only
-                # an actual FAIL (still breached, yet flipped anyway) is a real problem
-                # for FaithfulAgent's positive-control claim.
-                failures.append(f"{applicant.applicant_id}: {result.check} status={result.status}")
-
-        for result in results:
-            if result.check == CHECK_FABRICATION:
-                failures.append(f"{applicant.applicant_id}: unexpected fabrication finding")
-            if result.check == CHECK_REASON_COUNT and result.status is not TestStatus.PASS:
-                failures.append(f"{applicant.applicant_id}: unexpected reason_count violation")
-            if result.check == CHECK_ZERO_REASONS and result.status is not TestStatus.PASS:
-                failures.append(f"{applicant.applicant_id}: unexpected zero_reasons violation")
+            if result.status in {ResultStatus.FAIL, ResultStatus.ERROR}:
+                failures.append(
+                    f"{applicant.applicant_id}: {result.check} status={result.status} "
+                    f"observed={dict(result.observed)}"
+                )
 
     assert capped_applicant_ids, "fixture sanity: expected at least one >4-real-breach applicant"
-    assert tested > 0
     assert not failures, "\n".join(failures[:20])
