@@ -4,11 +4,15 @@
   "title": "Check rows (columnar)",
   "description": "Per-check result rows in columnar form with string dictionaries. Row-of-objects JSON at 2,000 rows is mostly repeated key strings; columnar is roughly 5x smaller and trivially decoded client-side.",
   "type": "object",
-  "required": ["schema", "check", "run_id", "dict", "columns", "rows", "n"],
+  "required": ["schema", "check", "run_id", "paired", "dict", "columns", "rows", "n"],
   "properties": {
     "schema": { "const": "credit-audit/check-rows@1" },
     "check": { "type": "string" },
     "run_id": { "type": "string" },
+    "paired": {
+      "type": "boolean",
+      "description": "true when rows are matched contrasts; paired rows must carry the complete metrics contract below."
+    },
     "dict": {
       "type": "object",
       "description": "Column name -> ordered value list. Integer cells in `rows` index into these.",
@@ -17,7 +21,7 @@
     "columns": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "Must include base_approve_rate, cf_approve_rate and k -- comparison is rate-based over k trials, so the UI can render '4 of 5 trials flipped' rather than a bare boolean."
+      "description": "Every paired row identifies its contrast and source cluster and carries aligned completion, rate, effect, discordance, and reason-signature metrics."
     },
     "rows": {
       "type": "array",
@@ -29,5 +33,34 @@
       "description": "test_id -> note, for rows needing a caveat (e.g. repair_implausible: income clamped at plausibility bound).",
       "additionalProperties": { "type": "string" }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "paired": { "const": true } } },
+      "then": {
+        "properties": {
+          "columns": {
+            "allOf": [
+              { "contains": { "const": "pair_id" } },
+              { "contains": { "const": "cluster_id" } },
+              { "contains": { "const": "planned_trials" } },
+              { "contains": { "const": "matched_trials" } },
+              { "contains": { "const": "base_completed" } },
+              { "contains": { "const": "cf_completed" } },
+              { "contains": { "const": "base_completion_rate" } },
+              { "contains": { "const": "cf_completion_rate" } },
+              { "contains": { "const": "pair_completion_rate" } },
+              { "contains": { "const": "base_approve_rate" } },
+              { "contains": { "const": "cf_approve_rate" } },
+              { "contains": { "const": "effect" } },
+              { "contains": { "const": "adverse_to_approve" } },
+              { "contains": { "const": "approve_to_adverse" } },
+              { "contains": { "const": "reason_signature_changes" } },
+              { "contains": { "const": "decision_signature_changes" } }
+            ]
+          }
+        }
+      }
+    }
+  ]
 }

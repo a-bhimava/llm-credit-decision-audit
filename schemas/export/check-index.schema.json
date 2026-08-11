@@ -26,7 +26,7 @@
           "prereg": { "type": "boolean" },
           "judge_free": {
             "type": "boolean",
-            "description": "true when the check requires no LLM judge and no human labels. Five of six families are judge-free by design; the boundary is stated rather than blurred."
+            "description": "true when the check requires no LLM judge and no human labels. Every implemented Phase 5/6 family is judge-free."
           },
           "n": { "type": "integer" },
           "pass": { "type": "integer" },

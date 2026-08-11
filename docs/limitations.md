@@ -121,13 +121,14 @@ our own modeling choices, tuned so every rule's natural breach rate falls inside
 `credit_score`'s mapping from `z` is tied to a citation (§5); everything else in that module
 is disclosed here as uncited by construction.
 
-## 7. Demographic signals are retained, never shown
+## 7. Analysis labels stay hidden; synthetic proxy signals are evaluated
 
 Each Stage-A applicant's `Presentation.demographic_tags` carries the sampled HMDA cell's
-race/ethnicity/sex/age-band labels verbatim (`source="hmda_sample"`). Per
-`types.DemographicTags`' own contract, these are **never rendered** to an agent and never
-scored by the oracle — they exist so a later phase's demographic-invariance arm can realize
-them through `Presentation.applicant_name` and estimate disparities after the fact, and so
-disparities can be estimated against a real-world-anchored demographic distribution rather
-than a uniform synthetic one. They are retained data, not evaluated inputs, at every stage
-this phase touches.
+race/ethnicity/sex/age-band labels (`source="hmda_sample"`). Those analysis labels are never
+rendered and are never scored by the oracle.
+
+Phase 6 separately evaluates provider-visible synthetic proxy signals using the committed,
+hashed Census-surname and SSA-first-name catalog, plus pronouns and graduation year. Those
+contrasts rotate templates deterministically and keep protected-class labels hidden. Their
+results are proxy-signal invariance checks, not proof of discrimination and not estimates of
+effects in the HMDA population; statistical inference remains Phase 7.

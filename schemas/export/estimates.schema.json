@@ -53,7 +53,7 @@
               "B": { "type": ["integer", "null"] },
               "cluster": {
                 "type": ["string", "null"],
-                "description": "The resampling unit. Should be pair_id -- resampling at the response level understates the CI."
+                "description": "The resampling unit. Must be cluster_id (the originating source applicant), not a response or pair_id; sibling profiles and contrasts are dependent."
               },
               "z0": { "type": ["number", "null"] },
               "a": { "type": ["number", "null"] },

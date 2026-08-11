@@ -1,106 +1,131 @@
 # llm-credit-decision-audit
 
-**An audit harness that tests whether an LLM underwriting agent's stated adverse-action reasons
-are the reasons it actually acted on — by repairing the cited factor and re-running.
-No judge, no labels.**
+**A causal audit harness for testing whether an underwriting agent's stated adverse-action
+reasons are the reasons it actually acted on.**
 
-> ### Status: scaffolding — Phase 0 of 11
+> ### Status: implementation through Phase 6
 >
-> There are **no results yet**. Nothing in this README is a measurement, because no evaluation
-> has been run. When results exist they will come from a committed run manifest with a content
-> hash, and this notice will say so.
+> Phase 5 reason-validity hardening and the Phase 6 judge-free checks are implemented and
+> validated against deterministic scripted agents. No hosted model has been evaluated and
+> there are **no provider findings to report**. Everything implemented through Phase 6 makes
+> zero API calls.
 
 ---
 
 ## The problem
 
-An LLM denies a loan application and writes: *"Denied — insufficient income."*
+An agent denies a loan application and writes: *"Denied — insufficient income."*
 
-Under **[12 CFR §1002.9](https://www.consumerfinance.gov/rules-policy/regulations/1002/9/)**
-(ECOA / Regulation B), that sentence carries legal weight. A creditor taking adverse action must
-state the **specific principal reasons**, and those reasons must reflect factors *actually
-considered or scored*. The official interpretation is explicit that reasons based on "the
-creditor's internal standards or policies" are insufficient.
+Under **[12 CFR §1002.9](https://www.consumerfinance.gov/rules-policy/regulations/1002/9/)**,
+an adverse-action notice must state specific principal reasons that reflect the factors
+actually considered. A reason can be grounded in the file and fluent while still not being the
+reason that drove the decision. This harness tests that causal claim directly rather than
+asking another model to judge the explanation.
 
-Nothing forces the LLM's sentence to be true.
+The policy used here is synthetic and the applicants are synthetic. A finding means that an
+agent produced a notice that would be deficient under the tested policy and §1002.9 if issued;
+it is not a determination that a model or lender violated ECOA.
 
-The model may have denied on credit score, or on a proxy it should not have used, or on nothing
-coherent at all — and then written a fluent, plausible, legally false explanation. The
-literature calls this **reason-code laundering**. It is not a hallucination in the usual sense:
-the stated reason is often a genuine weakness in the file. It just isn't the reason the model
-acted on.
+## The reason-validity test
 
-Existing evaluation tooling scores that output as grounded, policy-compliant, and semantically
-accurate. All three are correct, and all three miss the violation.
+Every comparison is a trial-index-aligned pair. Only an explicit approval is `APPROVE`; a
+denial or demonstrably worse counteroffer is `ADVERSE`; referrals, refusals, missing decisions,
+and unclassifiable counteroffers are `NO_DECISION`. A one-sided incomplete pair is an error.
+Two-sided incompletions are excluded from the decision denominator and remain visible in the
+pair-completion rate.
 
-## The test
+The isolation design handles applicants with several simultaneous policy breaches:
 
-Causal, deterministic, and judge-free:
-
-```
-  decision = DENY,  stated reason = "insufficient income"
-      │
-      ▼   repair only the cited factor — raise income past the policy threshold,
-          holding every other fact and all presentation bit-identical
-      │
-  APPROVE → the reason was binding                  FAITHFUL
-  DENY    → the reason was not binding              DEFICIENT under §1002.9
-```
-
-The naive form of this test is wrong, and correcting it is the methodological contribution.
-"Repair the one cited reason; if it doesn't flip, the reason is false" breaks whenever two
-constraints bind simultaneously — the common case in realistic denials, and exactly where
-laundering hides. The harness runs three tests per denied applicant instead:
-
-| Test | Construction | A failure means |
+| Check | Matched construction | Failure means |
 |---|---|---|
-| **Joint sufficiency** | Repair **all** cited reasons together → must flip to approve | The stated reason set is incomplete — an omitted principal reason |
-| **Leave-one-out necessity** (per reason `rᵢ`) | Repair every cited reason **except** `rᵢ`. If it still flips, `rᵢ` wasn't binding | `rᵢ` is spurious |
-| **Omission scan** | Repair a factor that breaches policy but was **not** cited | A principal reason was omitted |
+| **Joint sufficiency** | Original applicant → all cited, reachable policy reasons repaired | The cited set does not account for the adverse decision |
+| **Cited-reason necessity** | Only cited reason `r` remains → all oracle breaches repaired | `r` was not shown to be binding |
+| **Omission** | The same isolation pair for an uncited principal reason `r` | A binding principal reason was omitted |
 
-Comparison is rate-based over *k* trials, never a single flip, because agents are stochastic.
+The all-repaired arm is the experimental control. If it does not establish isolation, the
+result is `INAPPLICABLE`, never a pass. “Principal” means the oracle's ranked unique breached
+codes, truncated at the synthetic policy's configured maximum. The current maximum is four;
+that is **not a statutory cap**. The
+[official Regulation B interpretation](https://www.consumerfinance.gov/rules-policy/regulations/1002/interp-9/)
+does not mandate a number and says that disclosure of more than four reasons is unlikely to be
+helpful.
 
-## How the harness proves itself
+Facially invalid, vague, unmapped, and reason-count findings belong to policy adherence.
+`reason_validity.fabrication` is narrower: it covers a cited, reachable, rule-backed code that
+the applicant did not breach.
 
-The obvious objection — *"how do you know a failed repair means the reason was false, rather
-than that your repair was broken?"* — is answered by running the whole thing against **scripted
-agents whose true decision rule is written in the repo**. `LaunderingAgent` secretly denies on
-credit score while always stating "insufficient income"; `FaithfulAgent` states exactly the
-binding thresholds. The harness must catch the first and clear the second.
+## Phase 6 checks
 
-That known-answer table will be published here, alongside the checks that must **not** fire — a
-harness that fails everything catches everything, so specificity is reported with equal weight.
+Phase 6 runs all contrasts through one immutable `PairPlan`/`ArmPlan` execution path with
+common trial seeds, arm-specific episode identities, and a normalized decision signature.
 
-## Planned scope
+- **Policy adherence:** required tools must succeed before submission, code-specific tools are
+  enforced, prohibited-tool attempts and prohibited presentation factors are caught, reason
+  vocabulary/count rules are separated, and the submitted decision is checked against the
+  oracle. Completing the task does not erase a policy failure.
+- **Monotonicity:** absolute boundary-straddling interventions test income, credit score, DTI
+  through monthly debt, and minor and major delinquency counts in their declared directions.
+- **Invariance:** deterministic statement ordering, JSON field ordering, and a committed
+  hand-authored note paraphrase preserve the semantic application packet.
+- **Serialization:** table, prose, and JSON receive the same complete semantic packet and are
+  compared on outcome, terms, risk grade, and ordered reason codes—not wording.
+- **Proxy-signal blindness:** authority, surname, first-name/pronoun, and cohort/graduation-year
+  contrasts keep financial facts fixed. Protected-class analysis labels never enter the
+  rendered packet. These are proxy-signal invariance tests under a stated causal assumption,
+  not proof of discrimination.
 
-Six check families, five of them requiring no LLM judge and no human labels: reason validity,
-policy adherence, monotonicity, invariance, serialization fragility, and counterfactual bias
-(demographic / authority / framing arms). Every reported number ships with a confidence
-interval clustered at the matched-pair level, a paired test, and multiplicity correction across
-pre-registered families.
+Framing interventions are deferred. Statistical inference, preregistration, run/export CLI,
+provider adapters, and the evidence site begin in later phases.
+
+## Evidence integrity
+
+- Evidence payloads are recursively immutable and hashable; mutable JSON containers appear
+  only at schema/provider boundaries.
+- `applicant_id` is the stable selected experimental unit. A separate content ID identifies
+  each facts-and-presentation variant.
+- `episode_id` hashes the plan key; `trajectory_id` hashes the realized semantic message,
+  tool-call, tool-result, decision, and termination history.
+- Tool evidence retains provider call IDs, assistant requests, correlated results, turn index,
+  arguments, success, and errors.
+- `pair_id` names one contrast. `cluster_id` names the originating source applicant, so sibling
+  variants can be resampled together in Phase 7.
+- Cache identity includes the complete episode context. Cached/replayed responses preserve
+  telemetry but have zero cost in the current run.
+
+## Known-answer validation
+
+The controls' true rules are code in this repository. `FaithfulAgent` is the `must_not_fire`
+control for every family. Defect agents independently plant laundering, omission, shortcuts,
+trap-tool use, prohibited reasons, excessive reasons, wrong decisions, non-monotonic behavior,
+serialization sensitivity, visible-order/paraphrase sensitivity, authority sensitivity, and
+demographic-proxy sensitivity. This tests both sensitivity and specificity without an LLM
+judge or human labels.
 
 ## Development
 
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'
+python3 -m venv .venv
+.venv/bin/pip install -e '.[dev]'
 .venv/bin/pytest
+.venv/bin/ruff check .
+.venv/bin/ruff format --check .
 ```
 
-Requires Python 3.11+. Phases 0–8 make **zero API calls** by design — the scripted agents are
-deterministic, so the harness is fully testable before any model is ever contacted.
+Supported Python versions are 3.11–3.14. There is intentionally no console entry point yet;
+the run/export CLI belongs to Phase 8.
 
 ## Documentation
 
-- [`docs/roadmap.md`](docs/roadmap.md) — the phased build plan and what each phase must prove
-- [`docs/architecture.md`](docs/architecture.md) — types, agent environment, reason engine, verification design
-- [`docs/related-work.md`](docs/related-work.md) — the competitive map and the precise novelty delta
+- [`docs/roadmap.md`](docs/roadmap.md) — completed and deferred phases
+- [`docs/architecture.md`](docs/architecture.md) — evidence identities, execution, and checks
+- [`docs/related-work.md`](docs/related-work.md) — competitive map and novelty delta
 
 ## Disclaimer
 
 Synthetic lender policy, synthetic applicants. This is a research and evaluation tool. It is
-**not legal advice and not a compliance certification**, and it does not assess any real
-lender's underwriting. Where results describe a model, they describe a specific prompt and tool
-scaffold under a specific policy — not a model in general.
+**not legal advice or a compliance certification**, and it does not assess a real lender's
+underwriting. A result describes one agent, prompt, tool scaffold, and policy configuration—not
+a model in general.
 
 ## License
 

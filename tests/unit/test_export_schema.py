@@ -1,8 +1,7 @@
-"""The export contract.
+"""The pre-release export contract.
 
-These schemas are frozen in Phase 0 on purpose: the web app is coded against generated types
-rather than against an imagined shape of the data, which is what lets the site ship on
-scripted-agent data in Phase 10 and change nothing when real model data arrives.
+The schemas are updated in place through Phase 6 because no published run requires migration.
+Phase 8 will freeze the first published bundle version before the site consumes generated types.
 """
 
 from __future__ import annotations
@@ -96,11 +95,107 @@ def test_pair_sides_are_always_trial_arrays():
     assert set(side["required"]) >= {"trials", "approve_rate"}
 
 
+def test_pair_schema_separates_contrast_cluster_and_variant_identity():
+    schema = json.loads((SCHEMA_DIR / "pair.schema.json").read_text())
+
+    assert set(schema["required"]) >= {"pair_id", "cluster_id", "seed_group", "metrics"}
+    applicant = schema["properties"]["applicant"]
+    assert set(applicant["required"]) >= {
+        "applicant_id",
+        "base_content_id",
+        "cf_content_id",
+    }
+
+
+def test_pair_metrics_lock_the_aligned_trial_contract():
+    schema = json.loads((SCHEMA_DIR / "pair.schema.json").read_text())
+    required = set(schema["properties"]["metrics"]["required"])
+
+    assert required >= {
+        "planned_trials",
+        "matched_trials",
+        "base_completed",
+        "cf_completed",
+        "base_completion_rate",
+        "cf_completion_rate",
+        "pair_completion_rate",
+        "base_approve_rate",
+        "cf_approve_rate",
+        "effect",
+        "adverse_to_approve",
+        "approve_to_adverse",
+        "reason_signature_changes",
+        "decision_signature_changes",
+    }
+
+
+def test_pair_trials_require_correlated_semantic_evidence():
+    schema = json.loads((SCHEMA_DIR / "pair.schema.json").read_text())
+    trial = schema["$defs"]["side"]["properties"]["trials"]["items"]
+    tool_call = schema["$defs"]["tool_call"]
+
+    assert set(trial["required"]) >= {
+        "seed",
+        "episode_id",
+        "trajectory_id",
+        "applicant_content_id",
+        "prompt_hash",
+        "input_hash",
+        "messages",
+        "tool_calls",
+        "usage",
+    }
+    assert trial["properties"]["trial_index"]["minimum"] == 0
+    assert set(trial["properties"]["termination"]["enum"]) == {
+        "submitted",
+        "stop",
+        "max_steps",
+        "max_tokens",
+        "error",
+        "refusal",
+    }
+    terminal_contract = trial["allOf"][0]
+    assert terminal_contract["then"]["properties"]["decision"]["type"] == "object"
+    submit_call = terminal_contract["then"]["properties"]["tool_calls"]["contains"]
+    assert submit_call["properties"]["name"]["const"] == "submit_decision"
+    assert submit_call["properties"]["ok"]["const"] is True
+    assert set(tool_call["required"]) >= {
+        "call_id",
+        "turn_index",
+        "arguments",
+        "result",
+        "ok",
+    }
+
+
+def test_columnar_rows_require_pair_metrics_and_cluster():
+    schema = json.loads((SCHEMA_DIR / "check-rows.schema.json").read_text())
+    assert "paired" in schema["required"]
+    columns = schema["allOf"][0]["then"]["properties"]["columns"]
+    required_names = {rule["contains"]["const"] for rule in columns["allOf"]}
+
+    assert required_names >= {
+        "pair_id",
+        "cluster_id",
+        "planned_trials",
+        "matched_trials",
+        "pair_completion_rate",
+        "base_approve_rate",
+        "cf_approve_rate",
+        "effect",
+        "adverse_to_approve",
+        "approve_to_adverse",
+        "reason_signature_changes",
+        "decision_signature_changes",
+    }
+
+
 def test_estimates_expose_the_clustering_and_ci_fallback():
     """The CI block must say what it resampled on and whether BCa actually ran.
 
-    Resampling at the response level rather than the pair level understates the interval, and
-    a documented BCa fallback must propagate so the site cannot claim BCa when percentile ran.
+    Resampling at the response or contrast level rather than the originating applicant cluster
+    understates the interval, and a documented BCa fallback must propagate so the site cannot
+    claim BCa when percentile ran.
     """
     schema = json.loads((SCHEMA_DIR / "estimates.schema.json").read_text())
     ci = schema["properties"]["estimates"]["items"]["properties"]["ci"]["properties"]
@@ -108,6 +203,39 @@ def test_estimates_expose_the_clustering_and_ci_fallback():
     assert "cluster" in ci
     assert "fallback_used" in ci
     assert "BCa" in ci["method"]["enum"]
+
+
+def test_replay_requires_episode_trajectory_usage_and_call_correlation():
+    schema = json.loads((SCHEMA_DIR / "replay.schema.json").read_text())
+
+    assert set(schema["required"]) >= {
+        "episode_id",
+        "trajectory_id",
+        "termination",
+        "usage",
+    }
+    step = schema["properties"]["steps"]["items"]
+    assert {"call_id", "turn_index", "tool_calls"} <= set(step["properties"])
+
+
+def test_manifest_preserves_cache_and_thought_telemetry():
+    schema = json.loads((SCHEMA_DIR / "manifest.schema.json").read_text())
+    cost = schema["properties"]["cost"]
+
+    assert set(cost["required"]) >= {
+        "thought_tokens",
+        "cache_hits",
+        "replayed_responses",
+        "current_run_cost",
+    }
+
+
+def test_policy_reason_limits_are_explicitly_synthetic():
+    schema = json.loads((SCHEMA_DIR / "policy.schema.json").read_text())
+
+    assert set(schema["required"]) >= {"min_stated_reasons", "max_stated_reasons"}
+    maximum = schema["properties"]["max_stated_reasons"]
+    assert "not a statutory cap" in maximum["description"]
 
 
 def test_planted_defects_require_must_not_fire():
