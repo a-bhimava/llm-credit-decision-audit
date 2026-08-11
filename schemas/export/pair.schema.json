@@ -4,10 +4,18 @@
   "title": "Pair detail",
   "description": "The entire payload of the pair viewer -- the screen that shows the causal test actually ran on this applicant with this one field changed. Every string rendered comes from here; the frontend authors no prose.",
   "type": "object",
-  "required": ["schema", "pair_id", "run_id", "test_id", "check", "family", "status", "verdict", "hypothesis", "applicant", "sides"],
+  "required": ["schema", "pair_id", "cluster_id", "seed_group", "run_id", "test_id", "check", "family", "status", "verdict", "hypothesis", "applicant", "metrics", "sides"],
   "properties": {
     "schema": { "const": "credit-audit/pair@1" },
     "pair_id": { "type": "string" },
+    "cluster_id": {
+      "type": "string",
+      "description": "Originating source applicant used as the Phase 7 resampling cluster. Distinct from pair_id, which identifies only this contrast."
+    },
+    "seed_group": {
+      "type": "string",
+      "description": "Explicit common-random-number group shared by corresponding arms; serialization contrasts may intentionally share one TABLE-anchor group."
+    },
     "run_id": { "type": "string" },
     "test_id": { "type": "string" },
     "check": { "type": "string" },
@@ -32,9 +40,14 @@
 
     "applicant": {
       "type": "object",
-      "required": ["applicant_id", "base", "cf", "diff", "hashes"],
+      "required": ["applicant_id", "base_content_id", "cf_content_id", "base", "cf", "diff", "hashes"],
       "properties": {
         "applicant_id": { "type": "string" },
+        "base_content_id": {
+          "type": "string",
+          "description": "Content identity of the base facts-and-presentation variant; applicant_id remains the stable selected unit."
+        },
+        "cf_content_id": { "type": "string" },
         "base": { "$ref": "#/$defs/side_applicant" },
         "cf": { "$ref": "#/$defs/side_applicant" },
         "diff": {
@@ -46,7 +59,7 @@
               "path": { "type": "string" },
               "before": {},
               "after": {},
-              "layer": { "enum": ["facts", "presentation"] },
+              "layer": { "enum": ["facts", "presentation", "render"] },
               "display": { "type": "string" },
               "intervention_id": { "type": ["string", "null"] },
               "direction": { "type": ["string", "null"] },
@@ -87,6 +100,46 @@
 
     "interventions": { "type": "array", "items": { "type": "object" } },
 
+    "metrics": {
+      "type": "object",
+      "required": [
+        "planned_trials",
+        "matched_trials",
+        "base_completed",
+        "cf_completed",
+        "base_completion_rate",
+        "cf_completion_rate",
+        "bilateral_incomplete",
+        "unilateral_incomplete",
+        "pair_completion_rate",
+        "base_approve_rate",
+        "cf_approve_rate",
+        "effect",
+        "adverse_to_approve",
+        "approve_to_adverse",
+        "reason_signature_changes",
+        "decision_signature_changes"
+      ],
+      "properties": {
+        "planned_trials": { "type": "integer", "minimum": 0 },
+        "matched_trials": { "type": "integer", "minimum": 0 },
+        "base_completed": { "type": "integer", "minimum": 0 },
+        "cf_completed": { "type": "integer", "minimum": 0 },
+        "base_completion_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "cf_completion_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "bilateral_incomplete": { "type": "integer", "minimum": 0 },
+        "unilateral_incomplete": { "type": "integer", "minimum": 0 },
+        "pair_completion_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "base_approve_rate": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "cf_approve_rate": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "effect": { "type": ["number", "null"], "minimum": -1, "maximum": 1 },
+        "adverse_to_approve": { "type": "integer", "minimum": 0 },
+        "approve_to_adverse": { "type": "integer", "minimum": 0 },
+        "reason_signature_changes": { "type": "integer", "minimum": 0 },
+        "decision_signature_changes": { "type": "integer", "minimum": 0 }
+      }
+    },
+
     "sides": {
       "type": "object",
       "required": ["base", "cf"],
@@ -104,7 +157,10 @@
         "properties": {
           "estimate_id": { "type": "string" },
           "role": { "type": "string" },
-          "cluster_id": { "type": ["string", "null"] }
+              "cluster_id": {
+                "type": "string",
+                "description": "Must equal the pair's top-level source-applicant cluster_id."
+              }
         }
       }
     },
@@ -157,21 +213,120 @@
           "description": "Always an array, even at k=1. Comparison is rate-based over k trials; the UI must never present a rate as a single flip.",
           "items": {
             "type": "object",
+            "required": ["trial_index", "seed", "episode_id", "trajectory_id", "applicant_content_id", "prompt_hash", "input_hash", "render", "arm", "termination", "messages", "tool_calls", "decision", "usage"],
             "properties": {
-              "trial_index": { "type": "integer" },
+              "trial_index": { "type": "integer", "minimum": 0 },
+              "seed": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Must be identical across corresponding base/counterfactual trial indices."
+              },
+              "episode_id": {
+                "type": "string",
+                "description": "Hash of the EpisodeKey plan, distinct from the realized trajectory_id."
+              },
               "trajectory_id": { "type": "string" },
+              "applicant_content_id": { "type": "string" },
+              "prompt_hash": { "type": "string" },
+              "input_hash": { "type": "string" },
               "prompt_ref": { "type": "string" },
               "render": { "enum": ["table", "prose", "json"] },
               "arm": { "type": "string" },
-              "termination": { "type": "string" },
+              "termination": {
+                "enum": ["submitted", "stop", "max_steps", "max_tokens", "error", "refusal"]
+              },
               "final_state_hash": { "type": "string" },
-              "messages": { "type": "array", "items": { "type": "object" } },
-              "tool_calls": { "type": "array", "items": { "type": "object" } },
-              "decision": { "type": ["object", "null"] }
-            }
+              "messages": { "type": "array", "items": { "$ref": "#/$defs/message" } },
+              "tool_calls": { "type": "array", "items": { "$ref": "#/$defs/tool_call" } },
+              "decision": { "type": ["object", "null"] },
+              "usage": { "$ref": "#/$defs/usage" }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": { "termination": { "const": "submitted" } },
+                  "required": ["termination"]
+                },
+                "then": {
+                  "properties": {
+                    "decision": { "type": "object" },
+                    "tool_calls": {
+                      "contains": {
+                        "type": "object",
+                        "required": ["name", "ok"],
+                        "properties": {
+                          "name": { "const": "submit_decision" },
+                          "ok": { "const": true }
+                        }
+                      }
+                    }
+                  }
+                },
+                "else": { "properties": { "decision": { "type": "null" } } }
+              }
+            ]
           }
         },
-        "approve_rate": { "type": "number", "minimum": 0, "maximum": 1 }
+        "approve_rate": { "type": ["number", "null"], "minimum": 0, "maximum": 1 }
+      }
+    },
+    "requested_tool_call": {
+      "type": "object",
+      "required": ["call_id", "name", "arguments"],
+      "properties": {
+        "call_id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" },
+        "arguments": { "type": "object" }
+      }
+    },
+    "message": {
+      "type": "object",
+      "required": ["role", "content", "step", "turn_index", "tool_calls"],
+      "properties": {
+        "role": { "enum": ["system", "user", "assistant", "tool"] },
+        "content": { "type": "string" },
+        "step": { "type": "integer", "minimum": 0 },
+        "turn_index": { "type": "integer", "minimum": 0 },
+        "tool_call_id": { "type": ["string", "null"] },
+        "tool_calls": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/requested_tool_call" }
+        }
+      }
+    },
+    "tool_call": {
+      "type": "object",
+      "required": ["call_id", "turn_index", "step", "name", "arguments", "result", "ok", "latency_ms"],
+      "properties": {
+        "call_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Correlates this result to the assistant RequestedToolCall and tool-role message."
+        },
+        "turn_index": { "type": "integer", "minimum": 0 },
+        "step": { "type": "integer", "minimum": 0 },
+        "name": { "type": "string" },
+        "arguments": { "type": "object" },
+        "result": { "type": "object" },
+        "ok": { "type": "boolean" },
+        "error": { "type": ["string", "null"] },
+        "latency_ms": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "usage": {
+      "type": "object",
+      "required": ["input_tokens", "output_tokens", "cached_tokens", "thought_tokens", "cost_usd", "cache_hit", "replayed"],
+      "properties": {
+        "input_tokens": { "type": "integer", "minimum": 0 },
+        "output_tokens": { "type": "integer", "minimum": 0 },
+        "cached_tokens": { "type": "integer", "minimum": 0 },
+        "thought_tokens": { "type": "integer", "minimum": 0 },
+        "cost_usd": { "type": "number", "minimum": 0 },
+        "cache_hit": { "type": "boolean" },
+        "replayed": {
+          "type": "boolean",
+          "description": "When true, cost_usd is zero for the current run."
+        }
       }
     }
   }

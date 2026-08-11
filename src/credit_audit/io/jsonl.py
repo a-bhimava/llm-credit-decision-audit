@@ -1,11 +1,9 @@
-"""The single serialization boundary.
+"""Canonical JSONL primitives for datasets and future persisted run artifacts.
 
-Every stage of the pipeline (``plan -> execute -> derive -> execute -> score -> stats ->
-report -> export``) reads and writes JSONL through this module, which is what makes the run
-resumable: the process can be killed at any point and restarted without losing work.
-
-Writes go through :func:`credit_audit.ids.canonical_json`, so two runs that produce the same
-records produce byte-identical files.
+Phase 6 uses this boundary for deterministic fixture I/O. Phase 8 will route planner,
+execution, scoring, and export stages through persisted JSONL to make runs resumable. Writes
+already use :func:`credit_audit.ids.canonical_json`, so equal records produce byte-identical
+files.
 """
 
 from __future__ import annotations

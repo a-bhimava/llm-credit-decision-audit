@@ -2,16 +2,34 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "credit-audit/replay@1",
   "title": "Recorded episode replay",
-  "description": "A step-through of a real recorded episode, driven from the committed cassette. The site never calls a live model: a replay of a hash-verified recorded episode is strictly better evidence, because a live call proves nothing about what the published run actually did.",
+  "description": "Pre-release contract for a future step-through of a hash-verified recorded episode. Phase 9 supplies cassettes; no current Phase 6 artifact claims a provider replay.",
   "type": "object",
-  "required": ["schema", "episode_id", "run_id", "recorded", "steps"],
+  "required": ["schema", "episode_id", "trajectory_id", "run_id", "recorded", "termination", "usage", "steps"],
   "properties": {
     "schema": { "const": "credit-audit/replay@1" },
     "episode_id": { "type": "string" },
     "trajectory_id": { "type": "string" },
     "run_id": { "type": "string" },
     "pair_id": { "type": ["string", "null"] },
+    "cluster_id": {
+      "type": ["string", "null"],
+      "description": "Originating source applicant when this episode contributes to a paired result."
+    },
     "side": { "enum": ["base", "cf"] },
+    "termination": { "enum": ["submitted", "stop", "max_steps", "max_tokens", "error", "refusal"] },
+    "usage": {
+      "type": "object",
+      "required": ["input_tokens", "output_tokens", "cached_tokens", "thought_tokens", "cost_usd", "cache_hit", "replayed"],
+      "properties": {
+        "input_tokens": { "type": "integer", "minimum": 0 },
+        "output_tokens": { "type": "integer", "minimum": 0 },
+        "cached_tokens": { "type": "integer", "minimum": 0 },
+        "thought_tokens": { "type": "integer", "minimum": 0 },
+        "cost_usd": { "type": "number", "minimum": 0 },
+        "cache_hit": { "type": "boolean" },
+        "replayed": { "type": "boolean" }
+      }
+    },
     "recorded": {
       "const": true,
       "description": "Always true, and surfaced as a persistent non-dismissible label. Nothing here is live."
@@ -40,6 +58,12 @@
         "properties": {
           "i": { "type": "integer", "minimum": 0 },
           "kind": { "enum": ["system", "user", "assistant", "tool_call", "decision"] },
+          "step": { "type": "integer", "minimum": 0 },
+          "turn_index": { "type": "integer", "minimum": 0 },
+          "call_id": {
+            "type": "string",
+            "description": "Provider call ID used to correlate the assistant request and tool result."
+          },
           "title": { "type": "string" },
           "body": { "type": "string" },
           "body_ref": { "type": "string" },
@@ -47,6 +71,20 @@
           "arguments": { "type": "object" },
           "result": { "type": "object" },
           "ok": { "type": "boolean" },
+          "error": { "type": ["string", "null"] },
+          "tool_calls": {
+            "type": "array",
+            "description": "Assistant-requested tool calls retained on the assistant message.",
+            "items": {
+              "type": "object",
+              "required": ["call_id", "name", "arguments"],
+              "properties": {
+                "call_id": { "type": "string" },
+                "name": { "type": "string" },
+                "arguments": { "type": "object" }
+              }
+            }
+          },
           "latency_ms": {
             "type": "integer",
             "description": "The recorded latency. The UI time-compresses playback and says so; it never fabricates dramatic pauses."
@@ -62,7 +100,13 @@
           },
           "decision": { "type": "object" },
           "spans": { "type": "array", "items": { "type": "object" } }
-        }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "kind": { "const": "tool_call" } } },
+            "then": { "required": ["call_id", "step", "turn_index", "name", "arguments", "result", "ok"] }
+          }
+        ]
       }
     },
     "state_timeline": {

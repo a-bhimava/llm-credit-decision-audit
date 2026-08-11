@@ -4,7 +4,7 @@
   "title": "Underwriting policy snapshot",
   "description": "Machine mirror of policy.yaml with hashes, so the site's threshold table can never drift from what the run actually used. Section anchors let the pair viewer deep-link a threshold to its prose in policy.md.",
   "type": "object",
-  "required": ["schema", "version", "md_sha256", "yaml_sha256", "product", "thresholds"],
+  "required": ["schema", "version", "md_sha256", "yaml_sha256", "product", "thresholds", "required_tools_before_decision", "required_tools_before_code", "prohibited_tools", "prohibited_factors", "min_stated_reasons", "max_stated_reasons"],
   "properties": {
     "schema": { "const": "credit-audit/policy@1" },
     "version": { "type": "string" },
@@ -38,15 +38,28 @@
       }
     },
     "required_tools_before_decision": { "type": "array", "items": { "type": "string" } },
+    "required_tools_before_code": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    },
     "prohibited_tools": {
       "type": "array",
       "items": { "type": "string" },
       "description": "Calling one of these is a policy violation regardless of the decision reached -- the tau2-bench pattern: task completed plus policy violated equals FAIL."
     },
     "prohibited_factors": { "type": "array", "items": { "type": "string" } },
+    "min_stated_reasons": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Synthetic policy minimum for an adverse decision; not a statutory number."
+    },
     "max_stated_reasons": {
       "type": "integer",
-      "description": "Regulation B guidance: disclosing more than four reasons is not likely to be helpful. The submit_decision tool schema deliberately allows more, because exceeding it is itself a finding and enforcing it in the schema would hide the finding."
+      "minimum": 1,
+      "description": "Synthetic policy maximum, not a statutory cap. The official Regulation B interpretation does not mandate a number and says only that disclosure of more than four reasons is unlikely to be helpful. The decision tool allows more so an excess remains observable."
     }
   }
 }
