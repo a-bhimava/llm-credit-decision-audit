@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import gzip
 import os
+import tempfile
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -26,12 +27,13 @@ def cache_key(
     system: str,
     messages: tuple[Message, ...],
     tools: tuple[ToolSpec, ...],
+    context_hash: str,
 ) -> str:
-    """Deliberately excludes ``req.env_state`` -- see model/client.py's docstring on why
-    that is correct rather than a gap: applicant-specific facts already flow through
-    ``messages`` via prior tool results. Deliberately includes ``seed`` inside
-    ``params`` (trial-unique by construction), so real trials at temperature>0 get
-    distinct cache slots instead of one draw silently reused across all k trials.
+    """Hash every provider-visible request field plus its episode input context.
+
+    ``context_hash`` isolates first-turn requests even before applicant-specific data has
+    appeared in tool-result messages.  ``seed`` remains in ``params`` so stochastic trials
+    never silently reuse one draw.
     """
     return content_id(
         {
@@ -41,6 +43,7 @@ def cache_key(
             "system": system,
             "messages": messages,
             "tools": tools,
+            "context_hash": context_hash,
         }
     )
 
@@ -65,10 +68,15 @@ class ResponseCache:
     def put(self, key: str, response: ModelResponse) -> None:
         path = self._path(key)
         path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(".tmp")
-        with gzip.open(tmp, "wt", encoding="utf-8") as handle:
-            handle.write(response.model_dump_json())
-        os.replace(tmp, path)
+        fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+        os.close(fd)
+        tmp = Path(tmp_name)
+        try:
+            with gzip.open(tmp, "wt", encoding="utf-8") as handle:
+                handle.write(response.model_dump_json())
+            os.replace(tmp, path)
+        finally:
+            tmp.unlink(missing_ok=True)
 
 
 class CachedClient:
@@ -96,11 +104,16 @@ class CachedClient:
             system=req.system,
             messages=req.messages,
             tools=req.tools,
+            context_hash=req.context_hash,
         )
         cached = self.cache.get(key)
         if cached is not None:
             return cached.model_copy(
-                update={"usage": cached.usage.model_copy(update={"replayed": True})}
+                update={
+                    "usage": cached.usage.model_copy(
+                        update={"cost_usd": 0.0, "cache_hit": True, "replayed": True}
+                    )
+                }
             )
         response = await self.inner.complete(req)
         self.cache.put(key, response)

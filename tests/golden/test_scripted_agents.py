@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import patch
 
-from credit_audit.env.episode import run_episode
+from credit_audit.env.episode import build_episode_key, run_episode
 from credit_audit.ids import content_id
 from credit_audit.model.client import ModelResponse, ToolCallRequested
 from credit_audit.model.scripted import (
@@ -25,19 +25,7 @@ from credit_audit.model.scripted import (
     StochasticAgent,
     VagueAgent,
 )
-from credit_audit.types import DecisionOutcome, EpisodeKey, ReasonCode, RenderMode, Termination
-
-
-def _key(applicant_id, *, model_id, render_id=RenderMode.TABLE, trial_index=0, seed=1729):
-    return EpisodeKey(
-        applicant_id=applicant_id,
-        arm_id="control",
-        render_id=render_id,
-        trial_index=trial_index,
-        model_id=model_id,
-        prompt_hash="stub",
-        seed=seed,
-    )
+from credit_audit.types import DecisionOutcome, ReasonCode, RenderMode, Termination
 
 
 def _run(
@@ -50,15 +38,24 @@ def _run(
     reason_mode="coded",
     **kw,
 ):
-    key = _key(applicant.applicant_id, model_id=client.model_id, render_id=render_mode, **kw)
-    text = render_stub(applicant, render_mode, policy)
+    # Retained only as a fixture-level compatibility input for the older golden call sites;
+    # episode construction itself now enforces the canonical renderer.
+    del render_stub
+    key = build_episode_key(
+        applicant=applicant,
+        arm_id="control",
+        render_id=render_mode,
+        trial_index=kw.get("trial_index", 0),
+        model_id=client.model_id,
+        policy=policy,
+        reason_mode=reason_mode,
+        seed=kw.get("seed", 1729),
+    )
     return asyncio.run(
         run_episode(
             key=key,
             applicant=applicant,
             policy=policy,
-            application_text=text,
-            applicant_ref=applicant.applicant_id,
             client=client,
             reason_mode=reason_mode,
         )

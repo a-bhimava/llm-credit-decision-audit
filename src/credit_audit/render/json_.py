@@ -13,11 +13,13 @@ payload was written against.
 from __future__ import annotations
 
 import json as _json
-from decimal import Decimal
+import random
+from collections.abc import Mapping
 from typing import Any
 
+from credit_audit.ids import derive_seed
 from credit_audit.policy.loader import Policy
-from credit_audit.render.reference import applicant_reference_for
+from credit_audit.render.packet import RenderOptions, build_application_packet
 from credit_audit.types import Applicant, RenderMode
 
 _EXPECTED_RENDERABLE_FIELDS = frozenset(
@@ -58,56 +60,101 @@ def _check_field_set(policy: Policy) -> None:
         )
 
 
-def _dec(value: Decimal) -> str:
-    return str(value)
+def _reorder(value: Any, seed: int, path: str = "$") -> Any:
+    """Deterministically reorder object fields while preserving every semantic value."""
+
+    if isinstance(value, Mapping):
+        items = list(value.items())
+        random.Random(derive_seed(seed, path)).shuffle(items)
+        return {key: _reorder(child, seed, f"{path}.{key}") for key, child in items}
+    if isinstance(value, list):
+        return [_reorder(child, seed, f"{path}[{index}]") for index, child in enumerate(value)]
+    return value
 
 
-def render(applicant: Applicant, mode: RenderMode, policy: Policy) -> str:
+def render(
+    applicant: Applicant,
+    mode: RenderMode,
+    policy: Policy,
+    *,
+    options: RenderOptions | None = None,
+) -> str:
     if mode is not RenderMode.JSON:
         raise ValueError(f"render/json_.py can only render RenderMode.JSON, got {mode!r}")
     _check_field_set(policy)
-    f = applicant.facts
+    packet = build_application_packet(applicant)
+    identity = packet.identity
+    credit = packet.credit_file
 
     payload: dict[str, Any] = {
-        "application_reference": applicant_reference_for(applicant),
+        "application_reference": packet.application_reference,
+        "applicant": {
+            "name": identity.applicant_name,
+            "employer": identity.employer_name,
+            **({"school": identity.school} if identity.school is not None else {}),
+            **(
+                {"referral_note": identity.referral_note}
+                if identity.referral_note is not None
+                else {}
+            ),
+            **({"pronouns": identity.pronouns} if identity.pronouns is not None else {}),
+            **(
+                {"graduation_year": identity.graduation_year}
+                if identity.graduation_year is not None
+                else {}
+            ),
+        },
         "loan_request": {
-            "amount_cents": f.loan_amount_cents,
-            "term_months": f.loan_term_months,
+            "amount_cents": packet.loan_request.amount_cents,
+            "term_months": packet.loan_request.term_months,
         },
         "income": {
-            "annual_income_cents": f.annual_income_cents,
-            "monthly_debt_cents": f.monthly_debt_cents,
-            "debt_to_income_ratio": _dec(f.dti),
-            "income_documented": f.income_documented,
+            "annual_income_cents": packet.income.annual_income_cents,
+            "monthly_debt_cents": packet.income.monthly_debt_cents,
+            "debt_to_income_ratio": packet.income.debt_to_income_ratio,
+            "income_documented": packet.income.income_documented,
         },
         "credit_file": {
-            "credit_score": f.credit_score,
+            "credit_score": credit.credit_score,
             "tradelines": {
-                "open_count": f.open_tradelines,
-                "oldest_age_months": f.oldest_tradeline_months,
+                "open_count": credit.tradelines.open_count,
+                "oldest_age_months": credit.tradelines.oldest_age_months,
             },
             "revolving": {
-                "balance_cents": f.revolving_balance_cents,
-                "limit_cents": f.revolving_limit_cents,
-                "utilization": _dec(f.utilization),
+                "balance_cents": credit.revolving.balance_cents,
+                "limit_cents": credit.revolving.limit_cents,
+                "utilization": credit.revolving.utilization,
             },
             "delinquencies": {
-                "30_59_days_24mo": f.delinq_30d_24m,
-                "60_89_days_24mo": f.delinq_60d_24m,
-                "90_plus_days_24mo": f.delinq_90p_24m,
+                "30_59_days_24mo": credit.delinquencies.days_30_59_24mo,
+                "60_89_days_24mo": credit.delinquencies.days_60_89_24mo,
+                "90_plus_days_24mo": credit.delinquencies.days_90_plus_24mo,
             },
             "public_records": [
                 {"kind": r.kind.value, "months_ago": r.months_ago, "amount_cents": r.amount_cents}
-                for r in f.public_records
+                for r in credit.public_records
             ],
-            "inquiries_6m": f.inquiries_6m,
+            "inquiries_6m": credit.inquiries_6m,
         },
         "employment": {
-            "status": f.employment_status.value,
-            "months": f.employment_months,
+            "status": packet.employment.status,
+            "months": packet.employment.months,
         },
+        "bank_statement": [
+            {
+                "day": txn.day,
+                "description": txn.description,
+                "amount_cents": txn.amount_cents,
+            }
+            for txn in packet.statement_lines
+        ],
+        "application_notes": list(packet.notes),
     }
-    return _json.dumps(payload, indent=2, sort_keys=True) + "\n"
+    options = options or RenderOptions()
+    if options.json_field_order_seed is None:
+        return _json.dumps(payload, indent=2, sort_keys=True) + "\n"
+    reordered = _reorder(payload, options.json_field_order_seed)
+    return _json.dumps(reordered, indent=2, sort_keys=False) + "\n"
 
 
 __all__ = ["render"]

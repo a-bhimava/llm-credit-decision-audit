@@ -26,13 +26,15 @@ from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
-FLOAT_FORMAT = "{:.6f}"
-"""Floats are serialized at fixed precision. Repr differences across platforms and Python
-versions would otherwise break byte-determinism for values that are numerically identical."""
+if TYPE_CHECKING:
+    from credit_audit.types import Applicant, RenderMode
+
+FLOAT_FORMAT = "ieee-754-hex"
+"""Finite floats use Python's lossless, platform-stable IEEE-754 hexadecimal form."""
 
 _SEP = b"\x1f"  # ASCII unit separator; cannot appear in the identifier strings we join.
 
@@ -57,8 +59,9 @@ def _normalize(obj: Any) -> Any:
         # literal "nan" -- a garbage value that looks like data in a published bundle.
         if not math.isfinite(obj):
             raise ValueError(f"non-finite float cannot be canonicalized: {obj!r}")
-        # Normalize signed zero so -0.0 and 0.0 produce identical bytes.
-        return FLOAT_FORMAT.format(obj + 0.0 if obj else 0.0)
+        # Normalize signed zero, then retain every other IEEE-754 bit. Quantizing here can
+        # make distinct decisions share a content identity.
+        return (obj + 0.0 if obj else 0.0).hex()
     if isinstance(obj, int):
         return obj
     if isinstance(obj, str):
@@ -79,8 +82,9 @@ def _normalize(obj: Any) -> Any:
 def canonical_json(obj: Any) -> bytes:
     """Deterministic UTF-8 JSON bytes.
 
-    Sorted keys, no whitespace, ``Decimal`` as string, floats at fixed precision, NaN/Infinity
-    rejected. Two structurally equal objects always produce identical bytes, on any platform.
+    Sorted keys, no whitespace, ``Decimal`` as string, finite floats losslessly encoded in
+    IEEE-754 hexadecimal form, and NaN/Infinity rejected. Two structurally equal objects always
+    produce identical bytes, on any platform.
     """
     return json.dumps(
         _normalize(obj),
@@ -134,12 +138,102 @@ def derive_seed(run_seed: int, *parts: str | int) -> int:
     return int.from_bytes(digest.digest(), "big") & ((1 << 63) - 1)
 
 
+def applicant_content_id(applicant: Applicant) -> str:
+    """Content identity for one rendered experimental variant.
+
+    ``Applicant.applicant_id`` deliberately remains the stable selected experimental
+    unit.  Facts and presentation can change across intervention arms, so callers that
+    need to distinguish those variants use this separate content-addressed identifier.
+    Provenance is intentionally excluded: two records shown to a model are the same
+    variant when their facts and presentation are identical, regardless of how they were
+    constructed.
+    """
+
+    return content_id({"facts": applicant.facts, "presentation": applicant.presentation})
+
+
+def episode_input_hash(
+    applicant: Applicant,
+    *,
+    application_text: str,
+    applicant_ref: str,
+    render_mode: RenderMode,
+) -> str:
+    """Address every applicant-specific input fixed before an episode starts.
+
+    The stable ``applicant_id`` names the selected experimental unit; this hash names the
+    exact variant and provider-visible rendering used for one arm.  Keeping it in the
+    :class:`~credit_audit.types.EpisodeKey` prevents two variants from sharing an episode
+    identity and lets the runner reject application text that no longer matches its key.
+    """
+
+    return content_id(
+        {
+            "applicant_content_id": applicant_content_id(applicant),
+            "application_text": application_text,
+            "applicant_ref": applicant_ref,
+            "render_mode": render_mode,
+        }
+    )
+
+
+def trajectory_content_id(
+    *,
+    episode_id: str,
+    messages: Any,
+    tool_calls: Any,
+    decision: Any,
+    termination: Any,
+) -> str:
+    """Hash the realized semantic history retained as trajectory evidence."""
+
+    semantic_tool_calls = tuple(
+        {
+            "call_id": call.call_id,
+            "turn_index": call.turn_index,
+            "step": call.step,
+            "name": call.name,
+            "arguments": call.arguments,
+            "result": call.result,
+            "ok": call.ok,
+            "error": call.error,
+        }
+        for call in tool_calls
+    )
+    return content_id(
+        {
+            "episode_id": episode_id,
+            "messages": messages,
+            "tool_calls": semantic_tool_calls,
+            "decision": decision,
+            "termination": termination,
+        }
+    )
+
+
+def cluster_id_for(applicant: Applicant) -> str:
+    """Stable resampling cluster for an applicant and all of its sibling variants.
+
+    Generator-created siblings carry the original selected applicant in
+    ``parent_applicant_id``.  Root profiles cluster on their own selected id.  This is
+    distinct from a contrast's ``pair_id``: many pairs may legitimately belong to one
+    source-applicant cluster.
+    """
+
+    root = applicant.provenance.parent_applicant_id or applicant.applicant_id
+    return f"cluster_{short_id({'source_applicant_id': root}, length=16)}"
+
+
 __all__ = [
     "FLOAT_FORMAT",
+    "applicant_content_id",
     "canonical_json",
+    "cluster_id_for",
     "content_id",
     "derive_seed",
+    "episode_input_hash",
     "sha256_bytes",
     "sha256_file",
     "short_id",
+    "trajectory_content_id",
 ]

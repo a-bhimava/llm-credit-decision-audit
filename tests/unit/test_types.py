@@ -13,7 +13,7 @@ import pytest
 from pydantic import BaseModel, ValidationError
 
 from credit_audit import types as T
-from credit_audit.ids import content_id
+from credit_audit.ids import content_id, trajectory_content_id
 
 
 def _all_records() -> list[type[BaseModel]]:
@@ -176,13 +176,13 @@ def test_intervention_declares_its_layer():
     assert T.InterventionSpec.model_fields["layer"].is_required()
 
 
-# -- Invariant 4: pair_id is required ---------------------------------------------------
+# -- Invariant 4: pair and source-cluster IDs are required ------------------------------
 
 
-def test_test_result_requires_pair_id():
-    """``pair_id`` is the bootstrap cluster. Making it mandatory forces every check author to
-    declare the clustering, instead of silently resampling at the response level."""
+def test_test_result_requires_pair_and_cluster_ids():
+    """A contrast and its source experimental unit are distinct required identities."""
     assert T.TestResult.model_fields["pair_id"].is_required()
+    assert T.TestResult.model_fields["cluster_id"].is_required()
 
     with pytest.raises(ValidationError):
         T.TestResult(
@@ -191,6 +191,27 @@ def test_test_result_requires_pair_id():
             family=T.Family.REASON_REPAIR,
             applicant_id="APP-1",
             status=T.TestStatus.FAIL,
+        )
+
+    with pytest.raises(ValidationError):
+        T.TestResult(
+            test_id="t1",
+            check="reason_validity.necessity_loo",
+            family=T.Family.REASON_REPAIR,
+            applicant_id="APP-1",
+            status=T.TestStatus.FAIL,
+            pair_id="pair-1",
+        )
+
+    with pytest.raises(ValidationError, match="must be distinct"):
+        T.TestResult(
+            test_id="t1",
+            check="reason_validity.necessity_loo",
+            family=T.Family.REASON_REPAIR,
+            applicant_id="APP-1",
+            status=T.TestStatus.FAIL,
+            pair_id="same-id",
+            cluster_id="same-id",
         )
 
 
@@ -214,10 +235,21 @@ def test_dict_fields_are_actually_immutable_and_hashable():
     """frozen=True alone only blocks attribute reassignment -- a plain dict field's
     contents could still be mutated in place, and a plain dict is unhashable regardless.
     FrozenDict closes both gaps; this test is the demonstration that it actually does."""
-    call = T.ToolCall(step=0, name="x", arguments={"a": 1}, result={"r": 1})
+    call = T.ToolCall(
+        call_id="c1",
+        turn_index=1,
+        step=0,
+        name="x",
+        arguments={"a": [{"nested": [1, 2]}]},
+        result={"r": {"items": [1]}},
+    )
     assert isinstance(call.arguments, T.FrozenDict)
+    assert isinstance(call.arguments["a"], tuple)
+    assert isinstance(call.arguments["a"][0], T.FrozenDict)
     with pytest.raises(TypeError):
         call.arguments["a"] = 999  # type: ignore[index]
+    with pytest.raises(TypeError):
+        call.arguments["a"][0]["nested"] = ()  # type: ignore[index]
     hash(call)  # must not raise
 
     spec = T.InterventionSpec(
@@ -225,10 +257,24 @@ def test_dict_fields_are_actually_immutable_and_hashable():
         family=T.Family.REASON_REPAIR,
         name="n",
         layer=T.Layer.FACTS,
-        params={"k": "v"},
+        params={"k": [{"v": [1, 2]}]},
     )
     assert isinstance(spec.params, T.FrozenDict)
     hash(spec)
+
+    result = T.TestResult(
+        test_id="t1",
+        check="x",
+        family=T.Family.REASON_REPAIR,
+        applicant_id="APP-1",
+        status=T.TestStatus.PASS,
+        pair_id="p1",
+        cluster_id="cluster-1",
+        observed={"nested": [{"values": [1, 2]}]},
+    )
+    hash(result)
+    with pytest.raises(TypeError):
+        result.observed["nested"][0]["values"] = ()  # type: ignore[index]
 
 
 def test_frozen_dict_behaves_like_a_read_only_dict():
@@ -239,6 +285,133 @@ def test_frozen_dict_behaves_like_a_read_only_dict():
     assert fd == {"a": 1, "b": 2}
     assert sorted(fd.items()) == [("a", 1), ("b", 2)]
     assert hash(fd) == hash(T.FrozenDict({"b": 2, "a": 1}))  # order-independent
+
+
+def test_freeze_thaw_roundtrip_uses_json_containers():
+    original = {"a": [{"b": [1, 2]}], "c": None}
+    frozen = T.freeze_json(original)
+    assert isinstance(frozen, T.FrozenDict)
+    assert T.thaw_json(frozen) == original
+    assert isinstance(T.thaw_json(frozen)["a"], list)
+
+
+def test_frozen_payload_rejects_shallow_frozen_external_models():
+    class ShallowFrozen(BaseModel):
+        model_config = {"frozen": True}
+        values: list[int]
+
+    with pytest.raises(TypeError, match="unsupported mutable"):
+        T.FrozenDict({"nested": ShallowFrozen(values=[1])})
+
+    raw = bytearray(b"abc")
+    payload = T.FrozenDict({"bytes": raw})
+    raw[0] = ord("z")
+    assert payload["bytes"] == b"abc"
+    hash(payload)
+
+
+def test_frozen_base_recursively_freezes_legacy_dict_annotations(policy):
+    """Policy records retain dict annotations, but the shared Frozen base seals them."""
+    assert isinstance(policy.fields, T.FrozenDict)
+    assert isinstance(policy.process.required_tools_before_code, T.FrozenDict)
+    with pytest.raises(TypeError):
+        policy.fields["credit_score"] = policy.fields["credit_score"]  # type: ignore[index]
+    hash(policy)
+
+
+def test_episode_id_is_stable_and_render_layer_exists():
+    key = T.EpisodeKey(
+        applicant_id="APP-1",
+        applicant_content_id="content-1",
+        arm_id="control",
+        render_id=T.RenderMode.TABLE,
+        trial_index=0,
+        model_id="test",
+        prompt_hash="p",
+        input_hash="input-1",
+        seed=1,
+    )
+    assert key.episode_id == T.EpisodeKey(**key.model_dump()).episode_id
+    assert T.Layer.RENDER.value == "render"
+
+    trajectory_id = trajectory_content_id(
+        episode_id=key.episode_id,
+        messages=(),
+        tool_calls=(),
+        decision=None,
+        termination=T.Termination.STOP,
+    )
+    trajectory = T.Trajectory(
+        episode_id=key.episode_id,
+        trajectory_id=trajectory_id,
+        key=key,
+        termination=T.Termination.STOP,
+    )
+    with pytest.raises(ValidationError, match="episode_id"):
+        T.Trajectory(**{**trajectory.model_dump(), "episode_id": "forged"})
+    with pytest.raises(ValidationError, match="trajectory_id"):
+        T.Trajectory(**{**trajectory.model_dump(), "trajectory_id": "forged"})
+
+
+def test_trajectory_terminal_state_and_decision_must_agree():
+    key = T.EpisodeKey(
+        applicant_id="APP-1",
+        applicant_content_id="content-1",
+        arm_id="control",
+        render_id=T.RenderMode.TABLE,
+        trial_index=0,
+        model_id="test",
+        prompt_hash="p",
+        input_hash="input-1",
+        seed=1,
+    )
+    submitted_without_decision_id = trajectory_content_id(
+        episode_id=key.episode_id,
+        messages=(),
+        tool_calls=(),
+        decision=None,
+        termination=T.Termination.SUBMITTED,
+    )
+    with pytest.raises(ValidationError, match="requires a decision"):
+        T.Trajectory(
+            episode_id=key.episode_id,
+            trajectory_id=submitted_without_decision_id,
+            key=key,
+            termination=T.Termination.SUBMITTED,
+        )
+
+    decision = T.Decision(outcome=T.DecisionOutcome.APPROVE, is_adverse_action=False)
+    stopped_with_decision_id = trajectory_content_id(
+        episode_id=key.episode_id,
+        messages=(),
+        tool_calls=(),
+        decision=decision,
+        termination=T.Termination.STOP,
+    )
+    with pytest.raises(ValidationError, match="cannot carry a decision"):
+        T.Trajectory(
+            episode_id=key.episode_id,
+            trajectory_id=stopped_with_decision_id,
+            key=key,
+            decision=decision,
+            termination=T.Termination.STOP,
+        )
+
+    submitted_without_call_id = trajectory_content_id(
+        episode_id=key.episode_id,
+        messages=(),
+        tool_calls=(),
+        decision=decision,
+        termination=T.Termination.SUBMITTED,
+    )
+    with pytest.raises(ValidationError, match="successful submit_decision"):
+        T.Trajectory(
+            episode_id=key.episode_id,
+            trajectory_id=submitted_without_call_id,
+            key=key,
+            decision=decision,
+            termination=T.Termination.SUBMITTED,
+        )
 
 
 def test_ratio_properties_are_isolated_from_the_ambient_decimal_context():

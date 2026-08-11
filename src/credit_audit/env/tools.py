@@ -12,6 +12,7 @@ violation impossible to construct. Policy compliance is *observed* (via
 from __future__ import annotations
 
 import random
+from collections.abc import Mapping
 from decimal import Decimal
 from typing import Any, Literal
 
@@ -30,6 +31,7 @@ from credit_audit.types import (
     ReasonCode,
     StatedReason,
     q4,
+    thaw_json,
 )
 
 ReasonMode = Literal["coded", "freetext"]
@@ -99,17 +101,18 @@ def _get_application(
 
 
 def _fetch_credit_report(
-    state: CreditEnvState, _arguments: dict[str, Any]
+    state: CreditEnvState, arguments: dict[str, Any]
 ) -> tuple[ToolResult, CreditEnvState]:
-    """``applicant_ref`` is validated softly: a present-but-mismatched ref still returns
-    the real report. render/reference.py now derives a canonical ``MPL-...`` reference from
-    an Applicant (Phase 3), but nothing yet wires CreditEnvState.applicant_ref to call it --
-    that's whichever later phase actually starts an episode from a rendered applicant
-    (Phase 8's runner). Hard-rejecting on that contract from inside Phase 2 risks a
-    systematic failure nobody would think to trace back here. Only a schema-invalid ref
-    fails, via jsonschema.validate in dispatch(). Never returns
-    property_value_cents/cltv (unsecured product, out of scope) or income fields (not the
-    bureau's business)."""
+    """Return the bureau subset only for this episode's canonical application reference."""
+    if arguments["applicant_ref"] != state.applicant_ref:
+        return (
+            ToolResult(
+                data={},
+                ok=False,
+                error="applicant_ref does not match this episode's application reference",
+            ),
+            state,
+        )
     facts = state.applicant.facts
     data = {
         "credit_score": facts.credit_score,
@@ -241,6 +244,18 @@ def _parse_submit_decision(
         and credit_limit < facts.loan_amount_cents
     )
 
+    if reason_mode == "coded":
+        parse_status = ParseStatus.STRUCTURED
+    elif any(reason.mapping_method is MappingMethod.UNMAPPED for reason in stated):
+        parse_status = ParseStatus.UNPARSEABLE
+    elif any(
+        reason.mapping_method in (MappingMethod.EMBEDDING, MappingMethod.LLM_REMAP)
+        for reason in stated
+    ):
+        parse_status = ParseStatus.REMAPPED
+    else:
+        parse_status = ParseStatus.HEURISTIC
+
     decision = Decision(
         outcome=outcome,
         apr_bps=arguments.get("apr_bps"),
@@ -248,7 +263,7 @@ def _parse_submit_decision(
         risk_grade=arguments.get("risk_grade"),
         stated_reasons=tuple(stated),
         raw_text=canonical_json(arguments).decode("utf-8"),
-        parse_status=ParseStatus.STRUCTURED,
+        parse_status=parse_status,
         is_adverse_action=is_adverse,
     )
     new_state = state.model_copy(update={"decision": decision})
@@ -282,9 +297,10 @@ def _submit_decision_parameters(reason_mode: ReasonMode) -> dict[str, Any]:
         reasons_schema = {
             "type": "array",
             "minItems": 0,
-            "maxItems": 10,  # deliberately not 4 -- exceeding 4 is itself a §1002.9
-            # finding (Reg B guidance caps stated reasons at 4); capping the schema
-            # would hide that finding instead of letting it be observed.
+            # The provider protocol allows enough room to observe a violation of this
+            # synthetic policy's separately configured maximum rather than hiding it at
+            # schema validation time.
+            "maxItems": 10,
             "items": {
                 "type": "object",
                 "required": ["code", "detail"],
@@ -389,7 +405,7 @@ def _bump(state: CreditEnvState, name: str) -> CreditEnvState:
 def dispatch(
     state: CreditEnvState,
     name: str,
-    arguments: dict[str, Any],
+    arguments: Mapping[str, Any],
     *,
     specs: tuple[ToolSpec, ...],
     reason_mode: ReasonMode,
@@ -414,11 +430,13 @@ def dispatch(
             False,
         )
     try:
-        jsonschema.validate(arguments, spec.parameters)
+        mutable_arguments = thaw_json(arguments)
+        mutable_schema = thaw_json(spec.parameters)
+        jsonschema.validate(mutable_arguments, mutable_schema)
         if name == "submit_decision":
-            result, new_state = _parse_submit_decision(state, arguments, reason_mode)
+            result, new_state = _parse_submit_decision(state, mutable_arguments, reason_mode)
         else:
-            result, new_state = TOOL_FNS[name](state, arguments)
+            result, new_state = TOOL_FNS[name](state, mutable_arguments)
     except Exception as exc:
         return ToolResult(data={}, ok=False, error=str(exc)), _bump(state, name), False
 

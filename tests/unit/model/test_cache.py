@@ -1,8 +1,4 @@
-"""Cache key stability, and the two exclusion/inclusion decisions that matter: env_state
-is excluded (applicant-specific facts already flow through prior tool results in
-`messages`), seed is included (trial-unique by construction, so real stochastic trials
-at temperature>0 get distinct cache slots instead of one draw reused across all k).
-"""
+"""Cache-key stability, episode-context isolation, atomic writes, and replay telemetry."""
 
 from __future__ import annotations
 
@@ -10,27 +6,38 @@ import asyncio
 
 from credit_audit.env.state import CreditEnvState
 from credit_audit.env.tools import tool_specs
+from credit_audit.ids import applicant_content_id, content_id, episode_input_hash
 from credit_audit.model.cache import CachedClient, ResponseCache, cache_key
 from credit_audit.model.client import ModelRequest, ModelResponse
-from credit_audit.types import EpisodeKey, RenderMode
+from credit_audit.render.reference import applicant_reference_for
+from credit_audit.types import EpisodeKey, RenderMode, Usage
 
 
 def _request(applicant, policy_obj, *, seed=1) -> ModelRequest:
+    applicant_ref = applicant_reference_for(applicant)
+    application_text = "stub"
     key = EpisodeKey(
         applicant_id=applicant.applicant_id,
+        applicant_content_id=applicant_content_id(applicant),
         arm_id="control",
         render_id=RenderMode.TABLE,
         trial_index=0,
         model_id="test",
         prompt_hash="stub",
+        input_hash=episode_input_hash(
+            applicant,
+            application_text=application_text,
+            applicant_ref=applicant_ref,
+            render_mode=RenderMode.TABLE,
+        ),
         seed=seed,
     )
     state = CreditEnvState(
         episode_key=key,
         applicant=applicant,
         policy=policy_obj,
-        application_text="stub",
-        applicant_ref=applicant.applicant_id,
+        application_text=application_text,
+        applicant_ref=applicant_ref,
         render_mode=RenderMode.TABLE,
     )
     return ModelRequest(
@@ -42,6 +49,7 @@ def _request(applicant, policy_obj, *, seed=1) -> ModelRequest:
         top_p=None,
         max_tokens=None,
         seed=seed,
+        context_hash=content_id({"applicant": applicant, "application_text": "stub"}),
         env_state=state,
     )
 
@@ -56,6 +64,7 @@ def _key_for(req: ModelRequest, **param_overrides) -> str:
         system=req.system,
         messages=req.messages,
         tools=req.tools,
+        context_hash=req.context_hash,
     )
 
 
@@ -74,6 +83,7 @@ def test_cache_key_changes_with_system(golden_clean_applicant, policy):
         system="A",
         messages=r.messages,
         tools=r.tools,
+        context_hash=r.context_hash,
     )
     k2 = cache_key(
         provider="test",
@@ -82,6 +92,7 @@ def test_cache_key_changes_with_system(golden_clean_applicant, policy):
         system="B",
         messages=r.messages,
         tools=r.tools,
+        context_hash=r.context_hash,
     )
     assert k1 != k2
 
@@ -92,14 +103,13 @@ def test_cache_key_includes_seed(golden_clean_applicant, policy):
     assert _key_for(r1) != _key_for(r2)
 
 
-def test_cache_key_excludes_env_state(golden_clean_applicant, multi_breach_applicant, policy):
-    """The key must be identical across two different env_state values (different
-    applicants entirely) holding system/messages/tools/seed fixed -- proving the
-    exclusion is intentional, not an oversight."""
+def test_cache_key_isolates_first_turn_applicant_context(
+    golden_clean_applicant, multi_breach_applicant, policy
+):
     r1 = _request(golden_clean_applicant, policy)
     r2 = _request(multi_breach_applicant, policy)
     assert r1.env_state != r2.env_state
-    assert _key_for(r1) == _key_for(r2)
+    assert _key_for(r1) != _key_for(r2)
 
 
 def test_response_cache_roundtrip(tmp_path):
@@ -125,7 +135,17 @@ class _OnceClient:
 
     async def complete(self, _req):
         self.calls += 1
-        return ModelResponse(content="answer", stop_reason="stop")
+        return ModelResponse(
+            content="answer",
+            stop_reason="stop",
+            usage=Usage(
+                input_tokens=10,
+                output_tokens=2,
+                cached_tokens=3,
+                thought_tokens=4,
+                cost_usd=0.1,
+            ),
+        )
 
 
 def test_cached_client_replays_on_second_call(tmp_path, golden_clean_applicant, policy):
@@ -140,4 +160,8 @@ def test_cached_client_replays_on_second_call(tmp_path, golden_clean_applicant, 
     assert inner.calls == 1
     assert r1.usage.replayed is False
     assert r2.usage.replayed is True
+    assert r2.usage.cache_hit is True
+    assert r2.usage.cost_usd == 0.0
+    assert r2.usage.cached_tokens == 3
+    assert r2.usage.thought_tokens == 4
     assert r1.content == r2.content == "answer"

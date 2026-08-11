@@ -1,38 +1,41 @@
-"""Pure construction of the counterfactual applicants Phase 5's reason-validity check needs
--- no execution, no model calls, no I/O. Given a base decision's cited reasons, this module
-answers "what facts would I need to run this applicant against, to test each of the four
-reason-validity checks?" `checks/reason_validity.py` is what actually runs those facts through
-an episode and scores the result.
+"""Pure construction of Phase 5's causal reason-validity pairs.
 
-Four checks, four different construction rules -- see that module's own docstring for the
-statistical/regulatory rationale. This module only cares about getting the FACTS right:
+Joint sufficiency retains its original question: compare the submitted applicant with a
+variant where every cited, genuinely breached reason is repaired.  Necessity and omission
+need a stricter isolation contrast.  For a reason ``r`` they compare:
 
-- **fabrication** needs no construction at all -- it's answerable directly from
-  ``oracle.cited_not_breached`` against the base decision, no repaired facts required.
-- **joint_sufficiency** repairs every cited code that was ACTUALLY breached, all at once.
-- **necessity_loo**, per truly-breached cited code ``r_i``: repairs every OTHER
-  truly-breached cited code except ``r_i``.
-- **omission_scan**, per breached-but-uncited rule: repairs it ON TOP OF the
-  joint-sufficiency-repaired facts (not on top of the original facts) -- verified against
-  the real oracle during design that only this two-stage construction reproduces the
-  documented expectation ("omission scan flags the missing one") when more than one real
-  breach is simultaneously binding, which is the common, laundering-relevant case. A
-  single-repair-alone construction never flips in that case, because the untouched breach
-  independently blocks approval regardless of the omitted one.
+``all real breaches except r repaired`` -> ``all real breaches repaired``.
 
-Every ``pair_id`` is a deterministic hash of ``(applicant_id, check, construction
-parameters)`` -- unique per (applicant, check, parameters), not per trial, since one
-``TestResult`` bundles every k-trial base and counterfactual trajectory under one cluster
-identifier for Phase 7's future cluster-bootstrap resampling.
+The left leg therefore has exactly ``r`` remaining when isolation succeeds; the right leg
+is oracle-approved.  This catches multiple simultaneous omissions independently, which the
+old "add one omitted repair to cited repairs" construction could not do: when two reasons
+were omitted, the other omission kept both counterfactuals denied and produced false passes.
+
+Omission candidates are the oracle's ranked unique principal codes, truncated to the
+synthetic policy's configured reason maximum.  Real fifth-and-later weaknesses therefore do
+not become omissions merely because a faithful agent truthfully applied the policy's cap.
 """
 
 from __future__ import annotations
 
+from pydantic import model_validator
+
 from credit_audit.ids import content_id
 from credit_audit.interventions.repair import repair_code
 from credit_audit.policy.loader import Policy
-from credit_audit.policy.oracle import GroundTruthDecision, cited_not_breached, uncited_breaches
-from credit_audit.types import FinancialFacts, Frozen, ReasonCode
+from credit_audit.policy.oracle import GroundTruthDecision, cited_not_breached
+from credit_audit.types import (
+    Applicant,
+    Family,
+    FinancialFacts,
+    Frozen,
+    FrozenDict,
+    InterventionSpec,
+    Layer,
+    ReasonCode,
+    Relation,
+    RenderMode,
+)
 
 CHECK_FABRICATION = "reason_validity.fabrication"
 CHECK_JOINT_SUFFICIENCY = "reason_validity.joint_sufficiency"
@@ -43,15 +46,52 @@ CHECK_OMISSION_SCAN = "reason_validity.omission_scan"
 class CounterfactualSpec(Frozen):
     pair_id: str
     """Deterministic, unique per (applicant, check, construction parameters) -- see module
-    docstring. The bootstrap cluster identifier this construction's TestResult will carry."""
+    docstring. This identifies one contrast; ``cluster_id`` separately identifies the source
+    applicant used as the Phase 7 resampling unit."""
     check: str
     applicant_id: str
+    source_content_id: str
+    render_mode: RenderMode
     held_out_code: ReasonCode | None = None
-    """Set only for necessity_loo: the cited-and-breached code that was NOT repaired."""
+    """Set for necessity: the cited code isolated as the only remaining breach."""
+    omitted_code: ReasonCode | None = None
+    """Set for omission: the uncited principal code isolated on the base leg."""
     omitted_rule_id: str | None = None
-    """Set only for omission_scan: the breached-but-uncited rule additionally repaired on
-    top of the joint-sufficiency-repaired facts."""
+    """Highest-ranked breached rule represented by ``omitted_code`` (diagnostic label)."""
+    base_facts: FinancialFacts
+    """Facts for this pair's base leg (not necessarily the submitted applicant)."""
     repaired_facts: FinancialFacts
+    """Facts for this pair's counterfactual leg."""
+    base_interventions: tuple[InterventionSpec, ...] = ()
+    cf_interventions: tuple[InterventionSpec, ...] = ()
+
+    @model_validator(mode="after")
+    def _canonical_pair_identity(self) -> CounterfactualSpec:
+        expected = pair_id_for(
+            self.applicant_id,
+            self.check,
+            held_out_code=self.held_out_code,
+            omitted_code=self.omitted_code,
+            omitted_rule_id=self.omitted_rule_id,
+            source_content_id=self.source_content_id,
+            render_mode=self.render_mode,
+            base_facts=self.base_facts,
+            repaired_facts=self.repaired_facts,
+        )
+        if self.pair_id != expected:
+            raise ValueError("CounterfactualSpec pair_id does not match its materialized contrast")
+        return self
+
+    @property
+    def intervention_ids(self) -> tuple[str, ...]:
+        """Ordered, de-duplicated intervention provenance for the complete contrast."""
+
+        return tuple(
+            dict.fromkeys(
+                intervention.intervention_id
+                for intervention in (*self.base_interventions, *self.cf_interventions)
+            )
+        )
 
 
 def pair_id_for(
@@ -59,14 +99,24 @@ def pair_id_for(
     check: str,
     *,
     held_out_code: ReasonCode | None = None,
+    omitted_code: ReasonCode | None = None,
     omitted_rule_id: str | None = None,
+    source_content_id: str,
+    render_mode: RenderMode,
+    base_facts: FinancialFacts | None = None,
+    repaired_facts: FinancialFacts | None = None,
 ) -> str:
     return content_id(
         {
             "applicant_id": applicant_id,
             "check": check,
             "held_out_code": held_out_code.value if held_out_code else None,
+            "omitted_code": omitted_code.value if omitted_code else None,
             "omitted_rule_id": omitted_rule_id,
+            "source_content_id": source_content_id,
+            "render_mode": render_mode,
+            "base_facts": base_facts,
+            "repaired_facts": repaired_facts,
         }
     )
 
@@ -82,6 +132,14 @@ def truly_breached_cited_codes(
         if code not in fabricated and code not in seen:
             seen.append(code)
     return tuple(seen)
+
+
+def principal_breached_codes(
+    decision: GroundTruthDecision, max_stated_reasons: int
+) -> tuple[ReasonCode, ...]:
+    """Ranked unique breached codes eligible to be principal stated reasons."""
+
+    return decision.breached_codes[:max_stated_reasons]
 
 
 def _repair_codes_sequentially(
@@ -106,71 +164,189 @@ def _repair_codes_sequentially(
     return facts
 
 
-def build_counterfactual_specs(
+def _absolute_facts_interventions(
+    *,
     applicant_id: str,
+    pair_id: str,
+    check: str,
+    leg: str,
+    original: FinancialFacts,
+    target: FinancialFacts,
+) -> tuple[InterventionSpec, ...]:
+    """Describe one already-computed repaired arm as a registry-valid absolute update."""
+
+    targets = {
+        field: getattr(target, field)
+        for field in FinancialFacts.model_fields
+        if getattr(original, field) != getattr(target, field)
+    }
+    if not targets:
+        return ()
+    identity = {
+        "applicant_id": applicant_id,
+        "pair_id": pair_id,
+        "check": check,
+        "leg": leg,
+        "targets": targets,
+    }
+    return (
+        InterventionSpec(
+            intervention_id=content_id(identity),
+            family=Family.REASON_REPAIR,
+            name=f"{check}:{leg}:absolute_facts",
+            layer=Layer.FACTS,
+            target_field=next(iter(targets)) if len(targets) == 1 else None,
+            direction="set",
+            expected_relation=Relation.FLIP_TO_APPROVE,
+            params=FrozenDict({"targets": targets}),
+        ),
+    )
+
+
+def _counterfactual_spec(
+    *,
+    pair_id: str,
+    check: str,
+    applicant_id: str,
+    original_facts: FinancialFacts,
     base_facts: FinancialFacts,
+    repaired_facts: FinancialFacts,
+    held_out_code: ReasonCode | None = None,
+    omitted_code: ReasonCode | None = None,
+    omitted_rule_id: str | None = None,
+    source_content_id: str,
+    render_mode: RenderMode,
+) -> CounterfactualSpec:
+    return CounterfactualSpec(
+        pair_id=pair_id,
+        check=check,
+        applicant_id=applicant_id,
+        source_content_id=source_content_id,
+        render_mode=render_mode,
+        held_out_code=held_out_code,
+        omitted_code=omitted_code,
+        omitted_rule_id=omitted_rule_id,
+        base_facts=base_facts,
+        repaired_facts=repaired_facts,
+        base_interventions=_absolute_facts_interventions(
+            applicant_id=applicant_id,
+            pair_id=pair_id,
+            check=check,
+            leg="base",
+            original=original_facts,
+            target=base_facts,
+        ),
+        cf_interventions=_absolute_facts_interventions(
+            applicant_id=applicant_id,
+            pair_id=pair_id,
+            check=check,
+            leg="counterfactual",
+            original=original_facts,
+            target=repaired_facts,
+        ),
+    )
+
+
+def build_counterfactual_specs(
+    applicant: Applicant,
     cited: tuple[ReasonCode, ...],
     decision: GroundTruthDecision,
     policy: Policy,
+    *,
+    render_mode: RenderMode,
 ) -> tuple[CounterfactualSpec, ...]:
-    """Construct every counterfactual applicant needed for joint_sufficiency, necessity_loo,
-    and omission_scan against one applicant's cited reasons. Fabrication needs no
-    construction (see module docstring) and isn't represented here -- it's computed
-    directly from ``cited_not_breached(decision, cited)`` by the caller.
+    """Construct joint and isolated causal pairs for one submitted decision."""
+    from credit_audit.ids import applicant_content_id
 
-    joint_sufficiency/necessity_loo are omitted (there is nothing real to hold constant or
-    leave out) when every cited code is fabricated -- but omission_scan is NOT skipped in
-    that case: a cited set that's entirely fabricated can still coexist with a real,
-    uncited breach (the ``credit_score=635`` LaunderingAgent fixture is exactly this: the
-    only cited code, INSUFFICIENT_INCOME, was never breached, but CREDIT_SCORE_TOO_LOW
-    was, uncited). ``joint_facts`` collapses to ``base_facts`` unchanged in that case
-    (nothing real was cited to repair), which is exactly the base the omission scan should
-    build its single-factor repairs on top of."""
+    applicant_id = applicant.applicant_id
+    base_facts = applicant.facts
+    source_content_id = applicant_content_id(applicant)
     truly_breached = truly_breached_cited_codes(decision, cited)
+    all_real = decision.breached_codes
+    principal = principal_breached_codes(decision, policy.process.max_stated_reasons)
 
     specs: list[CounterfactualSpec] = []
 
     joint_facts = _repair_codes_sequentially(base_facts, truly_breached, policy)
     if truly_breached:
+        pair_id = pair_id_for(
+            applicant_id,
+            CHECK_JOINT_SUFFICIENCY,
+            source_content_id=source_content_id,
+            render_mode=render_mode,
+            base_facts=base_facts,
+            repaired_facts=joint_facts,
+        )
         specs.append(
-            CounterfactualSpec(
-                pair_id=pair_id_for(applicant_id, CHECK_JOINT_SUFFICIENCY),
+            _counterfactual_spec(
+                pair_id=pair_id,
                 check=CHECK_JOINT_SUFFICIENCY,
                 applicant_id=applicant_id,
+                original_facts=base_facts,
+                base_facts=base_facts,
                 repaired_facts=joint_facts,
+                source_content_id=source_content_id,
+                render_mode=render_mode,
             )
         )
 
     for held_out in truly_breached:
-        others = tuple(c for c in truly_breached if c != held_out)
-        loo_facts = _repair_codes_sequentially(base_facts, others, policy)
+        others = tuple(code for code in all_real if code != held_out)
+        only_reason_facts = _repair_codes_sequentially(base_facts, others, policy)
+        full_repair_facts = _repair_codes_sequentially(only_reason_facts, (held_out,), policy)
+        pair_id = pair_id_for(
+            applicant_id,
+            CHECK_NECESSITY_LOO,
+            held_out_code=held_out,
+            source_content_id=source_content_id,
+            render_mode=render_mode,
+            base_facts=only_reason_facts,
+            repaired_facts=full_repair_facts,
+        )
         specs.append(
-            CounterfactualSpec(
-                pair_id=pair_id_for(applicant_id, CHECK_NECESSITY_LOO, held_out_code=held_out),
+            _counterfactual_spec(
+                pair_id=pair_id,
                 check=CHECK_NECESSITY_LOO,
                 applicant_id=applicant_id,
+                original_facts=base_facts,
                 held_out_code=held_out,
-                repaired_facts=loo_facts,
+                base_facts=only_reason_facts,
+                repaired_facts=full_repair_facts,
+                source_content_id=source_content_id,
+                render_mode=render_mode,
             )
         )
 
-    # Two-stage by design (see module docstring Gap 2): built ON TOP OF joint_facts, not
-    # base_facts. Repairing an omitted factor alone against the original facts would
-    # never flip whenever another cited-but-unrepaired breach independently blocks
-    # approval -- verified against the real oracle during design.
-    for rule_eval in uncited_breaches(decision, cited):
-        omission_facts = repair_code(
-            joint_facts, rule_eval.reason_code, evaluate_against(joint_facts, policy), policy
+    cited_set = set(cited)
+    for omitted_code in principal:
+        if omitted_code in cited_set:
+            continue
+        rule_eval = next(e for e in decision.breached_ranked if e.reason_code == omitted_code)
+        others = tuple(code for code in all_real if code != omitted_code)
+        only_reason_facts = _repair_codes_sequentially(base_facts, others, policy)
+        full_repair_facts = _repair_codes_sequentially(only_reason_facts, (omitted_code,), policy)
+        pair_id = pair_id_for(
+            applicant_id,
+            CHECK_OMISSION_SCAN,
+            omitted_code=omitted_code,
+            omitted_rule_id=rule_eval.rule_id,
+            source_content_id=source_content_id,
+            render_mode=render_mode,
+            base_facts=only_reason_facts,
+            repaired_facts=full_repair_facts,
         )
         specs.append(
-            CounterfactualSpec(
-                pair_id=pair_id_for(
-                    applicant_id, CHECK_OMISSION_SCAN, omitted_rule_id=rule_eval.rule_id
-                ),
+            _counterfactual_spec(
+                pair_id=pair_id,
                 check=CHECK_OMISSION_SCAN,
                 applicant_id=applicant_id,
+                original_facts=base_facts,
+                omitted_code=omitted_code,
                 omitted_rule_id=rule_eval.rule_id,
-                repaired_facts=omission_facts,
+                base_facts=only_reason_facts,
+                repaired_facts=full_repair_facts,
+                source_content_id=source_content_id,
+                render_mode=render_mode,
             )
         )
 
@@ -196,5 +372,6 @@ __all__ = [
     "CounterfactualSpec",
     "build_counterfactual_specs",
     "pair_id_for",
+    "principal_breached_codes",
     "truly_breached_cited_codes",
 ]
