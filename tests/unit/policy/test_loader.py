@@ -342,6 +342,9 @@ def test_export_snapshot_validates_against_frozen_policy_schema():
     assert len(snapshot["thresholds"]) == 16
     assert snapshot["product"]["secured"] is False
     assert snapshot["product"]["synthetic"] is True
+    assert snapshot["required_tools_before_code"] == {"UNVERIFIABLE_INCOME": ["verify_income"]}
+    assert snapshot["min_stated_reasons"] == 1
+    assert snapshot["max_stated_reasons"] == 4
 
 
 # --------------------------------------------------------------------------------------

@@ -574,8 +574,14 @@ process:
       aliases: ["name", "applicant name", "borrower name"]
     - factor: demographic_tags
       basis: reg_b
-      aliases: ["race", "ethnicity", "national origin", "sex", "gender", "age",
-                "marital status"]
+      aliases: ["race", "ethnicity", "national origin", "sex", "gender",
+                "applicant age", "borrower age", "chronological age", "marital status"]
+    - factor: pronouns
+      basis: reg_b
+      aliases: ["pronouns", "gendered pronoun", "recorded sex"]
+    - factor: graduation_year
+      basis: reg_b
+      aliases: ["graduation year", "class year", "age proxy"]
     - factor: employer_name
       basis: presentation_layer
       aliases: ["employer", "employer name", "company name"]
