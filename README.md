@@ -3,12 +3,12 @@
 **A causal audit harness for testing whether an underwriting agent's stated adverse-action
 reasons are the reasons it actually acted on.**
 
-> ### Status: implementation through Phase 6
+> ### Status: implementation through Phase 7
 >
-> Phase 5 reason-validity hardening and the Phase 6 judge-free checks are implemented and
-> validated against deterministic scripted agents. No hosted model has been evaluated and
-> there are **no provider findings to report**. Everything implemented through Phase 6 makes
-> zero API calls.
+> The reason-validity engine, the judge-free Phase 6 checks, and the Phase 7 statistics are
+> implemented and validated against deterministic scripted agents. No hosted model has been
+> evaluated and there are **no provider findings to report**. Everything implemented so far
+> makes zero API calls.
 
 ---
 
@@ -74,8 +74,41 @@ common trial seeds, arm-specific episode identities, and a normalized decision s
   rendered packet. These are proxy-signal invariance tests under a stated causal assumption,
   not proof of discrimination.
 
-Framing interventions are deferred. Statistical inference, preregistration, run/export CLI,
-provider adapters, and the evidence site begin in later phases.
+Framing interventions are deferred.
+
+## Statistics
+
+Every number is scored against
+[`PREREGISTRATION.yaml`](src/credit_audit/stats/PREREGISTRATION.yaml), written before any run
+and hashed into the estimate document. Declaring a family is mandatory: the scorer **raises**
+on an undeclared family rather than inventing a hypothesis after the fact, and a check that
+is not declared is computed but permanently marked exploratory and excluded from multiplicity
+control. The document is not yet frozen; it is git-tagged `prereg-v1` before the first full
+run.
+
+- **Paired test:** McNemar's exact test on the two discordant cells. The exact p-value is
+  valid but conservative on a discrete statistic, and it is what Benjamini-Hochberg consumes;
+  a mid-p value ships beside it for calibration diagnostics only. Two-sided everywhere.
+- **Intervals:** BCa bootstrap resampled at the **originating source applicant**
+  (`cluster_id`), never at the pair or the response — sibling variants and repeated trials of
+  one applicant are dependent, and resampling them independently reports a standard error
+  smaller than the design supports. When BCa's correction terms are undefined, which is the
+  normal case for a deterministic control, the interval falls back to cluster-level percentile
+  and says so in `ci.fallback_used`.
+- **Multiplicity:** Benjamini-Hochberg within each declared family, never pooled across them.
+- **Power:** the minimum detectable effect is published before the run, so a null result reads
+  as "no effect above this size was detectable" rather than "no effect".
+- **pass^k:** the unbiased `C(s, k) / C(n, k)` estimator over k = 5, reported only where a
+  per-trial pass is unambiguous.
+
+These procedures are checked by simulation, not assertion
+([`tests/stats/test_calibration.py`](tests/stats/test_calibration.py)): the exact test's size
+is at or below α at every level tested, BH holds the false-discovery rate at q over 1,000
+simulated runs, clustered intervals cover the truth 94.5% of the time against a nominal 95%,
+and clustered resampling comes out 2.13× wider than response-level resampling on clustered
+data — the last of which fails loudly if anyone later removes the clustering.
+
+Run/export CLI, provider adapters, and the evidence site begin in later phases.
 
 ## Evidence integrity
 
@@ -87,8 +120,8 @@ provider adapters, and the evidence site begin in later phases.
   tool-call, tool-result, decision, and termination history.
 - Tool evidence retains provider call IDs, assistant requests, correlated results, turn index,
   arguments, success, and errors.
-- `pair_id` names one contrast. `cluster_id` names the originating source applicant, so sibling
-  variants can be resampled together in Phase 7.
+- `pair_id` names one contrast. `cluster_id` names the originating source applicant, and it is
+  the unit the bootstrap resamples, so sibling variants stay together.
 - Cache identity includes the complete episode context. Cached/replayed responses preserve
   telemetry but have zero cost in the current run.
 
@@ -112,7 +145,8 @@ python3 -m venv .venv
 ```
 
 Supported Python versions are 3.11–3.14. There is intentionally no console entry point yet;
-the run/export CLI belongs to Phase 8.
+the run/export CLI belongs to Phase 8. The simulation-based calibration tests are marked
+`slow` and run by default; `pytest -m "not slow"` skips them.
 
 ## Documentation
 

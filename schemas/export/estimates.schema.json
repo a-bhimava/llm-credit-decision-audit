@@ -2,23 +2,28 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "credit-audit/estimates@1",
   "title": "Statistical estimates",
-  "description": "Every estimate the site can render: point, clustered CI, paired test, BH-adjusted q, power, pass^k. Pre-registered and exploratory estimates are distinguished so the UI can visually demote the latter.",
+  "description": "Every estimate the site can render: point, clustered CI, paired test, BH-adjusted q, power, pass^k. Pre-registered and exploratory estimates are distinguished so the UI can visually demote the latter. Objects are closed so a typo becomes a schema failure rather than a field the site silently ignores.",
   "type": "object",
   "required": ["schema", "estimates"],
+  "additionalProperties": false,
   "properties": {
     "schema": { "const": "credit-audit/estimates@1" },
     "prereg": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "sha256": { "type": "string" },
         "git_tag": { "type": ["string", "null"] },
-        "frozen_at": { "type": ["string", "null"], "format": "date-time" }
+        "frozen_at": { "type": ["string", "null"], "format": "date-time" },
+        "alpha": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+        "q": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 }
       }
     },
     "bh_groups": {
       "type": "array",
       "items": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "family": { "type": "string" },
           "n_hypotheses": { "type": "integer" },
@@ -32,12 +37,31 @@
       "items": {
         "type": "object",
         "required": ["estimate_id", "check", "family", "label", "point", "n", "prereg"],
+        "additionalProperties": false,
         "properties": {
           "estimate_id": { "type": "string" },
           "check": { "type": "string" },
           "family": { "type": "string" },
+          "hypothesis_id": {
+            "type": ["string", "null"],
+            "description": "The PREREGISTRATION.yaml hypothesis this row was scored against. Null means the check was not declared and the row is exploratory."
+          },
           "label": { "type": "string" },
           "stratum": { "type": ["string", "null"] },
+          "denominator_label": {
+            "type": "string",
+            "description": "What n counts, in words. Rendered next to the sample size so a rate is never shown without its denominator's meaning."
+          },
+          "estimand": {
+            "enum": [
+              "check_failure_rate",
+              "paired_rate_difference",
+              "forbidden_transition_rate",
+              "decision_signature_change_rate"
+            ]
+          },
+          "relation": { "type": "string" },
+          "direction": { "enum": ["lower_is_better", "higher_is_better", "none"] },
           "prereg": { "type": "boolean" },
           "exploratory": {
             "type": "boolean",
@@ -48,6 +72,7 @@
           "null_value": { "type": "number" },
           "ci": {
             "type": "object",
+            "additionalProperties": false,
             "properties": {
               "method": { "enum": ["BCa", "percentile", "wilson", "none"] },
               "B": { "type": ["integer", "null"] },
@@ -61,18 +86,46 @@
               "fallback_used": {
                 "type": "boolean",
                 "description": "true when BCa failed and percentile bootstrap was used instead. Propagates to the UI automatically, so the site can never claim BCa when percentile ran."
+              },
+              "degenerate": {
+                "type": "boolean",
+                "description": "true when every bootstrap replicate equalled the observed statistic, which is the normal state for a deterministic scripted control. A zero-width interval is then a property of the known-answer design, not a precision claim."
               }
             }
           },
           "n": { "type": "integer", "minimum": 0 },
           "n_clusters": { "type": ["integer", "null"] },
+          "n_inapplicable": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Results excluded because the comparison could not be constructed. Disclosed, never folded into the denominator as a pass."
+          },
+          "n_error": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Results excluded because a leg was unilaterally incomplete. A one-sided incompletion cannot support a paired claim in either direction."
+          },
           "test": {
             "type": ["object", "null"],
+            "additionalProperties": false,
             "properties": {
               "name": { "type": "string" },
-              "b": { "type": ["integer", "null"], "description": "Discordant pair count, base-deny to cf-approve." },
-              "c": { "type": ["integer", "null"] },
-              "p": { "type": ["number", "null"] },
+              "b": {
+                "type": ["integer", "null"],
+                "description": "Discordant pairs where the base arm approved and the counterfactual arm did not."
+              },
+              "c": {
+                "type": ["integer", "null"],
+                "description": "Discordant pairs where the base arm was adverse and the counterfactual arm approved."
+              },
+              "p": {
+                "type": ["number", "null"],
+                "description": "Two-sided exact p-value. Valid but conservative on a discrete statistic; this is the value multiplicity control consumes."
+              },
+              "p_mid": {
+                "type": ["number", "null"],
+                "description": "Mid-p variant. Approximately uniform under the null and reported for calibration diagnostics only; deliberately not the value BH consumes."
+              },
               "q_bh": { "type": ["number", "null"] },
               "rejected": { "type": ["boolean", "null"] }
             }
@@ -86,6 +139,7 @@
       "type": "array",
       "items": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "check": { "type": "string" },
           "alpha": { "type": "number" },
@@ -102,6 +156,7 @@
       "items": {
         "type": "object",
         "required": ["check", "k", "stratum"],
+        "additionalProperties": false,
         "properties": {
           "check": { "type": "string" },
           "k": { "type": "integer", "minimum": 1 },
@@ -112,7 +167,15 @@
             "description": "Which sample pass^k was computed on. Required so the caption can never be omitted."
           },
           "n": { "type": "integer" },
-          "ci95": { "type": ["array", "null"], "items": { "type": "number" } }
+          "n_excluded": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Units dropped for running fewer than k trials. pass_1 and pass_k are computed on the same surviving units so the two are directly comparable."
+          },
+          "n_clusters": { "type": ["integer", "null"] },
+          "ci95": { "type": ["array", "null"], "items": { "type": "number" } },
+          "ci_method": { "enum": ["BCa", "percentile", "wilson", "none"] },
+          "fallback_used": { "type": "boolean" }
         }
       }
     }

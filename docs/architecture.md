@@ -79,19 +79,21 @@ llm-credit-decision-audit/
 │  ├─ env/                        # immutable state, tools, episode protocol
 │  ├─ model/                      # client protocol, response cache, scripted controls
 │  ├─ reasons/                    # vocabulary, mapping, repairs
-│  └─ checks/                     # paired runner and six Phase 5/6 families
-├─ tests/{unit,golden,fixtures}
+│  ├─ checks/                     # paired runner and six Phase 5/6 families
+│  └─ stats/                      # preregistration, paired test, clustered CIs, FDR, power
+├─ tests/{unit,golden,stats}
 ├─ scripts/                       # offline fixture builders and validators
 └─ docs/
 ```
 
-This is the implemented Phase 6 tree. Statistics, preregistration, run/export reporting, a
-console entry point, provider adapters, and the site are deliberately absent until their later
-roadmap phases.
+This is the implemented Phase 7 tree. Run/export reporting, a console entry point, provider
+adapters, and the site are deliberately absent until their later roadmap phases.
 
 **Dependencies stay small:** `pydantic`, `numpy`, `scipy`, `httpx`, `pyyaml`, and
-`jsonschema`. There is no console entry point and no Typer/Rich dependency in Phase 6; a real
-run/export CLI is Phase 8, and provider SDKs are Phase 9.
+`jsonschema`. Statistics are computed from `numpy` and `scipy.stats` primitives rather than a
+modelling framework, so every procedure is readable in one file and testable by simulation.
+There is still no console entry point and no Typer/Rich dependency; a real run/export CLI is
+Phase 8, and provider SDKs are Phase 9.
 
 ---
 
@@ -323,11 +325,25 @@ one group so their TABLE anchor is executed once. Corresponding arms use the sam
 `arm_id`, render mode, applicant content, and episode context keep episode/cache identities
 distinct.
 
-### Phase 7 preregistration boundary
+### The preregistration boundary
 
-`PREREGISTRATION.yaml`, statistical thresholds, confidence intervals, and multiplicity control
-are not Phase 6 claims. Phase 7 will add a machine-readable declaration of families,
-hypotheses, α, δ thresholds, and BH groups, then freeze it before the first full run.
+`src/credit_audit/stats/PREREGISTRATION.yaml` declares families, hypotheses, α, δ thresholds,
+estimands, and BH groups before any run is scored. `stats/families.py` parses, validates, and
+hashes it; the hash travels with every estimate so a reader can verify which declaration the
+reported numbers were scored against. The document is not yet frozen — `frozen_at` and
+`git_tag` are null and reported as such — and is git-tagged `prereg-v1` before the first full
+run in Phase 8.
+
+The family/check asymmetry is the load-bearing part. An **undeclared family raises**, because
+a family is the unit BH multiplicity control is defined over and one invented after seeing
+results is precisely what preregistration exists to prevent. An **undeclared check inside a
+declared family** is scored but permanently marked `exploratory`, rendered below the
+preregistered estimates, and excluded from every BH group. `FRAMING` is deliberately not
+declared, so a framing result raises rather than acquiring a hypothesis retroactively.
+
+Two guards keep the document from drifting away from the code: every `CHECK_*` constant the
+checks layer can emit must resolve to a declared hypothesis or a declared operational check,
+and every declared δ must equal the threshold the check code actually applies.
 
 ---
 
@@ -684,6 +700,40 @@ permits limited age use in qualifying empirically derived credit-scoring systems
 
 Framing remains deferred.
 
+### 5.6 From matched pairs to estimates
+
+`stats/estimates.py` is the join between scored pairs and reported numbers. It re-derives
+nothing: the counts arrive from `PairedScore` and are only aggregated, resolved against the
+preregistration, and emitted as the `credit-audit/estimates@1` payload.
+
+Every declared check reports a **check failure rate** over applicable results. A check whose
+plan is a matched contrast additionally reports the **inferential estimand its declared
+relation implies**:
+
+| Declared relation | Estimand | Paired test |
+|---|---|---|
+| `FLIP_TO_APPROVE` (reason repair) | paired rate difference `(c − b) / n` | McNemar exact |
+| `NONDECREASING` / `NONINCREASING` (monotone) | rate of the one **forbidden** transition | McNemar exact |
+| `INVARIANT` (invariance, serialization) | decision-signature change rate | none — see below |
+| `INVARIANT` with a directional interest (authority, demographic) | paired rate difference | McNemar exact |
+
+Monotone checks report the forbidden transition alone rather than net movement, because a
+forbidden flip is not excused by an equal number of permitted flips in the other direction —
+`b == c` would otherwise hide paired reversals behind a zero effect. Invariance checks declare
+**no** paired test: their null is "the signature did not change", and McNemar tests asymmetry
+between the two flip directions, which is a different question. Their inference is the
+clustered interval against zero.
+
+`INAPPLICABLE` and `ERROR` results leave the denominator and are disclosed as `n_inapplicable`
+and `n_error`. A one-sided incompletion cannot support a paired claim in either direction, and
+folding either into the denominator as a pass would be the quiet kind of wrong.
+
+**pass^k is reported only where a per-trial pass is unambiguous** — monotone and invariance
+relations give one, `FLIP_TO_APPROVE` does not, because a trial where the repaired arm stayed
+adverse is the finding rather than an inconsistency. The estimator is the unbiased
+`C(s, k) / C(n, k)`; the plug-in `(s/n)**k` is biased upward at exactly the small `n` this
+harness runs at. Units with fewer than k trials are excluded and counted.
+
 ---
 
 ## 6. Data
@@ -754,19 +804,37 @@ expectations. Confidence intervals, power, and significance are deferred to Phas
 - **No derived quantity appears as a stored field** (introspection test)
 - Canonical JSON round-trips; IDs stable across varied `PYTHONHASHSEED`
 
-### 7.3 Statistics validation (Phase 7)
+### 7.3 Statistics validation
 
-- **Simulation-based calibration** (`tests/stats/test_calibration.py`, marked slow): under the
-  null, McNemar p-values are uniform; BH holds FDR at α over 1,000 simulated runs; bootstrap CIs
-  achieve ~95% coverage. Preempts the #1 reviewer objection.
-- A test asserting **cluster-level bootstrap produces wider CIs than response-level** bootstrap
-  on synthetic clustered data — so it fails loudly if someone later "simplifies" the clustering
-  away.
+**Simulation-based calibration** (`tests/stats/test_calibration.py`, marked slow) checks that
+the procedures have the frequentist properties they are sold on, by simulation rather than by
+citation — the implementation, not the textbook, is what ships. Every simulation is seeded, so
+the tests are deterministic despite being Monte Carlo.
+
+| Property | Measured |
+|---|---|
+| Exact test size under the null at α = 0.01 / 0.05 / 0.10 | 0.0065 / 0.0300 / 0.0703 — valid at every level |
+| Exact p-values super-uniform across the whole range | `P(p ≤ t) ≤ t` at 19 thresholds |
+| Mid-p uniformity (calibration diagnostic only) | mean 0.506, `P(p ≤ 0.05)` = 0.045 |
+| BH false-discovery rate over 1,000 simulated runs | ≤ q, while still recovering planted effects |
+| Clustered BCa interval coverage (nominal 95%) | 94.5% over 400 simulated datasets |
+
+The exact test is **conservative, not uniform** — no test on a discrete statistic can attain
+the nominal level exactly, and the guarantee BH depends on is validity (`P(p ≤ α) ≤ α`), not
+uniformity. The mid-p variant is reported next to it precisely so a calibration plot does not
+look broken when the exact test is merely conservative; it is deliberately not the value BH
+consumes.
+
+A separate test asserts **cluster-level bootstrap produces wider CIs than response-level**
+bootstrap on synthetic clustered data — 2.13× wider, in 60 of 60 datasets — so it fails loudly
+if someone later "simplifies" the clustering away. Its companion checks that on *independent*
+data the two agree, which shows the clustered interval is wider because the data are
+dependent rather than because the estimator is uniformly inflated.
 
 ### 7.4 Reproducibility (Phase 8+)
 
 Phase 8 will validate byte-deterministic run/export artifacts; Phase 9 will add committed
-cassette replay. The Phase 6 CI gate is the full unit/golden suite, Ruff, export-schema
+cassette replay. The current CI gate is the full unit/golden/stats suite, Ruff, export-schema
 validation, fixture hashes, `git diff --check`, and content-ID stability across
 `PYTHONHASHSEED`.
 
