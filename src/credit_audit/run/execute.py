@@ -441,6 +441,15 @@ def _manifest_payload(manifest: RunManifest, *, deterministic: bool) -> dict:
     return payload
 
 
+SIDECAR_FIELDS = ("deterministic", "sweep")
+"""Keys the run writes alongside the manifest that are not part of ``RunManifest`` itself.
+
+``RunManifest`` forbids extra fields on purpose, so anything recorded next to it has to be
+declared here rather than silently accepted. ``deterministic`` describes how the run was
+stamped; ``sweep`` records the agents and cohort of a known-answer sweep.
+"""
+
+
 def load_run_manifest(run_dir: Path) -> tuple[RunManifest, bool]:
     """Read a persisted manifest back, returning it with its determinism flag."""
 
@@ -448,6 +457,8 @@ def load_run_manifest(run_dir: Path) -> tuple[RunManifest, bool]:
 
     payload = json.loads((Path(run_dir) / MANIFEST_FILE).read_text(encoding="utf-8"))
     deterministic = bool(payload.pop("deterministic", True))
+    for field in SIDECAR_FIELDS:
+        payload.pop(field, None)
     return RunManifest.model_validate(payload), deterministic
 
 
