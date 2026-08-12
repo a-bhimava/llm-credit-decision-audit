@@ -9,13 +9,18 @@
 
 ## Current status — 2026-08-11
 
-Phases 0–6 are implemented. Phase 5 was hardened before Phase 6 so that every later check
-inherits matched-trial completion semantics and trustworthy evidence identities. The current
-suite uses deterministic scripted agents and makes zero API calls. No provider result,
-statistical significance claim, preregistered estimate, exported run, or CLI is part of the
-Phase 6 milestone.
+Phases 0–7 are implemented. Phase 5 was hardened before Phase 6 so that every later check
+inherits matched-trial completion semantics and trustworthy evidence identities. Phase 7 adds
+the preregistration, the paired test, clustered intervals, multiplicity control, power, and
+pass^k, together with the simulation-based calibration that checks those procedures actually
+behave as advertised. The current suite uses deterministic scripted agents and makes zero API
+calls. No provider result, exported run, or CLI is part of this milestone.
 
-Framing is deliberately deferred. Phases 7–11 below remain plans, not implemented claims.
+`PREREGISTRATION.yaml` is written but **not yet frozen**: `frozen_at` and `git_tag` are null,
+and the exporter reports that rather than hiding it. It is tagged `prereg-v1` before the
+first full run, which is a Phase 8 step.
+
+Framing is deliberately deferred. Phases 8–11 below remain plans, not implemented claims.
 
 ---
 
@@ -280,22 +285,56 @@ hashes, `git diff --check`, and cross-`PYTHONHASHSEED` stability are the final g
 
 **Goal:** every number ships with uncertainty.
 
-- `PREREGISTRATION.yaml` — families, hypotheses, α, δ, BH grouping
+- `stats/PREREGISTRATION.yaml` — families, hypotheses, α, δ, BH grouping. It lives inside the
+  package, next to the code that loads it, for the same reason `policy.yaml` does: a research
+  artifact the runtime must resolve from an installed wheel, not a path guess.
 - `stats/families.py` — loads it and **hard-refuses to score an undeclared family**
 - `stats/mcnemar.py` — exact test on paired flips; estimand is the **discordant-pair rate**
 - `stats/bootstrap.py` — BCa, resampled at the **`cluster_id` source-applicant level**
 - `stats/fdr.py` — Benjamini-Hochberg across pre-declared families
 - `stats/power.py` — MDE, published *before* the run · `stats/passk.py` — pass^k over k=5
+- `stats/estimates.py` — joins scored `TestResult` records to the declaration and emits the
+  `credit-audit/estimates@1` payload, validated against the frozen export schema with zero
+  Phase 8 code
 
-**Exit:** simulation-based calibration passes — under the null, McNemar p-values are uniform, BH
-holds FDR at α over 1,000 simulated runs, bootstrap CIs achieve ~95% coverage. A test asserts
-source-applicant-clustered bootstrap gives **wider** CIs than response-level resampling, so it
-fails loudly if anyone later "simplifies" the clustering away. `pair_id` remains the contrast
+**Decisions this phase made concrete**
+
+- **An undeclared family raises; an undeclared check does not.** A family is the unit BH is
+  defined over, so inventing one after the fact is the exact failure preregistration prevents.
+  An undeclared check inside a declared family is scored but permanently marked
+  `exploratory` and excluded from every BH group. `FRAMING` is deliberately absent from the
+  document, so a framing result raises rather than acquiring a hypothesis retroactively.
+- **Exact p-values, not chi-square, and two conventions reported.** `p` is the exact
+  two-sided value — valid but conservative on a discrete statistic, and the value BH
+  consumes. `p_mid` is reported alongside it for calibration diagnostics only, because a
+  calibration plot drawn from exact p-values looks broken when it is merely conservative.
+- **Two-sided everywhere.** A one-sided test chosen after seeing which way the flips went is
+  the oldest trick in the book; the harness removes the option.
+- **The estimand follows the declared relation.** Monotone checks report the rate of the one
+  forbidden transition, not net movement — a forbidden flip is not excused by an equal number
+  of permitted ones. Invariance checks report the decision-signature change rate against zero
+  and declare *no* paired test, because McNemar tests asymmetry, which is not the quantity of
+  interest there.
+- **pass^k only where a per-trial pass is unambiguous.** Monotone and invariance relations
+  give one; `FLIP_TO_APPROVE` does not, because a trial where the repaired arm stayed adverse
+  is the finding itself rather than an inconsistency. Reason repair therefore reports no
+  pass^k.
+
+**Exit — met:** simulation-based calibration passes. Under the null the exact test's size is
+0.0065 / 0.0300 / 0.0703 at α = 0.01 / 0.05 / 0.10 — valid at every level, conservative as a
+discrete test must be — and mid-p is approximately uniform (mean 0.506, P(p ≤ 0.05) = 0.045).
+BH holds FDR at q over 1,000 simulated runs while still recovering the planted effects.
+Clustered BCa intervals cover the truth 94.5% of the time against a nominal 95%. A test
+asserts source-applicant-clustered bootstrap gives **wider** CIs than response-level
+resampling — 2.13× wider on clustered data, in 60 of 60 simulated datasets — so it fails
+loudly if anyone later "simplifies" the clustering away. `pair_id` remains the contrast
 identifier used for pair-level discordance; it is not the resampling cluster.
 
-*Cut line:* if BCa fights back, ship cluster-level percentile bootstrap and set
-`ci.fallback_used` — the site then automatically says "percentile bootstrap", so the README and
-the site can never disagree.
+*Cut line, and it fires routinely:* BCa's bias correction is undefined whenever the bootstrap
+distribution is degenerate, which is the **normal** case for a deterministic scripted control
+where every cluster returns the identical value. The interval then falls back to cluster-level
+percentile and sets `ci.fallback_used`, which the export contract carries to the site, so the
+README and the site can never disagree about which method actually ran.
 
 ---
 

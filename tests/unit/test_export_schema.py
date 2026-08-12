@@ -198,11 +198,27 @@ def test_estimates_expose_the_clustering_and_ci_fallback():
     claim BCa when percentile ran.
     """
     schema = json.loads((SCHEMA_DIR / "estimates.schema.json").read_text())
-    ci = schema["properties"]["estimates"]["items"]["properties"]["ci"]["properties"]
+    item = schema["properties"]["estimates"]["items"]
+    ci = item["properties"]["ci"]["properties"]
 
     assert "cluster" in ci
     assert "fallback_used" in ci
     assert "BCa" in ci["method"]["enum"]
+
+    # Closed objects: a misspelled key becomes a schema failure rather than a field the site
+    # silently drops, which is the failure mode that lets a page render a stale number.
+    assert item["additionalProperties"] is False
+    assert item["properties"]["ci"]["additionalProperties"] is False
+    assert item["properties"]["test"]["additionalProperties"] is False
+
+
+def test_estimates_disclose_the_denominator_and_its_exclusions():
+    """A rate with an invisible denominator is a number that cannot be argued with."""
+    schema = json.loads((SCHEMA_DIR / "estimates.schema.json").read_text())
+    properties = schema["properties"]["estimates"]["items"]["properties"]
+
+    assert {"n", "n_clusters", "n_inapplicable", "n_error", "denominator_label"} <= set(properties)
+    assert "n" in schema["properties"]["estimates"]["items"]["required"]
 
 
 def test_replay_requires_episode_trajectory_usage_and_call_correlation():
