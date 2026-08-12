@@ -361,6 +361,125 @@ def _write_run_index(
     write_json(index_path, build_run_index(ordered, default_run_id=manifest.run_id))
 
 
+def is_sweep(run_dir: Path) -> bool:
+    """A sweep manifest names the agents it swept; a normal run has one client."""
+
+    import json
+
+    payload = json.loads((Path(run_dir) / "manifest.json").read_text(encoding="utf-8"))
+    return bool((payload.get("sweep") or {}).get("agents"))
+
+
+def export_sweep(
+    run_dir: Path,
+    *,
+    out_root: Path = DEFAULT_BUNDLE_ROOT,
+    policy: Policy | None = None,
+    prereg: Preregistration | None = None,
+    git: GitMetadata | None = None,
+    budget: SizeBudget | None = None,
+    bootstrap_B: int = 2000,
+) -> ExportOutcome:
+    """Export a known-answer sweep as its planted-defect table.
+
+    A sweep bundle is deliberately small: it carries the validation table, the manifest, and
+    the integrity chain. It answers one question — does the harness catch defects whose
+    answers we wrote ourselves — and a model run points back at it through
+    ``validated_by_run_id`` so that evidence transfers without being restated as a finding
+    about a model.
+    """
+
+    from credit_audit.profiles.generate import read_profiles_jsonl
+    from credit_audit.report.planted import build_planted_defects
+    from credit_audit.run.execute import load_run_manifest
+    from credit_audit.run.sweep import load_agent_results, load_sweep_manifest
+
+    run_dir = Path(run_dir)
+    policy = policy or load_policy()
+    prereg = prereg or load_preregistration()
+    git = git or git_metadata()
+
+    manifest, deterministic = load_run_manifest(run_dir)
+    _payload, agents, cohort_ids = load_sweep_manifest(run_dir)
+    by_id = {applicant.applicant_id: applicant for applicant in read_profiles_jsonl()}
+    cohort = tuple(by_id[applicant_id] for applicant_id in cohort_ids if applicant_id in by_id)
+
+    results_by_agent = {agent: load_agent_results(run_dir, agent) for agent in agents}
+    table = build_planted_defects(
+        source_run_id=manifest.run_id,
+        results_by_agent=results_by_agent,
+        cohort=cohort,
+        policy=policy,
+        seed=manifest.seed,
+        bootstrap_B=bootstrap_B,
+    )
+
+    root = Path(out_root) / manifest.run_id
+    writer = BundleWriter(root, budget=budget)
+    writer.add_json("planted-defects.json", table)
+    writer.add_json("policy.json", export_policy_snapshot(policy))
+    writer.add_text(
+        "report.md", render_planted_report(manifest_run_id=manifest.run_id, table=table)
+    )
+
+    content_digest = writer.digest()
+    writer.add_json(
+        "manifest.json",
+        build_manifest(
+            manifest, git=git, deterministic=deterministic, bundle_sha256=content_digest
+        ),
+    )
+    writer.add_json(
+        "integrity/chain.json",
+        build_integrity(
+            manifest,
+            git=git,
+            prereg=prereg,
+            run_dir=run_dir,
+            bundle_sha256=content_digest,
+            deterministic=deterministic,
+            python_version=platform.python_version(),
+            artifact_files=tuple(sorted(manifest.artifacts)),
+        ),
+    )
+    report = writer.finalize()
+
+    return ExportOutcome(
+        run_id=manifest.run_id,
+        root=root,
+        bundle=report,
+        n_pairs_exported=0,
+        n_prompts=0,
+    )
+
+
+def render_planted_report(*, manifest_run_id: str, table: dict[str, Any]) -> str:
+    summary = table["summary"]
+    lines = [
+        f"# Planted-defect validation — `{manifest_run_id}`",
+        "",
+        "> Every agent below is a control whose true decision rule is code in this repository.",
+        "> Expected rates are derived from those rules, never read off this run.",
+        "",
+        f"- agents: {summary['n_agents']}",
+        f"- caught: {summary['caught']}",
+        f"- missed: {summary['missed']}",
+        f"- false alarms: {summary['false_alarms']}",
+        f"- partial: {summary['partial']}",
+    ]
+    positive = summary.get("positive_control")
+    if positive:
+        lines.append(
+            f"- positive control `{positive['agent']}`: {positive['pass_rate']:.1%} pass "
+            f"over {positive['n']} scored results"
+        )
+    lines.extend(["", "| agent | defect | verdict |", "|---|---|---|"])
+    for row in table["agents"]:
+        lines.append(f"| `{row['agent']}` | {row['defect']} | **{row['verdict']}** |")
+    lines.append("")
+    return "\n".join(lines)
+
+
 def describe_checks() -> dict[str, str]:
     """Small helper the CLI uses to list what a bundle documents."""
 

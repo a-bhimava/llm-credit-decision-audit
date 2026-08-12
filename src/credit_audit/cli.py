@@ -130,14 +130,39 @@ def _resolve_run_dir(runs_dir: Path, run_id: str) -> Path:
     return run_dir
 
 
+def _sweep(args: argparse.Namespace) -> int:
+    from credit_audit.run.sweep import execute_sweep
+
+    policy = load_policy()
+    outcome = asyncio.run(
+        execute_sweep(
+            suite=args.suite,
+            policy=policy,
+            seed=args.seed,
+            runs_dir=Path(args.runs_dir),
+            stamp_now=args.stamp_now,
+        )
+    )
+    print(f"sweep {outcome.run_id}")
+    print(f"  {len(outcome.agents)} controls over {len(outcome.cohort)} applicants")
+    print(f"  {outcome.n_episodes} episodes, {outcome.n_results} results")
+    print(f"  artifacts: {outcome.run_dir}")
+    return 0
+
+
 def _export(args: argparse.Namespace) -> int:
+    from credit_audit.report.export import export_sweep, is_sweep
+
     run_dir = _resolve_run_dir(Path(args.runs_dir), args.run)
     try:
-        outcome = export_run(
-            run_dir,
-            out_root=Path(args.out),
-            pairs_per_check=args.pairs_per_check,
-        )
+        if is_sweep(run_dir):
+            outcome = export_sweep(run_dir, out_root=Path(args.out))
+        else:
+            outcome = export_run(
+                run_dir,
+                out_root=Path(args.out),
+                pairs_per_check=args.pairs_per_check,
+            )
     except ExportError as error:
         print(f"export refused: {error}", file=sys.stderr)
         return 2
@@ -190,6 +215,16 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     run.set_defaults(func=_run)
+
+    sweep = subparsers.add_parser(
+        "sweep",
+        help="run every scripted control over one cohort for the planted-defect table",
+    )
+    sweep.add_argument("--suite", choices=SUITE_NAMES, default="smoke")
+    sweep.add_argument("--seed", type=int, default=1729)
+    sweep.add_argument("--runs-dir", default=str(DEFAULT_RUNS_DIR))
+    sweep.add_argument("--stamp-now", action="store_true")
+    sweep.set_defaults(func=_sweep)
 
     export = subparsers.add_parser("export", help="write the published evidence bundle")
     export.add_argument("--run", required=True)
