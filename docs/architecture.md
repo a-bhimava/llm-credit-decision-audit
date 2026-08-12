@@ -80,20 +80,35 @@ llm-credit-decision-audit/
 │  ├─ model/                      # client protocol, response cache, scripted controls
 │  ├─ reasons/                    # vocabulary, mapping, repairs
 │  ├─ checks/                     # paired runner and six Phase 5/6 families
-│  └─ stats/                      # preregistration, paired test, clustered CIs, FDR, power
-├─ tests/{unit,golden,stats}
+│  ├─ stats/                      # preregistration, paired test, clustered CIs, FDR, power
+│  ├─ suites/                     # smoke / core / full definitions, as data
+│  ├─ run/                        # dry-run planner, budget, executor, git provenance
+│  ├─ report/                     # bundle assembly, projections, verification
+│  └─ cli.py                      # credit-audit run | export | verify
+├─ tests/{unit,golden,stats,run,report}
 ├─ scripts/                       # offline fixture builders and validators
 └─ docs/
 ```
 
-This is the implemented Phase 7 tree. Run/export reporting, a console entry point, provider
-adapters, and the site are deliberately absent until their later roadmap phases.
+This is the implemented Phase 8 tree. Provider adapters and the site are deliberately absent
+until their later roadmap phases.
 
 **Dependencies stay small:** `pydantic`, `numpy`, `scipy`, `httpx`, `pyyaml`, and
 `jsonschema`. Statistics are computed from `numpy` and `scipy.stats` primitives rather than a
 modelling framework, so every procedure is readable in one file and testable by simulation.
-There is still no console entry point and no Typer/Rich dependency; a real run/export CLI is
-Phase 8, and provider SDKs are Phase 9.
+The CLI is `argparse` — no Typer, no Rich. A research harness's dependency list is a claim
+about how much of it a reader has to trust. Provider SDKs arrive in Phase 9.
+
+### Two JSON encodings, on purpose
+
+`ids.canonical_json` writes finite floats as IEEE-754 hexadecimal. That is the hash basis: it
+is lossless, platform-stable, and what every committed content ID and the profile fixture hash
+are addressed by. It reads back as a *string*, not a number.
+
+`ids.portable_json` writes ordinary JSON numbers. Run artifacts and every exported bundle file
+use it, because `verify` re-derives statistics from those files and a rate encoded as
+`"0x1.8p-1"` is not a rate. Both are byte-deterministic — sorted keys, fixed separators, fixed
+ordering — so either can back the export gate; only one can also be read back as data.
 
 ---
 
@@ -831,12 +846,23 @@ if someone later "simplifies" the clustering away. Its companion checks that on 
 data the two agree, which shows the clustered interval is wider because the data are
 dependent rather than because the estimator is uniformly inflated.
 
-### 7.4 Reproducibility (Phase 8+)
+### 7.4 Reproducibility
 
-Phase 8 will validate byte-deterministic run/export artifacts; Phase 9 will add committed
-cassette replay. The current CI gate is the full unit/golden/stats suite, Ruff, export-schema
-validation, fixture hashes, `git diff --check`, and content-ID stability across
-`PYTHONHASHSEED`.
+Three distinct claims, checked three different ways:
+
+| Claim | Checked by |
+|---|---|
+| The same experiment produces the same raw artifacts | Run twice, compare bytes |
+| The same artifacts produce the same bundle | `export` twice, `diff -r` |
+| The published numbers are the numbers the evidence supports | `verify --strict` re-derives them |
+
+Only the third catches a doctored file whose hashes were rebuilt, which is why `verify`
+recomputes the statistics instead of merely re-checking `SHA256SUMS`.
+
+The CI gate is the full unit/golden/stats/run/report suite, Ruff, export-schema validation,
+fixture hashes, `git diff --check`, content-ID stability across `PYTHONHASHSEED`, and the
+run → export → export → `diff -r` → `verify --strict` chain run against the real console entry
+point. Phase 9 will add committed cassette replay.
 
 ---
 
