@@ -1,0 +1,38 @@
+# Core suite -- the default published run and the one the determinism gate uses.
+#
+# Twenty-four applicants across every implemented family at k=5. Large enough that the
+# clustered bootstrap has real source applicants to resample, small enough to re-run on every
+# CI push so the exported bundle can never go stale.
+#
+# The zero cost caps are not decoration. A scripted agent reports zero tokens and zero
+# dollars, so a cap of zero is a live assertion that this run made no paid call. Pointing a
+# suite at a real provider requires raising them deliberately, which is the point.
+
+schema: credit-audit/suite@1
+name: core
+label: Core
+description: >-
+  Default published run. Twenty-four committed profiles across every implemented check family
+  at five trials per arm, with common random numbers across matched arms.
+
+applicants:
+  select: all
+  limit: 24
+
+k_trials: 5
+reason_mode: coded
+render_mode: table
+
+families:
+  - reason_validity
+  - policy_adherence
+  - monotonicity
+  - invariance
+  - serialization
+  - counterfactual_bias
+
+caps:
+  max_episodes: 40000
+  max_usd: 0.0
+  max_wall_seconds: 1800
+  max_tokens: 0

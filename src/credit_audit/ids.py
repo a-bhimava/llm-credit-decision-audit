@@ -39,29 +39,52 @@ FLOAT_FORMAT = "ieee-754-hex"
 _SEP = b"\x1f"  # ASCII unit separator; cannot appear in the identifier strings we join.
 
 
-def _normalize(obj: Any) -> Any:
+def _hex_float(value: float) -> str:
+    """Lossless, platform-stable IEEE-754 hexadecimal form, for hash inputs."""
+
+    return value.hex()
+
+
+def _plain_float(value: float) -> float:
+    """The float itself, for wire formats.
+
+    ``json.dumps`` writes floats through ``repr``, which is the shortest string that
+    round-trips exactly. It is lossless and injective for finite doubles, so it is as safe as
+    the hexadecimal form for equality -- it is simply not what a hash input should look like.
+    """
+
+    return value
+
+
+def _normalize(obj: Any, *, floats: Any = _hex_float) -> Any:
     """Recursively convert to a JSON-safe structure with a total, stable ordering.
 
     Bool is checked before int because ``bool`` subclasses ``int``. Enum is checked before str
     because ``StrEnum`` subclasses ``str`` and we want the plain value, not the member repr.
+
+    ``floats`` selects how finite floats are rendered; see :func:`canonical_json` and
+    :func:`portable_json`. Non-finite floats are rejected under both.
     """
     if obj is None or isinstance(obj, bool):
         return obj
     if isinstance(obj, Enum):
-        return _normalize(obj.value)
+        return _normalize(obj.value, floats=floats)
     if isinstance(obj, BaseModel):
-        return {name: _normalize(getattr(obj, name)) for name in sorted(type(obj).model_fields)}
+        return {
+            name: _normalize(getattr(obj, name), floats=floats)
+            for name in sorted(type(obj).model_fields)
+        }
     if isinstance(obj, Decimal):
         return str(obj)
     if isinstance(obj, float):
-        # Rejected here rather than by json.dumps(allow_nan=False): floats are formatted to
+        # Rejected here rather than by json.dumps(allow_nan=False): floats may be formatted to
         # strings before they reach the encoder, so NaN would otherwise serialize as the
         # literal "nan" -- a garbage value that looks like data in a published bundle.
         if not math.isfinite(obj):
             raise ValueError(f"non-finite float cannot be canonicalized: {obj!r}")
         # Normalize signed zero, then retain every other IEEE-754 bit. Quantizing here can
         # make distinct decisions share a content identity.
-        return (obj + 0.0 if obj else 0.0).hex()
+        return floats(obj + 0.0 if obj else 0.0)
     if isinstance(obj, int):
         return obj
     if isinstance(obj, str):
@@ -71,28 +94,49 @@ def _normalize(obj: Any) -> Any:
     if isinstance(obj, Path):
         return obj.as_posix()
     if isinstance(obj, Mapping):
-        return {str(k): _normalize(v) for k, v in sorted(obj.items(), key=lambda kv: str(kv[0]))}
+        return {
+            str(k): _normalize(v, floats=floats)
+            for k, v in sorted(obj.items(), key=lambda kv: str(kv[0]))
+        }
     if isinstance(obj, (set, frozenset)):
-        return sorted(_normalize(v) for v in obj)
+        return sorted(_normalize(v, floats=floats) for v in obj)
     if isinstance(obj, Sequence):
-        return [_normalize(v) for v in obj]
+        return [_normalize(v, floats=floats) for v in obj]
     raise TypeError(f"cannot canonicalize {type(obj).__name__}")
 
 
-def canonical_json(obj: Any) -> bytes:
-    """Deterministic UTF-8 JSON bytes.
-
-    Sorted keys, no whitespace, ``Decimal`` as string, finite floats losslessly encoded in
-    IEEE-754 hexadecimal form, and NaN/Infinity rejected. Two structurally equal objects always
-    produce identical bytes, on any platform.
-    """
+def _dumps(normalized: Any) -> bytes:
     return json.dumps(
-        _normalize(obj),
+        normalized,
         sort_keys=True,
         separators=(",", ":"),
         ensure_ascii=False,
         allow_nan=False,
     ).encode("utf-8")
+
+
+def canonical_json(obj: Any) -> bytes:
+    """Deterministic UTF-8 JSON bytes for **hashing**.
+
+    Sorted keys, no whitespace, ``Decimal`` as string, finite floats losslessly encoded in
+    IEEE-754 hexadecimal form, and NaN/Infinity rejected. Two structurally equal objects always
+    produce identical bytes, on any platform.
+
+    The hexadecimal float form is why this is not also the wire format: it hashes beautifully
+    and reads back as a string, not a number.
+    """
+    return _dumps(_normalize(obj))
+
+
+def portable_json(obj: Any) -> bytes:
+    """Deterministic UTF-8 JSON bytes for **artifacts and the exported bundle**.
+
+    Identical to :func:`canonical_json` except that finite floats are written as ordinary JSON
+    numbers, so the file round-trips through any JSON parser and a browser can read a rate as
+    a rate. Ordering and whitespace are equally fixed, so byte-determinism is preserved: this
+    is the form the export gate diffs.
+    """
+    return _dumps(_normalize(obj, floats=_plain_float))
 
 
 def content_id(obj: Any, *, digest_size: int = 16) -> str:
@@ -232,6 +276,7 @@ __all__ = [
     "content_id",
     "derive_seed",
     "episode_input_hash",
+    "portable_json",
     "sha256_bytes",
     "sha256_file",
     "short_id",

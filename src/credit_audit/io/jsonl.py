@@ -1,32 +1,40 @@
-"""Canonical JSONL primitives for datasets and future persisted run artifacts.
+"""Deterministic JSONL and JSON primitives for datasets, run artifacts, and the bundle.
 
-Phase 6 uses this boundary for deterministic fixture I/O. Phase 8 will route planner,
-execution, scoring, and export stages through persisted JSONL to make runs resumable. Writes
-already use :func:`credit_audit.ids.canonical_json`, so equal records produce byte-identical
-files.
+Two encodings live behind this boundary and the difference matters:
+
+* :func:`write_jsonl` uses :func:`~credit_audit.ids.canonical_json`, whose finite floats are
+  IEEE-754 hexadecimal strings. That is the hash basis, and it is what the committed profile
+  fixtures are addressed by. It does not round-trip through a JSON parser as numbers.
+* :func:`write_records` and :func:`write_json` use
+  :func:`~credit_audit.ids.portable_json`, whose floats are ordinary JSON numbers. Run
+  artifacts and every exported bundle file use this, because ``verify`` reads them back and
+  the site renders them.
+
+Both are byte-deterministic -- sorted keys, no whitespace, fixed ordering -- so either can
+back the export determinism gate. Only one can also be read back as data.
 """
 
 from __future__ import annotations
 
 import os
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path
 from typing import Any, TypeVar
 
 from pydantic import BaseModel
 
-from credit_audit.ids import canonical_json
+from credit_audit.ids import canonical_json, portable_json
 
 M = TypeVar("M", bound=BaseModel)
 
 
-def write_jsonl(path: str | Path, records: Iterable[Any], *, append: bool = False) -> int:
-    """Write records as canonical JSONL. Returns the number of records written.
-
-    The parent directory is created if missing. Writing is atomic when ``append`` is False:
-    content goes to a temporary sibling and is then renamed, so a crash mid-write cannot leave
-    a partially-written artifact that a later stage would silently consume.
-    """
+def _write_lines(
+    path: str | Path,
+    records: Iterable[Any],
+    *,
+    encode: Callable[[Any], bytes],
+    append: bool,
+) -> int:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     count = 0
@@ -34,7 +42,7 @@ def write_jsonl(path: str | Path, records: Iterable[Any], *, append: bool = Fals
     if append:
         with open(path, "ab") as handle:
             for record in records:
-                handle.write(canonical_json(record))
+                handle.write(encode(record))
                 handle.write(b"\n")
                 count += 1
         return count
@@ -42,13 +50,50 @@ def write_jsonl(path: str | Path, records: Iterable[Any], *, append: bool = Fals
     tmp = path.with_name(f".{path.name}.tmp")
     with open(tmp, "wb") as handle:
         for record in records:
-            handle.write(canonical_json(record))
+            handle.write(encode(record))
             handle.write(b"\n")
             count += 1
         handle.flush()
         os.fsync(handle.fileno())
     os.replace(tmp, path)
     return count
+
+
+def write_jsonl(path: str | Path, records: Iterable[Any], *, append: bool = False) -> int:
+    """Write records as canonical (hash-basis) JSONL. Returns the number written.
+
+    The parent directory is created if missing. Writing is atomic when ``append`` is False:
+    content goes to a temporary sibling and is then renamed, so a crash mid-write cannot leave
+    a partially-written artifact that a later stage would silently consume.
+    """
+    return _write_lines(path, records, encode=canonical_json, append=append)
+
+
+def write_records(path: str | Path, records: Iterable[Any], *, append: bool = False) -> int:
+    """Write records as portable JSONL -- deterministic, and readable back as numbers.
+
+    This is the form run artifacts use, because ``credit-audit verify`` re-derives every
+    statistic from them and a rate encoded as ``"0x1.8p-1"`` is not a rate.
+    """
+    return _write_lines(path, records, encode=portable_json, append=append)
+
+
+def write_json(path: str | Path, payload: Any) -> int:
+    """Write one deterministic JSON document, atomically. Returns bytes written.
+
+    A trailing newline is included so the file is well-formed for ``shasum -c``, ``diff``, and
+    every other line-oriented tool a skeptic will reach for.
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data = portable_json(payload) + b"\n"
+    tmp = path.with_name(f".{path.name}.tmp")
+    with open(tmp, "wb") as handle:
+        handle.write(data)
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.replace(tmp, path)
+    return len(data)
 
 
 def read_jsonl(path: str | Path) -> Iterator[dict[str, Any]]:
@@ -93,4 +138,12 @@ def count_lines(path: str | Path) -> int:
         return sum(1 for line in handle if line.strip())
 
 
-__all__ = ["count_lines", "line_sha256", "read_jsonl", "read_models", "write_jsonl"]
+__all__ = [
+    "count_lines",
+    "line_sha256",
+    "read_jsonl",
+    "read_models",
+    "write_json",
+    "write_jsonl",
+    "write_records",
+]

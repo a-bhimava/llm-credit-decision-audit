@@ -1,0 +1,31 @@
+# Smoke suite -- proves the pipeline works end to end, fast enough to run constantly.
+#
+# Three applicants and k=2 is deliberately too small for inference. It exists to catch a
+# broken pipeline in seconds, not to produce a publishable number; every rate it yields
+# carries an n small enough that the site's low-precision chip fires on sight.
+
+schema: credit-audit/suite@1
+name: smoke
+label: Smoke
+description: >-
+  Minimal end-to-end pipeline check. Three applicants, two trials, three families. Too small
+  for inference by design.
+
+applicants:
+  select: all
+  limit: 3
+
+k_trials: 2
+reason_mode: coded
+render_mode: table
+
+families:
+  - policy_adherence
+  - monotonicity
+  - invariance
+
+caps:
+  max_episodes: 2000
+  max_usd: 0.0
+  max_wall_seconds: 300
+  max_tokens: 0
