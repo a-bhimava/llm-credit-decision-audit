@@ -57,6 +57,7 @@ from credit_audit.types import (
 
 TRAJECTORIES_FILE = "trajectories.jsonl"
 RESULTS_FILE = "results.jsonl"
+APPLICANTS_FILE = "applicants.jsonl"
 MANIFEST_FILE = "manifest.json"
 
 DEFAULT_RUNS_DIR = Path("runs")
@@ -333,11 +334,12 @@ async def execute_run(
     budget.admit(plan.episodes_max)
 
     trajectories: dict[str, Trajectory] = {}
+    variants: dict[str, Applicant] = {}
     results: list[TestResult] = []
     aborted = False
     abort_reason = ""
 
-    def sink(trajectory: Trajectory) -> None:
+    def sink(trajectory: Trajectory, applicant: Applicant) -> None:
         existing = trajectories.get(trajectory.episode_id)
         if existing is not None and existing.trajectory_id != trajectory.trajectory_id:
             # Two executions claimed one episode identity and disagreed about what happened.
@@ -347,6 +349,9 @@ async def execute_run(
                 f"trajectories ({existing.trajectory_id} vs {trajectory.trajectory_id})"
             )
         trajectories[trajectory.episode_id] = trajectory
+        # Deduped by content identity: an arm's applicant is identical across its k trials,
+        # and matched arms of different contrasts often share one variant.
+        variants.setdefault(trajectory.key.applicant_content_id, applicant)
         budget.charge(trajectory)
 
     try:
@@ -373,6 +378,7 @@ async def execute_run(
     ordered_results = tuple(
         sorted(results, key=lambda r: (r.check, r.applicant_id, r.pair_id, r.test_id))
     )
+    ordered_variants = tuple(variants[key] for key in sorted(variants))
 
     manifest = _build_manifest(
         run_id=run_id,
@@ -396,8 +402,10 @@ async def execute_run(
     run_dir = Path(runs_dir) / run_id
     trajectories_path = run_dir / TRAJECTORIES_FILE
     results_path = run_dir / RESULTS_FILE
+    applicants_path = run_dir / APPLICANTS_FILE
     write_records(trajectories_path, ordered_trajectories)
     write_records(results_path, ordered_results)
+    write_records(applicants_path, ordered_variants)
 
     manifest = manifest.model_copy(
         update={
@@ -405,6 +413,7 @@ async def execute_run(
                 {
                     TRAJECTORIES_FILE: sha256_file(trajectories_path),
                     RESULTS_FILE: sha256_file(results_path),
+                    APPLICANTS_FILE: sha256_file(applicants_path),
                 }
             )
         }
@@ -454,6 +463,18 @@ def load_run_trajectories(run_dir: Path) -> tuple[Trajectory, ...]:
     return tuple(read_models(Path(run_dir) / TRAJECTORIES_FILE, Trajectory))
 
 
+def load_run_applicants(run_dir: Path) -> dict[str, Applicant]:
+    """Materialized arm applicants, keyed by content identity."""
+
+    from credit_audit.ids import applicant_content_id
+    from credit_audit.io.jsonl import read_models
+
+    return {
+        applicant_content_id(applicant): applicant
+        for applicant in read_models(Path(run_dir) / APPLICANTS_FILE, Applicant)
+    }
+
+
 def status_counts(results: tuple[TestResult, ...]) -> dict[str, int]:
     counts = {status.value: 0 for status in TestStatus}
     for result in results:
@@ -462,12 +483,14 @@ def status_counts(results: tuple[TestResult, ...]) -> dict[str, int]:
 
 
 __all__ = [
+    "APPLICANTS_FILE",
     "MANIFEST_FILE",
     "RESULTS_FILE",
     "TRAJECTORIES_FILE",
     "RunOutcome",
     "compute_run_id",
     "execute_run",
+    "load_run_applicants",
     "load_run_manifest",
     "load_run_results",
     "load_run_trajectories",

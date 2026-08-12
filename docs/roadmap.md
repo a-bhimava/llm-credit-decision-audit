@@ -7,20 +7,20 @@
 
 ---
 
-## Current status — 2026-08-11
+## Current status — 2026-08-12
 
-Phases 0–7 are implemented. Phase 5 was hardened before Phase 6 so that every later check
-inherits matched-trial completion semantics and trustworthy evidence identities. Phase 7 adds
-the preregistration, the paired test, clustered intervals, multiplicity control, power, and
-pass^k, together with the simulation-based calibration that checks those procedures actually
-behave as advertised. The current suite uses deterministic scripted agents and makes zero API
-calls. No provider result, exported run, or CLI is part of this milestone.
+Phases 0–8 are implemented. Phase 5 was hardened before Phase 6 so that every later check
+inherits matched-trial completion semantics and trustworthy evidence identities. Phase 7 added
+the preregistration and the inference layer. Phase 8 makes a run a first-class artifact: a
+`credit-audit` CLI, three suites, a budgeted run pipeline, and a byte-deterministic export
+whose every published statistic re-derives from raw evidence. Everything still uses
+deterministic scripted agents and makes zero API calls; there is no provider result.
 
 `PREREGISTRATION.yaml` is written but **not yet frozen**: `frozen_at` and `git_tag` are null,
-and the exporter reports that rather than hiding it. It is tagged `prereg-v1` before the
-first full run, which is a Phase 8 step.
+and both the manifest and the integrity chain report that rather than hiding it. Tagging
+`prereg-v1` happens before the first *published* run.
 
-Framing is deliberately deferred. Phases 8–11 below remain plans, not implemented claims.
+Framing is deliberately deferred. Phases 9–11 below remain plans, not implemented claims.
 
 ---
 
@@ -342,9 +342,11 @@ README and the site can never disagree about which method actually ran.
 
 **Goal:** a real scripted run and a byte-deterministic bundle.
 
-- `cli.py` + `suites/{smoke,core,full}.yaml`
-- `report/manifest.py`, `report/markdown.py`, `report/export.py` — **no `html.py`**, the site is
-  the drill-down UI
+- `cli.py` (`run` · `export` · `verify`) + `suites/{smoke,core,full}.yaml`
+- `run/{plan,budget,execute,gitmeta}.py` — dry-run planner, run-wide caps, and the executor
+  that persists trajectories, results, applicant variants, and a manifest
+- `report/{manifest,markdown,export,bundle,summary,checks,pairs,integrity,catalog,verify}.py`
+  — **no `html.py`**, the site is the drill-down UI
 - `docs/{method,statistics,reason-codes,limitations,related-work}.md` in the repo
 
 **Three rules the exporter enforces in code, not by discipline**
@@ -359,9 +361,51 @@ README and the site can never disagree about which method actually ran.
 **Size budgets:** ≤15 MB/run, ≤40 MB total, ≤2 MB/file, ≤800 files. Prompt dedup into
 `prompts/<hash>.json` is the biggest win (~4 MB → ~4 KB). Raw JSONL **never** enters git.
 
-**Exit:** `credit-audit run --suite core --model scripted --seed 1729` → `export` → **`export`
-again to a temp dir and `diff -r` is byte-identical** → `credit-audit verify --strict` re-derives
-every statistic from raw JSONL and passes.
+**Decisions this phase made concrete**
+
+- **Trajectory capture lives in `checks/runner.py`**, already the single execution path for
+  every check. A `ContextVar` sink records each episode and its materialized applicant there,
+  so no check signature grows an output parameter and nothing can execute without being
+  recorded. A duplicate `episode_id` with a differing `trajectory_id` raises — that is an
+  identity bug, not a duplicate to drop.
+- **`run_id` excludes the git commit.** It is content-addressed over the experiment definition
+  (suite, model, seed, k, modes, and the policy/profiles/prereg hashes), so the same experiment
+  lands at the same bundle path across commits instead of accumulating a directory per push.
+  The commit is recorded *inside* the manifest as provenance.
+- **`created_at` defaults to the commit timestamp**, not wall clock, for the same reason
+  `SOURCE_DATE_EPOCH` exists. `--stamp-now` opts into real time and marks the run
+  non-deterministic, which the site surfaces as a warning.
+- **`portable_json` joins `canonical_json`.** The canonical form encodes floats as IEEE-754
+  hex — perfect for hashing, unreadable as a number. Artifacts and the bundle use the portable
+  form so `verify` can re-derive from them. Both are byte-deterministic.
+- **Every row of every check is exported; only pair drill-down detail is sampled**, failures
+  first, by a stated deterministic rule, with `n_detail_exported` recorded next to `n`.
+- **`verify` re-derives rather than only re-hashing.** Re-exporting and diffing proves the
+  exporter is deterministic; recomputing the statistics from raw JSONL proves it is correct.
+  A doctored file with rebuilt hashes passes the sums check and fails re-derivation.
+
+**Exit — met:** `credit-audit run --suite core --model scripted --seed 1729` executes 5,630
+episodes into 913 results at $0.00 (the planner's 5,280–6,080 bound held). `export` produces
+140 files / 6.7 MB, inside every budget. Exporting again to a second directory is
+**byte-identical**, same bundle sha256, `diff -r` clean. `credit-audit verify --strict`
+re-derives all 65 estimates, the summary, and all 39 check-row tables from raw JSONL and
+passes. `FaithfulAgent` scores 762 FAITHFUL / 0 DEFICIENT end to end.
+
+**Not emitted yet — 2 of the 11 file types**
+
+- `planted-defects.json` needs the whole known-answer table in one artifact, and a run has one
+  client. It requires a defect sweep that executes every scripted control over a shared cohort
+  and compares observed rates to the analytically derived expected rates. The evidence exists
+  (`tests/golden/` asserts exactly these expectations); collecting it into the published table
+  is the remaining work. It is the strongest artifact the project has, so it gets its own pass
+  rather than a rushed one.
+- `replay.json` belongs to Phase 9, with cassettes.
+
+*Carried into Phase 11:* the manifest records the git commit, so a bundle exported at commit A
+differs from one exported at commit B by that field. Phase 11's `git diff --exit-code
+web/public/runs/` gate therefore requires the bundle to be regenerated in the same PR that
+changes the code — which is the intended workflow, but it is a real constraint rather than a
+free one.
 
 ---
 

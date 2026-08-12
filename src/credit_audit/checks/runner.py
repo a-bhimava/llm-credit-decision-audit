@@ -5,12 +5,17 @@ Corresponding arms use the same trial seed (common random numbers), while ``arm_
 remains part of :class:`~credit_audit.types.EpisodeKey` so episode and cache identities
 cannot collide.
 
-Because this is the single execution path, it is also where executed trajectories are
-recorded. A run needs every trajectory to export pair detail and to let ``verify`` re-derive
-statistics from raw evidence, but the checks layer's job is to return scored results, not to
-carry an output parameter for one caller's benefit. :func:`recording_trajectories` installs a
-sink for the duration of a run instead, so no check signature changes and nothing can be
-executed through this module without being recorded.
+Because this is the single execution path, it is also where executed evidence is recorded. A
+run needs every trajectory to export pair detail and to let ``verify`` re-derive statistics
+from raw evidence, but the checks layer's job is to return scored results, not to carry an
+output parameter for one caller's benefit. :func:`recording_trajectories` installs a sink for
+the duration of a run instead, so no check signature changes and nothing can be executed
+through this module without being recorded.
+
+The sink receives the **materialized applicant** alongside the trajectory. An arm's applicant
+is constructed here from its plan and then exists nowhere else; without capturing it at this
+point the exporter could not show which single field a contrast changed, which is the entire
+content of the pair viewer.
 """
 
 from __future__ import annotations
@@ -32,14 +37,16 @@ if TYPE_CHECKING:
     from credit_audit.interventions.apply import ArmPlan
     from credit_audit.render.packet import RenderOptions
 
-_RECORDER: ContextVar[Callable[[Trajectory], None] | None] = ContextVar(
+TrajectorySink = Callable[[Trajectory, Applicant], None]
+
+_RECORDER: ContextVar[TrajectorySink | None] = ContextVar(
     "credit_audit_trajectory_recorder", default=None
 )
 
 
 @contextmanager
-def recording_trajectories(sink: Callable[[Trajectory], None]) -> Iterator[None]:
-    """Record every trajectory executed inside this block.
+def recording_trajectories(sink: TrajectorySink) -> Iterator[None]:
+    """Record every trajectory executed inside this block, with its materialized applicant.
 
     A :class:`~contextvars.ContextVar` rather than a module global: it is correct under
     ``asyncio`` and cannot leak a sink from one run into another. Nesting is supported and the
@@ -53,10 +60,10 @@ def recording_trajectories(sink: Callable[[Trajectory], None]) -> Iterator[None]
         _RECORDER.reset(token)
 
 
-def _record(trajectory: Trajectory) -> Trajectory:
+def _record(trajectory: Trajectory, applicant: Applicant) -> Trajectory:
     sink = _RECORDER.get()
     if sink is not None:
-        sink(trajectory)
+        sink(trajectory, applicant)
     return trajectory
 
 
@@ -121,7 +128,8 @@ async def run_trials(
                     client=client,
                     reason_mode=reason_mode,
                     render_options=render_options,
-                )
+                ),
+                applicant,
             )
         )
     return tuple(trajectories)
@@ -154,4 +162,10 @@ async def run_arm_trials(
     )
 
 
-__all__ = ["paired_trial_seed", "recording_trajectories", "run_arm_trials", "run_trials"]
+__all__ = [
+    "TrajectorySink",
+    "paired_trial_seed",
+    "recording_trajectories",
+    "run_arm_trials",
+    "run_trials",
+]

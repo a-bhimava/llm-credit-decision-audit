@@ -3,12 +3,12 @@
 **A causal audit harness for testing whether an underwriting agent's stated adverse-action
 reasons are the reasons it actually acted on.**
 
-> ### Status: implementation through Phase 7
+> ### Status: implementation through Phase 8
 >
-> The reason-validity engine, the judge-free Phase 6 checks, and the Phase 7 statistics are
-> implemented and validated against deterministic scripted agents. No hosted model has been
-> evaluated and there are **no provider findings to report**. Everything implemented so far
-> makes zero API calls.
+> The reason-validity engine, the judge-free checks, the statistics, and the run/export/verify
+> pipeline are implemented and validated against deterministic scripted agents. No hosted model
+> has been evaluated and there are **no provider findings to report**. Everything implemented
+> so far makes zero API calls.
 
 ---
 
@@ -108,7 +108,39 @@ simulated runs, clustered intervals cover the truth 94.5% of the time against a 
 and clustered resampling comes out 2.13× wider than response-level resampling on clustered
 data — the last of which fails loudly if anyone later removes the clustering.
 
-Run/export CLI, provider adapters, and the evidence site begin in later phases.
+## Running it
+
+```bash
+credit-audit run --suite core --model scripted --seed 1729   # 5,630 episodes, $0.00
+credit-audit export --run <run_id>                            # 140 files, 6.7 MB
+credit-audit verify --run <run_id> --strict
+```
+
+`run --dry-run` prints the execution plan and its episode bounds without executing anything.
+Suites are data ([`suites/*.yaml`](src/credit_audit/suites)), so the configuration a run used
+is recorded rather than reconstructed from shell history, and their zero-dollar caps are live
+assertions that a scripted run made no paid call.
+
+The exporter enforces three rules in code rather than by discipline:
+
+1. **No number without support.** Every headline must resolve to an estimate in
+   `stats/estimates.json` with at least one supporting test, or the export fails.
+2. **A scripted run is never phrased as a model finding.** Headline strings are linted against
+   model-claim phrasings, so a known-answer validation of the harness cannot ship worded as a
+   claim about somebody's model.
+3. **Nothing is written until it has been scanned.** Credentials and local absolute paths are
+   caught before a byte reaches disk.
+
+Two things make the bundle checkable by a stranger. Exporting the same run twice produces
+**byte-identical** output — same bundle sha256, `diff -r` clean — so re-exporting and diffing
+is a real test. And `verify --strict` re-derives every estimate, the summary, and every
+check-row table from the raw JSONL rather than only re-checking hashes, which is what catches a
+doctored file whose hashes were rebuilt.
+
+Raw run artifacts never enter git. A scripted run regenerates them in seconds at zero cost, and
+the integrity chain closes through their recorded sha256.
+
+Provider adapters and the evidence site begin in later phases.
 
 ## Evidence integrity
 
@@ -144,14 +176,17 @@ python3 -m venv .venv
 .venv/bin/ruff format --check .
 ```
 
-Supported Python versions are 3.11–3.14. There is intentionally no console entry point yet;
-the run/export CLI belongs to Phase 8. The simulation-based calibration tests are marked
+Supported Python versions are 3.11–3.14. The simulation-based calibration tests are marked
 `slow` and run by default; `pytest -m "not slow"` skips them.
 
 ## Documentation
 
-- [`docs/roadmap.md`](docs/roadmap.md) — completed and deferred phases
+- [`docs/method.md`](docs/method.md) — how a run works end to end, and what a finding means
+- [`docs/statistics.md`](docs/statistics.md) — preregistration, paired test, clustered intervals
+- [`docs/reason-codes.md`](docs/reason-codes.md) — the vocabulary, the tiers, and the repairs
 - [`docs/architecture.md`](docs/architecture.md) — evidence identities, execution, and checks
+- [`docs/limitations.md`](docs/limitations.md) — where the data anchoring stops
+- [`docs/roadmap.md`](docs/roadmap.md) — completed and deferred phases
 - [`docs/related-work.md`](docs/related-work.md) — competitive map and novelty delta
 
 ## Disclaimer

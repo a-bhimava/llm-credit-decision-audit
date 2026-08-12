@@ -51,6 +51,9 @@ dev = [
 # Native Gemini adapter (Phase 9). The OpenAI-compatible adapter needs no extra dep.
 gemini = ["google-genai>=2.17"]
 
+[project.scripts]
+credit-audit = "credit_audit.cli:main"
+
 [project.urls]
 Homepage = "https://github.com/a-bhimava/llm-credit-decision-audit"
 Repository = "https://github.com/a-bhimava/llm-credit-decision-audit"

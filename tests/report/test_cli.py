@@ -1,0 +1,124 @@
+"""The CLI: the three verbs, and the end-to-end gate the roadmap names as Phase 8's exit."""
+
+from __future__ import annotations
+
+import filecmp
+from pathlib import Path
+
+import pytest
+
+from credit_audit.cli import build_client, main
+
+
+def _dircmp_equal(left: Path, right: Path) -> bool:
+    """`diff -r`, as a predicate."""
+
+    comparison = filecmp.dircmp(left, right)
+    if comparison.left_only or comparison.right_only or comparison.diff_files:
+        return False
+    return all(_dircmp_equal(left / name, right / name) for name in comparison.common_dirs)
+
+
+def test_scripted_is_the_faithful_control():
+    client, kind, provider = build_client("scripted")
+    assert client.model_id == "scripted:faithful"
+    assert kind == "scripted"
+    assert provider == "scripted"
+
+
+def test_a_specific_defect_agent_can_be_selected():
+    client, _, _ = build_client("scripted:non_monotone")
+    assert client.model_id == "scripted:non_monotone"
+
+
+def test_asking_for_a_provider_says_which_phase_it_arrives_in():
+    with pytest.raises(SystemExit, match="Phase 9"):
+        build_client("gemini-2.5-flash-lite")
+
+
+def test_an_unknown_scripted_agent_lists_the_real_ones():
+    with pytest.raises(SystemExit, match="Available:"):
+        build_client("scripted:nonexistent")
+
+
+def test_dry_run_prints_the_plan_and_executes_nothing(tmp_path, capsys):
+    runs = tmp_path / "runs"
+    code = main(
+        ["run", "--suite", "smoke", "--model", "scripted", "--runs-dir", str(runs), "--dry-run"]
+    )
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "total episodes" in out
+    assert "nothing was executed" in out
+    assert not runs.exists()
+
+
+def test_run_export_verify_round_trip(tmp_path, capsys):
+    """The Phase 8 exit criterion, end to end through the real entry point.
+
+    run -> export -> export again to a second directory -> byte-identical -> verify --strict.
+    """
+
+    runs = tmp_path / "runs"
+    bundle_a = tmp_path / "a"
+    bundle_b = tmp_path / "b"
+
+    assert main(["run", "--suite", "smoke", "--seed", "1729", "--runs-dir", str(runs)]) == 0
+    run_id = next(path.name for path in runs.iterdir() if path.name.startswith("run_"))
+    capsys.readouterr()
+
+    assert main(["export", "--run", run_id, "--runs-dir", str(runs), "--out", str(bundle_a)]) == 0
+    first = capsys.readouterr().out
+    assert main(["export", "--run", run_id, "--runs-dir", str(runs), "--out", str(bundle_b)]) == 0
+    second = capsys.readouterr().out
+
+    assert "bundle sha256" in first
+    assert first.replace(str(bundle_a), "") == second.replace(str(bundle_b), "")
+    assert _dircmp_equal(bundle_a / run_id, bundle_b / run_id), "re-export must be byte-identical"
+
+    assert (
+        main(
+            [
+                "verify",
+                "--run",
+                run_id,
+                "--runs-dir",
+                str(runs),
+                "--out",
+                str(bundle_a),
+                "--strict",
+            ]
+        )
+        == 0
+    )
+    assert capsys.readouterr().out.rstrip().endswith("PASS")
+
+
+def test_verify_exits_nonzero_when_the_bundle_disagrees(tmp_path, capsys):
+    runs = tmp_path / "runs"
+    bundle = tmp_path / "bundle"
+    main(["run", "--suite", "smoke", "--runs-dir", str(runs)])
+    run_id = next(path.name for path in runs.iterdir() if path.name.startswith("run_"))
+    main(["export", "--run", run_id, "--runs-dir", str(runs), "--out", str(bundle)])
+    capsys.readouterr()
+
+    target = bundle / run_id / "summary.json"
+    target.write_text(target.read_text().replace('"kind":"scripted"', '"kind":"model"'))
+
+    code = main(["verify", "--run", run_id, "--runs-dir", str(runs), "--out", str(bundle)])
+    assert code == 1
+    assert "FAILED" in capsys.readouterr().out
+
+
+def test_export_before_run_says_so(tmp_path):
+    with pytest.raises(SystemExit, match="credit-audit run"):
+        main(["export", "--run", "run_missing", "--runs-dir", str(tmp_path)])
+
+
+def test_verify_before_export_says_so(tmp_path, capsys):
+    runs = tmp_path / "runs"
+    main(["run", "--suite", "smoke", "--runs-dir", str(runs)])
+    run_id = next(path.name for path in runs.iterdir() if path.name.startswith("run_"))
+    capsys.readouterr()
+    with pytest.raises(SystemExit, match="credit-audit export"):
+        main(["verify", "--run", run_id, "--runs-dir", str(runs), "--out", str(tmp_path / "no")])

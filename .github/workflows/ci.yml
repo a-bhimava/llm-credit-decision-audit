@@ -47,3 +47,16 @@ jobs:
           b=$(PYTHONHASHSEED=12345 python -c "from credit_audit.ids import content_id; print(content_id({'b':[3,1,2],'a':{'z':1,'y':2}}))")
           test "$a" = "$b" || { echo "content_id varies with PYTHONHASHSEED: $a vs $b"; exit 1; }
           echo "stable: $a"
+
+      # The Phase 8 exit criterion, run against the real entry point rather than in-process:
+      # a run, two exports into separate directories, a literal `diff -r`, and a strict verify
+      # that re-derives every published statistic from the raw JSONL. This is the claim a
+      # stranger is invited to check, so CI checks it the same way they would.
+      - name: Export determinism and verification gate
+        run: |
+          credit-audit run --suite smoke --model scripted --seed 1729 --runs-dir "$RUNNER_TEMP/runs"
+          RUN_ID=$(ls "$RUNNER_TEMP/runs")
+          credit-audit export --run "$RUN_ID" --runs-dir "$RUNNER_TEMP/runs" --out "$RUNNER_TEMP/a"
+          credit-audit export --run "$RUN_ID" --runs-dir "$RUNNER_TEMP/runs" --out "$RUNNER_TEMP/b"
+          diff -r "$RUNNER_TEMP/a/$RUN_ID" "$RUNNER_TEMP/b/$RUN_ID"
+          credit-audit verify --run "$RUN_ID" --runs-dir "$RUNNER_TEMP/runs" --out "$RUNNER_TEMP/a" --strict
