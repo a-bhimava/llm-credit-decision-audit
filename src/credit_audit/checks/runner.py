@@ -4,10 +4,20 @@ The runner centralizes canonical episode identity, rendering, and paired seed se
 Corresponding arms use the same trial seed (common random numbers), while ``arm_id``
 remains part of :class:`~credit_audit.types.EpisodeKey` so episode and cache identities
 cannot collide.
+
+Because this is the single execution path, it is also where executed trajectories are
+recorded. A run needs every trajectory to export pair detail and to let ``verify`` re-derive
+statistics from raw evidence, but the checks layer's job is to return scored results, not to
+carry an output parameter for one caller's benefit. :func:`recording_trajectories` installs a
+sink for the duration of a run instead, so no check signature changes and nothing can be
+executed through this module without being recorded.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import TYPE_CHECKING
 
 from credit_audit.env.episode import build_episode_key, run_episode
@@ -21,6 +31,33 @@ from credit_audit.types import Applicant, RenderMode, Trajectory
 if TYPE_CHECKING:
     from credit_audit.interventions.apply import ArmPlan
     from credit_audit.render.packet import RenderOptions
+
+_RECORDER: ContextVar[Callable[[Trajectory], None] | None] = ContextVar(
+    "credit_audit_trajectory_recorder", default=None
+)
+
+
+@contextmanager
+def recording_trajectories(sink: Callable[[Trajectory], None]) -> Iterator[None]:
+    """Record every trajectory executed inside this block.
+
+    A :class:`~contextvars.ContextVar` rather than a module global: it is correct under
+    ``asyncio`` and cannot leak a sink from one run into another. Nesting is supported and the
+    previous sink is restored on exit, including on exception.
+    """
+
+    token = _RECORDER.set(sink)
+    try:
+        yield
+    finally:
+        _RECORDER.reset(token)
+
+
+def _record(trajectory: Trajectory) -> Trajectory:
+    sink = _RECORDER.get()
+    if sink is not None:
+        sink(trajectory)
+    return trajectory
 
 
 def paired_trial_seed(
@@ -75,14 +112,16 @@ async def run_trials(
             render_options=render_options,
         )
         trajectories.append(
-            await run_episode(
-                key=key,
-                applicant=applicant,
-                policy=policy,
-                application_text=application_text,
-                client=client,
-                reason_mode=reason_mode,
-                render_options=render_options,
+            _record(
+                await run_episode(
+                    key=key,
+                    applicant=applicant,
+                    policy=policy,
+                    application_text=application_text,
+                    client=client,
+                    reason_mode=reason_mode,
+                    render_options=render_options,
+                )
             )
         )
     return tuple(trajectories)
@@ -115,4 +154,4 @@ async def run_arm_trials(
     )
 
 
-__all__ = ["paired_trial_seed", "run_arm_trials", "run_trials"]
+__all__ = ["paired_trial_seed", "recording_trajectories", "run_arm_trials", "run_trials"]

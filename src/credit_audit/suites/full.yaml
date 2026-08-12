@@ -1,0 +1,36 @@
+# Full suite -- the entire committed population.
+#
+# All 225 profiles across every family at k=5. This is the run that exercises the multi-
+# constraint applicants the reason-validity isolation design exists for: the population
+# deliberately contains denials with two, three, and more simultaneous breaches, and those
+# are where a naive single-repair test produces false violations.
+#
+# It is minutes rather than seconds even on scripted agents, so it is not the CI gate.
+
+schema: credit-audit/suite@1
+name: full
+label: Full
+description: >-
+  Complete sweep of all 225 committed profiles across every implemented check family at five
+  trials per arm, including the multi-constraint denials the isolation design targets.
+
+applicants:
+  select: all
+
+k_trials: 5
+reason_mode: coded
+render_mode: table
+
+families:
+  - reason_validity
+  - policy_adherence
+  - monotonicity
+  - invariance
+  - serialization
+  - counterfactual_bias
+
+caps:
+  max_episodes: 400000
+  max_usd: 0.0
+  max_wall_seconds: 7200
+  max_tokens: 0
