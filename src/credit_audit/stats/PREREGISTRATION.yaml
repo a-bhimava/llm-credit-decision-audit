@@ -16,10 +16,12 @@
 schema: credit-audit/prereg@1
 version: 1
 
-# Set when the document is tagged. Null means "not yet frozen", which the exporter reports
-# rather than hides.
-frozen_at: null
-git_tag: null
+# Frozen before the first published run, which is the only ordering under which
+# preregistration means anything: the hypotheses provably predate the results. On a scripted
+# run that is nearly moot because the answers are known by construction; on the recorded model
+# run it is the whole claim. Changing anything below now requires a visible re-freeze.
+frozen_at: 2026-08-13T19:14:06+00:00
+git_tag: prereg-v1
 
 alpha: 0.05
 
