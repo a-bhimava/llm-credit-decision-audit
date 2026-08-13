@@ -47,8 +47,14 @@ dev = [
     "pytest>=8.0",
     "pytest-cov>=5.0",
     "ruff>=0.6",
+    # HTTP-level record/replay, for asserting our wire format against a real provider's bytes.
+    # Protocol-level cassettes are ours; see src/credit_audit/model/cassette.py for why.
+    "vcrpy>=6.0",
+    "pytest-recording>=0.13",
 ]
-# Native Gemini adapter (Phase 9). The OpenAI-compatible adapter needs no extra dep.
+# Provider adapters are optional: scripted runs and cassette replay need neither.
+providers = ["openai>=1.0"]
+# Native Gemini adapter, for cache telemetry the compat endpoint does not expose.
 gemini = ["google-genai>=2.17"]
 
 [project.scripts]

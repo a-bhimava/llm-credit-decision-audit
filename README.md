@@ -3,12 +3,14 @@
 **A causal audit harness for testing whether an underwriting agent's stated adverse-action
 reasons are the reasons it actually acted on.**
 
-> ### Status: implementation through Phase 8
+> ### Status: implementation through Phase 9
 >
-> The reason-validity engine, the judge-free checks, the statistics, and the run/export/verify
-> pipeline are implemented and validated against deterministic scripted agents. No hosted model
-> has been evaluated and there are **no provider findings to report**. Everything implemented
-> so far makes zero API calls.
+> The reason-validity engine, the judge-free checks, the statistics, the run/export/verify
+> pipeline, and the provider adapters are implemented and validated against deterministic
+> scripted agents. A handful of real responses have been recorded to validate the adapters
+> against the wire format, and **there are no provider findings to report** — six episodes is
+> not a result, the published evidence remains the scripted known-answer run, and the exporter
+> refuses to let a scripted run be phrased as a claim about any model.
 
 ---
 
@@ -140,7 +142,35 @@ doctored file whose hashes were rebuilt.
 Raw run artifacts never enter git. A scripted run regenerates them in seconds at zero cost, and
 the integrity chain closes through their recorded sha256.
 
-Provider adapters and the evidence site begin in later phases.
+### Talking to a real provider
+
+```bash
+credit-audit run --model gemini:gemini-2.5-flash-lite \
+    --cassette tests/fixtures/cassettes/smoke_gemini --cassette-mode replay
+```
+
+Two adapters implement the same `ModelClient` protocol: a portable one over any
+OpenAI-compatible endpoint (Gemini, OpenRouter, Together, Groq, local vLLM/Ollama), and a thin
+native Gemini one whose reason for existing is `cached_content_token_count` — prompt-cache
+behaviour is **measured from provider-reported usage, never asserted**.
+
+Neither adapter can see `ModelRequest.env_state`; a test parses every file under
+`model/providers/` and fails if one does. An adapter that reached into the environment could
+consult ground truth and produce a "real model run" that was quietly cheating, and nothing
+downstream would notice.
+
+**Cassettes record at the protocol boundary**, not at HTTP, so a recording made through the
+compat endpoint replays through the native adapter and keys on the same content-addressed
+episode identity as everything else. `replay` mode never calls the provider: a miss raises
+rather than falling through to the network, and the run stops rather than accumulating errors
+that look like provider trouble. A pure replay needs no credential — the inner client in that
+mode raises if it is reached at all.
+
+**Spend is authorized explicitly.** Every suite caps `max_usd` at 0.0, so a provider run is
+refused until `--max-usd` says otherwise; `Usage.cost_usd` is computed from returned token
+counts against a dated price table, and an unpriced model is flagged rather than assumed free.
+
+The evidence site begins in a later phase.
 
 ## Evidence integrity
 
