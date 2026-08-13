@@ -198,8 +198,17 @@ def _apply_spend_authorization(suite, args: argparse.Namespace):
     protects you and one that documents an intention.
     """
 
+    caps_update: dict[str, object] = {}
+    if args.max_wall_seconds is not None:
+        # Separate from spend on purpose. The wall-time cap is a runaway guard, not a budget:
+        # a suite's default is calibrated for scripted episodes that take milliseconds, and a
+        # provider run of the same size takes orders of magnitude longer for reasons that have
+        # nothing to do with cost. Authorizing dollars must not silently authorize hours.
+        caps_update["max_wall_seconds"] = args.max_wall_seconds
     if args.max_usd is None:
-        return suite
+        if not caps_update:
+            return suite
+        return suite.model_copy(update={"caps": suite.caps.model_copy(update=caps_update)})
     # Suites also cap tokens at zero, as a second expression of "this run makes no paid
     # call". Once spend is authorized in dollars, dollars are the binding control; leaving a
     # zero token cap in place would abort every provider run on its first episode and make
@@ -345,6 +354,15 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "authorize spend for this run. Suites cap it at 0.0, so a provider run is "
             "refused until this is given."
+        ),
+    )
+    run.add_argument(
+        "--max-wall-seconds",
+        type=float,
+        default=None,
+        help=(
+            "raise the runaway guard. Suite defaults assume scripted episodes; a provider "
+            "run of the same size takes far longer for reasons unrelated to cost."
         ),
     )
     run.add_argument(
