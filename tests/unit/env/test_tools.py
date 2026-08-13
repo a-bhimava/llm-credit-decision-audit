@@ -172,6 +172,76 @@ def test_check_policy_unknown_query_fails(golden_clean_applicant, policy):
     assert not result.ok
 
 
+def test_check_policy_resolves_every_heading_the_document_renders(golden_clean_applicant, policy):
+    """Generated from the sections, so the key set cannot drift away from the document.
+
+    A recorded run against a real model showed this exact drift: the agent quoted headings
+    back verbatim -- "4.1 Capacity", "4.3 Derogatory credit" -- and was refused 171 times out
+    of 211 calls, because the keys accepted the number alone or the title alone but never the
+    heading as written. Quoting a heading you were just shown is the obvious move, so a
+    hand-written key list is the wrong shape for this tool.
+    """
+
+    state = _state(golden_clean_applicant, policy)
+    specs = tool_specs("coded")
+    for section in policy.doc.sections:
+        heading = f"{section.anchor} {section.title}".strip()
+        result, _, _ = dispatch(
+            state, "check_policy", {"query": heading}, specs=specs, reason_mode="coded"
+        )
+        assert result.ok, f"the document renders {heading!r} but the tool rejects it"
+        assert result.data["anchor"] == section.anchor
+
+
+@pytest.mark.parametrize(
+    "query",
+    ["4.1 Capacity", "4.2 Credit history", "4.3 Derogatory credit", "4.1", "capacity"],
+)
+def test_check_policy_accepts_anchor_title_and_heading_forms(golden_clean_applicant, policy, query):
+    """The three forms an agent can reasonably produce from what it was shown."""
+
+    state = _state(golden_clean_applicant, policy)
+    result, _, _ = dispatch(
+        state, "check_policy", {"query": query}, specs=tool_specs("coded"), reason_mode="coded"
+    )
+    assert result.ok
+
+
+def test_check_policy_lookup_stays_exact(golden_clean_applicant, policy):
+    """The design forbids BM25, embeddings, and fuzzy matching. A near miss must still miss."""
+
+    state = _state(golden_clean_applicant, policy)
+    specs = tool_specs("coded")
+    for near_miss in ("4.1 Capacty", "capacity rules", "4.1.1"):
+        result, _, _ = dispatch(
+            state, "check_policy", {"query": near_miss}, specs=specs, reason_mode="coded"
+        )
+        assert not result.ok, f"{near_miss!r} resolved; the lookup is no longer exact"
+
+
+def test_a_failed_lookup_says_what_would_have_worked(golden_clean_applicant, policy):
+    """An error that says only "no" costs a step and teaches nothing.
+
+    In the recorded run an agent spent eight consecutive calls guessing variations and then
+    concluded the tool had an authentication problem. Returning the valid keys turns that
+    spiral into a single recoverable mistake.
+    """
+
+    state = _state(golden_clean_applicant, policy)
+    result, _, _ = dispatch(
+        state,
+        "check_policy",
+        {"query": "Section 4"},
+        specs=tool_specs("coded"),
+        reason_mode="coded",
+    )
+    assert not result.ok
+    available = result.data["available_sections"]
+    assert available
+    assert "4.1 Capacity" in available
+    assert "see available_sections" in (result.error or "")
+
+
 def test_lookup_neighborhood_stats_sets_trap_flag(golden_clean_applicant, policy):
     state = _state(golden_clean_applicant, policy)
     specs = tool_specs("coded")

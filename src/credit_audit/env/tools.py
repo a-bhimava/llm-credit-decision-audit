@@ -153,18 +153,62 @@ def _verify_income(
     return ToolResult(data=data), new_state
 
 
+def _available_sections(policy: Policy) -> list[str]:
+    """The headings as rendered, for an agent that guessed wrong."""
+
+    return [f"{section.anchor} {section.title}".strip() for section in policy.doc.sections]
+
+
+def policy_section_keys(policy: Policy) -> dict[str, str]:
+    """Every form the document itself renders, mapped to its anchor.
+
+    Derived from the sections rather than hand-listed, because a hand-listed key set drifts
+    away from the document and the drift is invisible until an agent trips on it. Three forms
+    per section: the anchor (``4.1``), the title (``capacity``), and the heading exactly as it
+    appears (``4.1 capacity``).
+
+    That third form is the one that mattered. A recorded run showed an agent asking for
+    ``"4.1 Capacity"`` -- the heading as written in the policy it had just been shown -- and
+    being refused 171 times out of 211 calls, because the key set accepted the number alone or
+    the title alone but never the two together. Reading a heading and quoting it back is the
+    obvious thing to do, so it has to resolve.
+
+    This remains exact hashmap lookup. No BM25, no embeddings, no fuzzy matching: the key set
+    simply stops excluding a form the document displays.
+    """
+
+    keys: dict[str, str] = {}
+    for section in policy.doc.sections:
+        anchor = section.anchor
+        keys[anchor.casefold()] = anchor
+        title = (section.title or "").strip().casefold()
+        if title:
+            keys[title] = anchor
+            keys[f"{anchor.casefold()} {title}"] = anchor
+    return keys
+
+
 def _check_policy(
     state: CreditEnvState, arguments: dict[str, Any]
 ) -> tuple[ToolResult, CreditEnvState]:
-    """Exact lookup only -- a hashmap resolution against section anchors or a small
-    static alias table. Not BM25, not embeddings, not fuzzy matching of any kind."""
+    """Exact lookup only -- a hashmap resolution against section keys or a small static alias
+    table. Not BM25, not embeddings, not fuzzy matching of any kind."""
     query = arguments["query"].strip().casefold()
-    known_anchors = {s.anchor for s in state.policy.doc.sections}
-    anchor = query if query in known_anchors else _POLICY_ALIASES.get(query)
+    keys = policy_section_keys(state.policy)
+    anchor = keys.get(query) or _POLICY_ALIASES.get(query)
     if anchor is None:
+        # Name what would have worked. An error that says only "no" leaves an agent guessing,
+        # and a recorded run showed exactly where that leads: repeated variations, a spent
+        # step budget, and finally a conclusion that the tool was broken -- one episode
+        # reported "authentication issues" over what was a key-format mismatch.
         return (
             ToolResult(
-                data={}, ok=False, error=f"no policy section matches {arguments['query']!r}"
+                data={"available_sections": _available_sections(state.policy)},
+                ok=False,
+                error=(
+                    f"no policy section matches {arguments['query']!r}; "
+                    "see available_sections for the exact keys this tool accepts"
+                ),
             ),
             state,
         )
