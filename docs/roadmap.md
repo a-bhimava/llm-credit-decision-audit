@@ -526,13 +526,24 @@ What the recordings settled:
   every episode recorded. The passthrough is insurance for thinking models and other
   providers, not something we needed here. Saying so is more useful than implying we solved
   a problem we never hit.
-- **Only 2 of 6 episodes reached `submit_decision`.** Two ended `stop`, two hit `max_steps`
-  after calling `check_policy` nine or ten times consecutively. The two that submitted
-  produced well-formed coded reasons, one hitting the policy maximum exactly. This is a
-  property of *this* prompt, tool scaffold, and policy configuration — not a claim about the
-  model, and the export lint enforces that distinction. It does mean a real run's
-  pair-completion rate would sit materially below 1, which is worth resolving before Phase 10
-  spends on a full run.
+- **Episode completion was 53%, and both causes were ours.** An early six-episode sample
+  suggested 2 of 6; re-measured over the full 62-episode recording the baseline was 33/62.
+  Investigation found two harness defects rather than anything about the model, both now
+  fixed:
+
+  1. **`check_policy` rejected the form the document displays.** It accepted an anchor
+     (`4.1`) or a bare title (`capacity`), but the agent asked for `"4.1 Capacity"` — the
+     heading exactly as written in the policy it had just been shown. That failed **171 of
+     211 calls**, and the error named what failed without naming what would work, so agents
+     guessed until their step budget was gone. Five concluded the tool was broken; one
+     reported "authentication issues" for a key-format mismatch. The key set is now derived
+     from `policy.doc.sections` and failures return the available headings.
+  2. **A null turn was treated as a considered stop.** No content, no tool call, and the
+     episode finalized with no decision, discarding the applicant. Silence is not a decision;
+     a null turn now consumes a step and continues, bounded by `max_steps`.
+
+  Measured across three recordings of the same suite: **33/62 (53%) → 37/62 (60%) → 57/62
+  (92%)**, with `check_policy` failures falling from 171/211 to 14/230.
 
 Three flaws surfaced that hand-built fixtures never would have, each now fixed and tested:
 
