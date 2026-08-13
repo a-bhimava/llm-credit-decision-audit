@@ -20,6 +20,13 @@ htmlcov/
 # negations below could never rescue the published bundle. That would silently empty the site
 # and defeat the CI staleness gate that diffs it.
 /runs/
+
+# Full-size run cassettes are raw evidence, not published artifacts, and follow the same rule
+# as raw JSONL: their sha256 lands in the exported integrity chain and they ship as Release
+# assets rather than in git. Anyone with a key regenerates one for a few dollars. The small
+# committed cassettes under tests/fixtures/ are different -- they are test fixtures, and they
+# are what lets CI replay real provider bytes at zero cost.
+web/public/cassettes/
 *.jsonl
 !tests/**/*.jsonl
 !web/public/runs/**/*.jsonl
