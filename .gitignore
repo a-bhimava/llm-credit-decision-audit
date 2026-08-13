@@ -15,7 +15,11 @@ htmlcov/
 # Scripted runs regenerate in under a minute at zero cost; real-model runs ship as
 # GitHub Release assets with their sha256 recorded in the exported integrity/chain.json.
 # The exported bundle under web/public/runs/ IS committed — that is deliberate.
-runs/
+# Root-anchored on purpose. An unanchored `runs/` matches *any* directory of that name,
+# including web/public/runs/, and git does not descend into an ignored directory -- so the
+# negations below could never rescue the published bundle. That would silently empty the site
+# and defeat the CI staleness gate that diffs it.
+/runs/
 *.jsonl
 !tests/**/*.jsonl
 !web/public/runs/**/*.jsonl
