@@ -9,19 +9,23 @@
 
 ## Current status — 2026-08-12
 
-Phases 0–8 are implemented. Phase 5 was hardened before Phase 6 so that every later check
+Phases 0–9 are implemented. Phase 5 was hardened before Phase 6 so that every later check
 inherits matched-trial completion semantics and trustworthy evidence identities. Phase 7 added
 the preregistration and the inference layer. Phase 8 makes a run a first-class artifact: a
 `credit-audit` CLI, three suites, a budgeted run pipeline, a byte-deterministic export whose
 every published statistic re-derives from raw evidence, and the known-answer sweep that
-publishes the harness catching all 14 planted defects while firing nothing else. Everything still uses
-deterministic scripted agents and makes zero API calls; there is no provider result.
+publishes the harness catching all 14 planted defects while firing nothing else. Phase 9 adds provider adapters and cassettes, and
+crossed the live boundary once to record real responses.
+
+**The scripted evidence is unchanged and remains the published claim.** The recorded
+cassettes exist to validate the adapters, not to report on a model: six episodes is not a
+finding, and the export lint would refuse to let it ship as one.
 
 `PREREGISTRATION.yaml` is written but **not yet frozen**: `frozen_at` and `git_tag` are null,
 and both the manifest and the integrity chain report that rather than hiding it. Tagging
 `prereg-v1` happens before the first *published* run.
 
-Framing is deliberately deferred. Phases 9–11 below remain plans, not implemented claims.
+Framing is deliberately deferred. Phases 10–11 below remain plans, not implemented claims.
 
 ---
 
@@ -508,10 +512,44 @@ worse. Both tools are used, at the layer each is right for.
 - Credentials never enter a cassette. The exporter's secret scan already refuses them; the
   cassette writer refuses earlier.
 
-**Exit:** adapters pass against recorded cassettes, including a multi-turn tool-calling
-conversation whose thought signatures are round-tripped verbatim and asserted byte-equal. A
-signature-stripping test must fail loudly. `verify --strict` still passes on a cassette-backed
-run. No live API calls in this phase.
+**Exit — met, with one line of this plan deliberately reversed.**
+
+"No live API calls in this phase" was wrong, and changing it was the right call. Cassettes
+authored from documented response shapes test our *parsing*, not our fidelity to the wire —
+an adapter validated only against fixtures we wrote is validated against our own
+understanding, which is the thing most likely to be wrong. Recording cost **$0.0139** and
+immediately earned it.
+
+What the recordings settled:
+
+- **`gemini-2.5-flash-lite` with thinking off emits no thought signatures at all**, across
+  every episode recorded. The passthrough is insurance for thinking models and other
+  providers, not something we needed here. Saying so is more useful than implying we solved
+  a problem we never hit.
+- **Only 2 of 6 episodes reached `submit_decision`.** Two ended `stop`, two hit `max_steps`
+  after calling `check_policy` nine or ten times consecutively. The two that submitted
+  produced well-formed coded reasons, one hitting the policy maximum exactly. This is a
+  property of *this* prompt, tool scaffold, and policy configuration — not a claim about the
+  model, and the export lint enforces that distinction. It does mean a real run's
+  pair-completion rate would sit materially below 1, which is worth resolving before Phase 10
+  spends on a full run.
+
+Three flaws surfaced that hand-built fixtures never would have, each now fixed and tested:
+
+1. **A replay miss was swallowed as a provider failure.** The first cassette-backed run
+   finished green having replayed nothing — 62 of 62 episodes recorded as `ERROR`. Provider
+   failures are evidence; a misconfigured harness is not. `HarnessConfigurationError`
+   propagates out of the episode loop, with `CassetteMiss` as its first member.
+2. **Pure replay demanded a credential it could never use**, blocking the CI case cassettes
+   exist for. The inner client in replay mode now raises if reached at all, making "no
+   network, no credential" structural.
+3. **Replayed tokens consumed a cap meant to stop spending.** The budget enforces on billable
+   usage only, while still reporting full totals.
+
+The verified chain: `credit-audit run --model gemini:gemini-2.5-flash-lite --cassette …
+--cassette-mode replay` with no credential and a zero-dollar cap → `export` → `export` again →
+**byte-identical** → `verify --strict` re-derives 23 estimates, the summary, and 20 check-row
+tables. PASS.
 
 ---
 
