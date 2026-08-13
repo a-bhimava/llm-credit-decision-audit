@@ -328,6 +328,18 @@ async def run_episode(
             )
         )
 
+        if resp.stop_reason == "stop" and not resp.tool_calls and not resp.content.strip():
+            # A null turn: the provider stopped without saying anything and without asking for
+            # a tool. That is not a considered decision to stop, and treating it as one ends
+            # the episode with no decision and discards the applicant entirely. A recorded run
+            # showed this accounting for most of the incomplete episodes.
+            #
+            # It consumes a step like any other non-productive turn, so it cannot loop: the
+            # episode still terminates at max_steps, and the difference is only whether the
+            # agent gets its remaining budget or is cut off at the first silence.
+            state = state.model_copy(update={"step": state.step + 1})
+            continue
+
         terminal_reason = {
             "stop": Termination.STOP,
             "refusal": Termination.REFUSAL,
