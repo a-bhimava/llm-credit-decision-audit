@@ -17,6 +17,20 @@ from credit_audit.env.types import ToolSpec
 from credit_audit.types import Frozen, FrozenDict, Message, RequestedToolCall, Usage
 
 
+class HarnessConfigurationError(RuntimeError):
+    """A failure of the harness's own setup, not of the provider.
+
+    ``run_episode`` deliberately turns provider failures into evidence: a refusal, a timeout,
+    or a 500 is something the model did, and a run that crashed on it would lose the very
+    observation worth keeping. A misconfigured harness is the opposite. A cassette with no
+    matching record does not mean the model failed; it means the run was pointed at the wrong
+    recordings, and swallowing it produces a green run that replayed nothing.
+
+    Exceptions inheriting this propagate out of the episode loop instead of becoming an
+    ``ERROR`` trajectory.
+    """
+
+
 class ToolCallRequested(RequestedToolCall):
     """Backward-compatible public name for the shared protocol record."""
 
@@ -77,4 +91,10 @@ class ModelClient(Protocol):
     async def complete(self, req: ModelRequest) -> ModelResponse: ...
 
 
-__all__ = ["ModelClient", "ModelRequest", "ModelResponse", "ToolCallRequested"]
+__all__ = [
+    "HarnessConfigurationError",
+    "ModelClient",
+    "ModelRequest",
+    "ModelResponse",
+    "ToolCallRequested",
+]

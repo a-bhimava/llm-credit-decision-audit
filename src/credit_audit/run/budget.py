@@ -59,6 +59,12 @@ class Budget:
         self._thought_tokens = 0
         self._cache_hits = 0
         self._replayed = 0
+        # Caps limit spend. A replayed response preserves its recorded token counts because
+        # they are telemetry worth keeping, but it makes no call and costs nothing, so it
+        # must not consume a budget meant to stop the run from spending. Without this split a
+        # zero-token cap -- the setting that means "no paid calls" -- aborts a pure replay on
+        # its first episode.
+        self._billable_tokens = 0
 
     @property
     def caps(self) -> Caps:
@@ -104,6 +110,8 @@ class Budget:
         self._thought_tokens += usage.thought_tokens
         self._cache_hits += int(usage.cache_hit)
         self._replayed += int(usage.replayed)
+        if not usage.replayed:
+            self._billable_tokens += usage.input_tokens + usage.output_tokens
         self._enforce()
 
     def _enforce(self) -> None:
@@ -115,9 +123,9 @@ class Budget:
             )
         if caps.max_usd is not None and state.usd > caps.max_usd:
             raise BudgetExceeded(f"cost cap reached: ${state.usd:.4f} > ${caps.max_usd:.4f}", state)
-        if caps.max_tokens is not None and state.total_tokens > caps.max_tokens:
+        if caps.max_tokens is not None and self._billable_tokens > caps.max_tokens:
             raise BudgetExceeded(
-                f"token cap reached: {state.total_tokens} > {caps.max_tokens}", state
+                f"token cap reached: {self._billable_tokens} > {caps.max_tokens}", state
             )
         if caps.max_wall_seconds is not None and state.elapsed_seconds > caps.max_wall_seconds:
             raise BudgetExceeded(

@@ -55,20 +55,33 @@ def _snake(name: str) -> str:
     return "".join(out)
 
 
-def build_client(spec: str) -> tuple[ModelClient, str, str]:
+GEMINI_PREFIX = "gemini"
+COMPAT_PREFIX = "openai-compat"
+
+GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+
+
+def build_client(spec: str, *, api_key: str | None = None) -> tuple[ModelClient, str, str]:
     """Resolve ``--model`` to a client, its kind, and its provider.
 
-    ``scripted`` is the faithful control. ``scripted:<name>`` selects a specific planted-defect
-    agent, which is how the known-answer validation table is produced. A real provider adapter
-    is Phase 9, and asking for one here says so rather than failing obscurely.
+    ``scripted`` is the faithful control and ``scripted:<name>`` a specific planted-defect
+    agent, which is how the known-answer table is produced. ``gemini:<id>`` and
+    ``openai-compat:<id>`` reach a real provider.
+
+    ``kind`` is returned rather than sniffed, because it drives the site's non-dismissible
+    provenance banner and the export lint that stops a known-answer run being phrased as a
+    finding about somebody's model. It is decided here, where someone chose it.
     """
+
+    if spec.startswith((f"{GEMINI_PREFIX}:", f"{COMPAT_PREFIX}:")) or spec == GEMINI_PREFIX:
+        return _provider_client(spec, api_key=api_key)
 
     if spec == SCRIPTED_PREFIX:
         spec = f"{SCRIPTED_PREFIX}:faithful"
     if not spec.startswith(f"{SCRIPTED_PREFIX}:"):
         raise SystemExit(
-            f"unknown model {spec!r}. Only scripted agents exist today; provider adapters "
-            "arrive in Phase 9. Try --model scripted, or --model scripted:<agent>."
+            f"unknown model {spec!r}. Try scripted, scripted:<agent>, gemini:<id>, or "
+            "openai-compat:<id>."
         )
     short = spec.split(":", 1)[1]
     agents = _scripted_agents()
@@ -85,10 +98,121 @@ def build_client(spec: str) -> tuple[ModelClient, str, str]:
     return client, "scripted", "scripted"
 
 
+def _provider_client(spec: str, *, api_key: str | None) -> tuple[ModelClient, str, str]:
+    """A real provider. The key comes from the environment, never from a flag.
+
+    A credential passed as an argument lands in shell history, process listings, and CI logs.
+    Reading it from the environment is not perfect either, but it is the difference between
+    "recoverable" and "in three places you forgot about".
+    """
+
+    import os
+
+    from credit_audit.model.providers.openai_compat import OpenAICompatClient
+
+    scheme, _, model_id = spec.partition(":")
+    if scheme == GEMINI_PREFIX:
+        model_id = model_id or "gemini-2.5-flash-lite"
+        base_url = GEMINI_BASE_URL
+        provider = "gemini_openai_compat"
+        env_var = "GEMINI_API_KEY"
+    else:
+        if not model_id:
+            raise SystemExit("openai-compat requires a model id: --model openai-compat:<id>")
+        base_url = os.environ.get("OPENAI_BASE_URL", "")
+        if not base_url:
+            raise SystemExit("openai-compat requires OPENAI_BASE_URL in the environment")
+        provider = "openai_compat"
+        env_var = "OPENAI_API_KEY"
+
+    key = api_key or os.environ.get(env_var)
+    if not key:
+        raise SystemExit(
+            f"{env_var} is not set. Export it in your shell rather than passing it as a flag."
+        )
+    client = OpenAICompatClient(model_id, api_key=key, base_url=base_url, provider=provider)
+    return client, "model", provider
+
+
+class _NoLiveCalls:
+    """The inner client for a pure replay: reaching it at all is the bug.
+
+    In replay mode the cassette answers every request, so no credential is needed and none is
+    read. Substituting a client that *cannot* call out makes that structural rather than
+    circumstantial -- there is no key to misuse and no code path to the network, which is what
+    lets CI run these without secrets.
+    """
+
+    def __init__(self, model_id: str) -> None:
+        self.model_id = model_id
+
+    async def complete(self, _req):
+        raise RuntimeError(
+            "replay mode reached the provider, which should be impossible: the cassette "
+            "should have answered or raised CassetteMiss first"
+        )
+
+
+def _client_for_run(args: argparse.Namespace) -> tuple[ModelClient, str, str]:
+    """Resolve the model, then wrap it in a cassette if one was given.
+
+    Pure replay of a provider model needs no credential, so it does not ask for one. That is
+    not a convenience: a replay that demanded a key would make the offline guarantee depend on
+    someone remembering not to supply one.
+    """
+
+    spec = args.model
+    replaying = args.cassette and args.cassette_mode == "replay"
+    is_provider = spec.startswith(("gemini", "openai-compat"))
+
+    if replaying and is_provider:
+        scheme, _, model_id = spec.partition(":")
+        model_id = model_id or "gemini-2.5-flash-lite"
+        provider = "gemini_openai_compat" if scheme == "gemini" else "openai_compat"
+        return _wrap_cassette(_NoLiveCalls(model_id), args, provider=provider), "model", provider
+
+    client, kind, provider = build_client(spec)
+    return _wrap_cassette(client, args, provider=provider), kind, provider
+
+
+def _wrap_cassette(
+    client: ModelClient, args: argparse.Namespace, *, provider: str = "openai_compat"
+) -> ModelClient:
+    if not args.cassette:
+        return client
+    from credit_audit.model.cassette import Cassette, CassetteClient, CassetteMode
+
+    return CassetteClient(
+        client,
+        Cassette(Path(args.cassette)),
+        mode=CassetteMode(args.cassette_mode),
+        provider=provider,
+    )
+
+
+def _apply_spend_authorization(suite, args: argparse.Namespace):
+    """Raising the dollar cap is an explicit act, never a side effect of choosing a model.
+
+    Every suite ships ``max_usd: 0.0``, so a provider run is refused until someone says how
+    much it may spend. That refusal is the point: it is the difference between a budget that
+    protects you and one that documents an intention.
+    """
+
+    if args.max_usd is None:
+        return suite
+    # Suites also cap tokens at zero, as a second expression of "this run makes no paid
+    # call". Once spend is authorized in dollars, dollars are the binding control; leaving a
+    # zero token cap in place would abort every provider run on its first episode and make
+    # the flag mean nothing.
+    return suite.model_copy(
+        update={"caps": suite.caps.model_copy(update={"max_usd": args.max_usd, "max_tokens": None})}
+    )
+
+
 def _run(args: argparse.Namespace) -> int:
     policy = load_policy()
-    suite = load_suite(args.suite)
-    client, kind, provider = build_client(args.model)
+    suite = _apply_spend_authorization(load_suite(args.suite), args)
+    client, kind, provider = _client_for_run(args)
 
     if args.dry_run:
         applicants = select_applicants(suite, policy)
@@ -206,6 +330,22 @@ def build_parser() -> argparse.ArgumentParser:
         "--dry-run",
         action="store_true",
         help="print the execution plan and its episode bounds without running anything",
+    )
+    run.add_argument("--cassette", default=None, help="directory of recorded responses")
+    run.add_argument(
+        "--cassette-mode",
+        default="replay",
+        choices=["off", "record", "replay", "replay_or_record"],
+        help="replay never calls the provider and fails on a miss; it is the CI setting",
+    )
+    run.add_argument(
+        "--max-usd",
+        type=float,
+        default=None,
+        help=(
+            "authorize spend for this run. Suites cap it at 0.0, so a provider run is "
+            "refused until this is given."
+        ),
     )
     run.add_argument(
         "--stamp-now",

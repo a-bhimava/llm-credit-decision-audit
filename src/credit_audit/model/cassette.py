@@ -35,7 +35,12 @@ from typing import Any
 
 from credit_audit.ids import sha256_bytes
 from credit_audit.model.cache import cache_key
-from credit_audit.model.client import ModelClient, ModelRequest, ModelResponse
+from credit_audit.model.client import (
+    HarnessConfigurationError,
+    ModelClient,
+    ModelRequest,
+    ModelResponse,
+)
 from credit_audit.types import Frozen
 
 
@@ -46,12 +51,14 @@ class CassetteMode(StrEnum):
     REPLAY_OR_RECORD = "replay_or_record"
 
 
-class CassetteMiss(RuntimeError):
+class CassetteMiss(HarnessConfigurationError):
     """Raised in ``replay`` mode when no record matches.
 
-    Deliberately fatal. The alternative -- falling through to a live call -- turns an offline
-    test suite into one that quietly bills you, and does it at the exact moment nobody is
-    watching, which is during CI.
+    Deliberately fatal, and deliberately *not* swallowed as a provider failure. Falling
+    through to a live call would turn an offline suite into one that quietly bills you; being
+    recorded as an ``ERROR`` trajectory would be worse still, because the run would finish
+    green having replayed nothing at all. Pointing a run at the wrong cassette is a mistake
+    about the harness, so it stops the run.
     """
 
 

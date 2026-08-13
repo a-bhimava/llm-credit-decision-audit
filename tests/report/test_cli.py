@@ -31,9 +31,27 @@ def test_a_specific_defect_agent_can_be_selected():
     assert client.model_id == "scripted:non_monotone"
 
 
-def test_asking_for_a_provider_says_which_phase_it_arrives_in():
-    with pytest.raises(SystemExit, match="Phase 9"):
+def test_a_bare_model_id_is_rejected_with_the_shapes_that_work():
+    """Providers exist now, but they are addressed by scheme so `kind` is never guessed."""
+
+    with pytest.raises(SystemExit, match="gemini:<id>"):
         build_client("gemini-2.5-flash-lite")
+
+
+def test_a_provider_model_is_kind_model_not_scripted(monkeypatch):
+    """The field that drives the provenance banner and disables the scripted-claim lint."""
+
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key-not-used")
+    client, kind, provider = build_client("gemini:gemini-2.5-flash-lite")
+    assert kind == "model"
+    assert provider == "gemini_openai_compat"
+    assert client.model_id == "gemini-2.5-flash-lite"
+
+
+def test_a_provider_without_a_key_says_where_to_put_it(monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    with pytest.raises(SystemExit, match="Export it in your shell"):
+        build_client("gemini:gemini-2.5-flash-lite")
 
 
 def test_an_unknown_scripted_agent_lists_the_real_ones():

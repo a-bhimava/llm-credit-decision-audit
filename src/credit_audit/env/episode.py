@@ -16,7 +16,11 @@ from credit_audit.ids import (
     episode_input_hash,
     trajectory_content_id,
 )
-from credit_audit.model.client import ModelClient, ModelRequest
+from credit_audit.model.client import (
+    HarnessConfigurationError,
+    ModelClient,
+    ModelRequest,
+)
 from credit_audit.policy.loader import Policy
 from credit_audit.render.packet import RenderOptions
 from credit_audit.render.reference import applicant_reference_for
@@ -282,6 +286,10 @@ async def run_episode(
         turn_index += 1
         try:
             resp = await client.complete(req)
+        except HarnessConfigurationError:
+            # Not something the model did. A misconfigured run must fail loudly rather than
+            # accumulate ERROR trajectories that look like provider trouble.
+            raise
         except Exception as exc:  # provider failures become evidence, not runner crashes
             messages.append(
                 Message(
