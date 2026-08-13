@@ -12,8 +12,9 @@
 Phases 0–8 are implemented. Phase 5 was hardened before Phase 6 so that every later check
 inherits matched-trial completion semantics and trustworthy evidence identities. Phase 7 added
 the preregistration and the inference layer. Phase 8 makes a run a first-class artifact: a
-`credit-audit` CLI, three suites, a budgeted run pipeline, and a byte-deterministic export
-whose every published statistic re-derives from raw evidence. Everything still uses
+`credit-audit` CLI, three suites, a budgeted run pipeline, a byte-deterministic export whose
+every published statistic re-derives from raw evidence, and the known-answer sweep that
+publishes the harness catching all 14 planted defects while firing nothing else. Everything still uses
 deterministic scripted agents and makes zero API calls; there is no provider result.
 
 `PREREGISTRATION.yaml` is written but **not yet frozen**: `frozen_at` and `git_tag` are null,
@@ -342,9 +343,11 @@ README and the site can never disagree about which method actually ran.
 
 **Goal:** a real scripted run and a byte-deterministic bundle.
 
-- `cli.py` (`run` · `export` · `verify`) + `suites/{smoke,core,full}.yaml`
-- `run/{plan,budget,execute,gitmeta}.py` — dry-run planner, run-wide caps, and the executor
-  that persists trajectories, results, applicant variants, and a manifest
+- `cli.py` (`run` · `sweep` · `export` · `verify`) + `suites/{smoke,core,full}.yaml`
+- `run/{plan,budget,execute,gitmeta,sweep}.py` — dry-run planner, run-wide caps, the executor
+  that persists trajectories, results, applicant variants, and a manifest, and the
+  known-answer sweep
+- `model/expectations.py` — each control's true driver and the rates its rule implies
 - `report/{manifest,markdown,export,bundle,summary,checks,pairs,integrity,catalog,verify}.py`
   — **no `html.py`**, the site is the drill-down UI
 - `docs/{method,statistics,reason-codes,limitations,related-work}.md` in the repo
@@ -391,14 +394,34 @@ episodes into 913 results at $0.00 (the planner's 5,280–6,080 bound held). `ex
 re-derives all 65 estimates, the summary, and all 39 check-row tables from raw JSONL and
 passes. `FaithfulAgent` scores 762 FAITHFUL / 0 DEFICIENT end to end.
 
-**Not emitted yet — 2 of the 11 file types**
+**The planted-defect table**
 
-- `planted-defects.json` needs the whole known-answer table in one artifact, and a run has one
-  client. It requires a defect sweep that executes every scripted control over a shared cohort
-  and compares observed rates to the analytically derived expected rates. The evidence exists
-  (`tests/golden/` asserts exactly these expectations); collecting it into the published table
-  is the remaining work. It is the strongest artifact the project has, so it gets its own pass
-  rather than a rushed one.
+`credit-audit sweep` runs every declared scripted control over one **stratified** cohort and
+`export` turns it into `planted-defects.json`. Stratified rather than sampled: several defects
+are only expressible where their trigger exists — the authority penalty crosses a decision
+boundary for just four of the 225 profiles, and the omission scan needs denials with several
+binding breaches. A random cohort would omit them and report MISSED for a harness that was
+working.
+
+Expectations are declared in `model/expectations.py`, next to the agents whose rules they
+describe, and **every rate is derived from the rule rather than read off a run**. A test
+asserts each declared rate is 0.0 or 1.0: a fitted fraction like 0.333 is a property of a
+cohort, not of a decision rule, and would fail. `must_not_fire` is computed as the
+**complement** of what each control may fire, because a hand-written list can quietly omit the
+check that would have embarrassed it.
+
+That complement earned its keep immediately. It caught a suite misconfiguration (the sweep had
+defaulted to a three-family suite, leaving most expectations unevaluated) and one genuinely
+over-broad claim (`invariance.statement_order` at 1.0 over all approved applicants, when the
+seeded permutation only reverses the rendered rent/deposit relation for some of them — now
+stated over a stratum computed by rendering both arms, where the rate really is 1.0).
+
+Result: **14 of 14 controls CAUGHT**, 0 missed, 0 false alarms, 0 partial, positive control at
+100% over 287 scored results, from 31,665 episodes over 9 applicants. Sweep export is
+byte-identical across two runs.
+
+**Not emitted yet — 1 of the 11 file types**
+
 - `replay.json` belongs to Phase 9, with cassettes.
 
 *Carried into Phase 11:* the manifest records the git commit, so a bundle exported at commit A
