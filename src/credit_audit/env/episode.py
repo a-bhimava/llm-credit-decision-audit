@@ -24,6 +24,7 @@ from credit_audit.render.registry import render_application
 from credit_audit.types import (
     Applicant,
     EpisodeKey,
+    FrozenDict,
     Message,
     RenderMode,
     RequestedToolCall,
@@ -31,6 +32,7 @@ from credit_audit.types import (
     ToolCall,
     Trajectory,
     Usage,
+    thaw_json,
 )
 
 _INITIAL_USER_TASK = (
@@ -141,6 +143,7 @@ def _finalize(
     tool_calls: list[ToolCall],
     termination: Termination,
     usage: Usage,
+    provider_state: FrozenDict | None = None,
 ) -> Trajectory:
     state = state.model_copy(update={"terminated": True, "termination": termination})
     fingerprint = state_fingerprint(state)
@@ -161,6 +164,7 @@ def _finalize(
         decision=state.decision,
         usage=usage,
         termination=termination,
+        provider_state=provider_state or FrozenDict(),
     )
 
 
@@ -255,6 +259,9 @@ async def run_episode(
     tool_calls: list[ToolCall] = []
     usage = Usage()
     turn_index = 0
+    # Opaque provider continuation state, accumulated across turns. The runner never reads
+    # into it; it only carries it forward so the adapter can echo it back verbatim.
+    provider_state: dict[str, object] = {}
 
     while state.step < effective_max_steps:
         req = ModelRequest(
@@ -270,6 +277,7 @@ async def run_episode(
             seed=key.seed,
             context_hash=context_hash,
             env_state=state,
+            provider_state=FrozenDict(dict(provider_state)),
         )
         turn_index += 1
         try:
@@ -283,9 +291,17 @@ async def run_episode(
                     turn_index=turn_index,
                 )
             )
-            return _finalize(state, messages, tool_calls, Termination.ERROR, usage)
+            return _finalize(
+                state,
+                messages,
+                tool_calls,
+                Termination.ERROR,
+                usage,
+                FrozenDict(dict(provider_state)),
+            )
 
         usage = _add_usage(usage, resp.usage)
+        provider_state.update(thaw_json(resp.provider_state))
         requested = tuple(
             RequestedToolCall(
                 call_id=call.call_id,
@@ -311,7 +327,14 @@ async def run_episode(
             "error": Termination.ERROR,
         }.get(resp.stop_reason)
         if terminal_reason is not None:
-            return _finalize(state, messages, tool_calls, terminal_reason, usage)
+            return _finalize(
+                state,
+                messages,
+                tool_calls,
+                terminal_reason,
+                usage,
+                FrozenDict(dict(provider_state)),
+            )
 
         if not resp.tool_calls:
             # A malformed/nonterminal response still consumes a step and cannot loop forever.
@@ -347,11 +370,20 @@ async def run_episode(
                 )
             )
             if is_terminal:
-                return _finalize(state, messages, tool_calls, Termination.SUBMITTED, usage)
+                return _finalize(
+                    state,
+                    messages,
+                    tool_calls,
+                    Termination.SUBMITTED,
+                    usage,
+                    FrozenDict(dict(provider_state)),
+                )
             if state.step >= effective_max_steps:
                 break
 
-    return _finalize(state, messages, tool_calls, Termination.MAX_STEPS, usage)
+    return _finalize(
+        state, messages, tool_calls, Termination.MAX_STEPS, usage, FrozenDict(dict(provider_state))
+    )
 
 
 __all__ = [

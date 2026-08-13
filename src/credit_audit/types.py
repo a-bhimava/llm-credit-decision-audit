@@ -610,6 +610,15 @@ class Trajectory(Frozen):
     usage: Usage = Usage()
     termination: Termination = Termination.SUBMITTED
 
+    provider_state: FrozenDict = Field(default_factory=FrozenDict)
+    """Opaque provider continuation state observed during this episode.
+
+    Persisted so a cassette is self-contained and a replay can reproduce the exact bytes a
+    provider demanded back. Deliberately **outside** ``trajectory_content_id``, which takes
+    its inputs explicitly: an encrypted provider token is not semantic history, and two runs
+    that differ only in one must remain the same trajectory for comparison purposes.
+    """
+
     @model_validator(mode="after")
     def _validate_content_identities(self) -> Trajectory:
         from credit_audit.ids import trajectory_content_id
