@@ -2,17 +2,37 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "credit-audit/planted-defects@1",
   "title": "Planted-defect table",
-  "description": "The harness validated against agents whose true decision rule we wrote ourselves. This is the strongest artifact the project has: it converts 'trust my harness' into 'here is the harness catching known-answer defects'. Present on scripted runs; model runs reference one via validated_by_run_id.",
+  "description": "The harness validated against agents whose true decision rule we wrote ourselves. This is the strongest artifact the project has: it converts 'trust my harness' into 'here is the harness catching known-answer defects'. Present on scripted sweeps; model runs reference one via validated_by_run_id. Objects are closed so a typo becomes a schema failure rather than a field the site silently ignores.",
   "type": "object",
   "required": ["schema", "source_run_id", "agents", "summary"],
+  "additionalProperties": false,
   "properties": {
     "schema": { "const": "credit-audit/planted-defects@1" },
     "source_run_id": { "type": "string" },
+    "cohort": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Applicant ids the sweep ran every control over. Stratified rather than sampled: several defects are only expressible where their trigger exists, and a random cohort would omit them and report MISSED for a harness that was working."
+    },
+    "excluded_agents": {
+      "type": "array",
+      "description": "Scripted agents deliberately absent from the table, each with its reason. An unexplained omission is indistinguishable from one that was quietly dropped after it failed.",
+      "items": {
+        "type": "object",
+        "required": ["agent", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "agent": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      }
+    },
     "agents": {
       "type": "array",
       "items": {
         "type": "object",
         "required": ["agent", "true_driver", "defect", "must_fire", "must_not_fire", "verdict"],
+        "additionalProperties": false,
         "properties": {
           "agent": { "type": "string" },
           "true_driver": {
@@ -25,9 +45,14 @@
             "type": "array",
             "items": { "$ref": "#/$defs/expectation" }
           },
+          "also_fires": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Checks this defect trips as a side effect, where no exact rate is derived from the rule. Declared so a real consequence is not counted as a false alarm, and named individually so the must_not_fire complement stays meaningful."
+          },
           "must_not_fire": {
             "type": "array",
-            "description": "As important as must_fire. A harness that fails everything catches everything; specificity is what a sharp reviewer checks. Given equal visual weight on the site.",
+            "description": "As important as must_fire, and computed as the complement of must_fire plus also_fires over every check the sweep produced. A hand-written list can quietly omit the check that would have embarrassed it; a complement cannot. Given equal visual weight on the site.",
             "items": { "$ref": "#/$defs/expectation" }
           },
           "verdict": { "enum": ["CAUGHT", "MISSED", "FALSE_ALARM", "PARTIAL"] }
@@ -37,18 +62,25 @@
     "summary": {
       "type": "object",
       "required": ["n_agents", "caught", "missed", "false_alarms"],
+      "additionalProperties": false,
       "properties": {
         "n_agents": { "type": "integer" },
         "caught": { "type": "integer" },
         "missed": { "type": "integer" },
         "false_alarms": { "type": "integer" },
+        "partial": {
+          "type": "integer",
+          "description": "Controls whose defect was only partly evaluable in this cohort. A non-zero value is a gap in the cohort, not evidence about the harness, and is reported rather than folded into caught or missed."
+        },
         "positive_control": {
-          "type": "object",
+          "type": ["object", "null"],
+          "additionalProperties": false,
           "description": "The clean agent. Its pass rate is what proves the repair machinery works rather than the checks simply failing everything.",
           "properties": {
             "agent": { "type": "string" },
             "pass_rate": { "type": "number" },
-            "ci95": { "type": "array", "items": { "type": "number" } }
+            "ci95": { "type": ["array", "null"], "items": { "type": "number" } },
+            "n": { "type": "integer", "minimum": 0 }
           }
         }
       }
@@ -58,17 +90,30 @@
     "expectation": {
       "type": "object",
       "required": ["check", "expected_rate", "observed_rate", "within_tolerance"],
+      "additionalProperties": false,
       "properties": {
         "check": { "type": "string" },
         "expected_rate": {
           "type": "number",
-          "description": "Analytically derived from the scripted agent's known rule, not observed."
+          "description": "Analytically derived from the scripted agent's known rule, never read off the observed run. A table whose expectations were fitted to its own observations agrees with itself by construction and proves nothing."
         },
         "expected_code": { "type": ["string", "null"] },
-        "tolerance": { "type": "number" },
+        "tolerance": { "type": "number", "minimum": 0 },
+        "stratum": {
+          "type": "string",
+          "description": "Which applicants the expected rate is stated over. Required in practice because a defect is only expressible where its trigger exists: the authority penalty only crosses a boundary for applicants just above the credit-score cut, and the statement-order permutation only reverses the rendered relation for some applicants. A rate without a stratum is not a claim."
+        },
+        "rationale": {
+          "type": "string",
+          "description": "Why this rate follows from the agent's rule. Written and reviewed, never regenerated from output."
+        },
         "observed_rate": { "type": "number" },
         "ci95": { "type": ["array", "null"], "items": { "type": "number" } },
-        "n": { "type": "integer" },
+        "n": { "type": "integer", "minimum": 0 },
+        "evaluated": {
+          "type": "boolean",
+          "description": "False when the cohort contained no applicant the expectation applies to. That is a gap in the cohort, not evidence the harness missed anything, and the verdict reports it as PARTIAL rather than MISSED."
+        },
         "within_tolerance": { "type": "boolean" },
         "exemplar_pair_id": { "type": ["string", "null"] }
       }
