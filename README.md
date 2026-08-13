@@ -85,8 +85,9 @@ Every number is scored against
 and hashed into the estimate document. Declaring a family is mandatory: the scorer **raises**
 on an undeclared family rather than inventing a hypothesis after the fact, and a check that
 is not declared is computed but permanently marked exploratory and excluded from multiplicity
-control. The document is not yet frozen; it is git-tagged `prereg-v1` before the first full
-run.
+control. The document is **frozen and git-tagged `prereg-v1`**, so the hypotheses provably
+predate every published run — which is the only ordering under which preregistration means
+anything. Changing one now requires a visible re-freeze.
 
 - **Paired test:** McNemar's exact test on the two discordant cells. The exact p-value is
   valid but conservative on a discrete statistic, and it is what Benjamini-Hochberg consumes;

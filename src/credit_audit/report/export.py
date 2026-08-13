@@ -333,8 +333,14 @@ def _write_run_index(
     manifest,
     bundle_bytes: int,
     headline_id: str | None,
+    can_be_default: bool = True,
 ) -> None:
-    """Register the run, preserving any sibling runs already exported beside it."""
+    """Register the run, preserving any sibling runs already exported beside it.
+
+    ``can_be_default`` is False for validation artifacts such as a known-answer sweep. They
+    are published and linkable, but landing on one as the site's default would put a table
+    about the harness where a reader expects the run.
+    """
 
     import json
 
@@ -356,9 +362,28 @@ def _write_run_index(
     merged[manifest.run_id] = entry
     ordered = tuple(sorted(merged.values(), key=lambda row: row["run_id"]))
 
+    previous_default = ""
+    if index_path.exists():
+        try:
+            previous_default = json.loads(index_path.read_text(encoding="utf-8")).get(
+                "default_run_id", ""
+            )
+        except (json.JSONDecodeError, OSError):  # pragma: no cover - corrupt index
+            previous_default = ""
+
+    if can_be_default:
+        default_run_id = manifest.run_id
+    else:
+        # Keep whatever was already default; fall back to the first non-sweep run so the
+        # index is never left pointing at nothing.
+        default_run_id = previous_default or next(
+            (row["run_id"] for row in ordered if row["run_id"] != manifest.run_id),
+            manifest.run_id,
+        )
+
     from credit_audit.io.jsonl import write_json
 
-    write_json(index_path, build_run_index(ordered, default_run_id=manifest.run_id))
+    write_json(index_path, build_run_index(ordered, default_run_id=default_run_id))
 
 
 def is_sweep(run_dir: Path) -> bool:
@@ -443,6 +468,17 @@ def export_sweep(
         ),
     )
     report = writer.finalize()
+
+    # A sweep is a published bundle like any other and belongs in the index, or the site's
+    # run switcher cannot find the very table that validates the harness. It never becomes
+    # the default run: it is a validation artifact, not the headline.
+    _write_run_index(
+        Path(out_root),
+        manifest=manifest,
+        bundle_bytes=report.total_bytes,
+        headline_id=None,
+        can_be_default=False,
+    )
 
     return ExportOutcome(
         run_id=manifest.run_id,
