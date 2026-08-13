@@ -434,27 +434,84 @@ free one.
 
 ## Phase 9 — Provider adapters (no live calls)
 
-- `model/providers/openai_compat.py` — **primary portable adapter.** Verified to cover Gemini +
-  OpenRouter + Together + Groq + local vLLM/Ollama for multi-turn tool calling
-- `model/providers/gemini.py` — thin native adapter via `google-genai>=2.17` for Flex tier,
-  `tool_choice: "validated"`, and cache telemetry
-- `model/cassette.py` — record / replay / replay-or-record / off
+**Goal:** talk to a real provider, without calling one yet.
 
-**Non-obvious requirements**
+- `model/providers/openai_compat.py` — **primary portable adapter**, built on the official
+  `openai` SDK. Covers Gemini + OpenRouter + Together + Groq + local vLLM/Ollama for multi-turn
+  tool calling.
+- `model/providers/gemini.py` — thin native adapter via `google-genai` for cache telemetry and
+  provider-specific controls.
+- `model/cassette.py` — record / replay / replay-or-record / off, at the **protocol** layer.
 
-- `google-generativeai` is **deprecated**; the package is `google-genai`. The **Interactions
-  API** is GA and `generate_content` is legacy.
-- **Thought signatures must be re-appended verbatim** in stateless mode. This is the documented
-  #1 cause of silent breakage in hand-rolled Gemini agent loops.
-- Default model `gemini-2.5-flash-lite` — the only current model with **thinking off by
-  default**, which matters more for determinism than for cost.
-- Unknown params are **silently ignored** by the OpenAI-compat layer. Never assume
-  `extra_body: {"service_tier": "flex"}` worked — assert against returned usage.
+### Build-versus-buy, decided deliberately
+
+The standing constraint is that this project's dependency list is a claim about how much of it
+a reader has to trust. That argues for few dependencies — but not for hand-rolling solved
+problems. The split:
+
+| Concern | Decision | Why |
+|---|---|---|
+| HTTP, retries, streaming, tool-schema serialization | **Buy** — official `openai` SDK | The de-facto wire standard every compat provider documents against. Hand-rolling httpx here is pure reinvention. |
+| Gemini-native calls and cache telemetry | **Buy** — official `google-genai` | Already an optional extra. `google-generativeai` is deprecated. |
+| Multi-provider normalization (LiteLLM et al.) | **Skip** | See below. |
+| HTTP-level record/replay in adapter tests | **Buy** — `vcrpy` / `pytest-recording` | Mature, filters credentials, `record_mode=none` in CI. The right tool for asserting our wire format against a real provider's bytes. |
+| Protocol-level cassettes for runs | **Build** | See below. |
+
+**Why not LiteLLM.** It is the most-used multi-provider abstraction and it genuinely solves
+tool-call schema differences across providers. Two reasons it is the wrong fit here. First,
+normalization is exactly the risk: Gemini carries `extra_content.google.thought_signature` on
+tool calls *through* the OpenAI-compatible endpoint, and an abstraction that smooths provider
+differences is an abstraction that can drop the one field whose absence is a hard 400. Second,
+this project's central claim is byte-deterministic evidence; inserting a layer that reshapes
+responses puts that claim at the mercy of someone else's minor version. The OpenAI-compatible
+endpoint is best understood as an escape hatch, not an abstraction — and that is how it is used
+here.
+
+**Why cassettes are still ours.** VCR.py records *HTTP*. This harness needs to record at the
+`ModelRequest -> ModelResponse` boundary, because replay must be provider-independent, must key
+on the same content-addressed episode identity the rest of the pipeline uses, and must produce
+the `credit-audit/replay@1` record the bundle already declares — keyed on `episode_id`,
+`trajectory_id`, and `pair_id`, none of which exist at the HTTP layer. `model/cache.py` already
+does response-keyed storage; the cassette is that mechanism with record modes and provenance.
+Using VCR for this would mean re-deriving episode identity from HTTP bodies, which is strictly
+worse. Both tools are used, at the layer each is right for.
+
+### What the 2026 landscape changed
+
+- **Thought signatures are now a hard error, not silent breakage.** Gemini 3 returns a signature
+  on *every* response containing a function call, and omitting it on the next turn returns 400.
+  Sequential calls each carry one and all must be returned. This is an improvement: the failure
+  is loud. The roadmap's original warning stands, with the consequence upgraded.
+- **The SDK only auto-handles signatures if you append its response objects verbatim.** This
+  harness rebuilds history from its own typed `Message`/`ToolCall` records — deliberately, since
+  those records are the evidence. That places it squarely in the "manually managing parts"
+  category the docs warn about, so signature passthrough must be explicit and tested.
+- **Signatures cross the OpenAI-compat boundary too**, as `extra_content.google.thought_signature`
+  on tool calls. The portable adapter must round-trip an opaque provider blob rather than assume
+  a clean OpenAI shape.
+- **`generate_content` is legacy**; the Interactions API is the current surface.
+- Compat endpoints **reject or silently drop** unsupported parameters (`store`,
+  `stream_options`, `logprobs`, `n > 1`). Never assume a parameter took effect — assert against
+  returned usage.
+
+### Non-obvious requirements
+
 - **Do not claim determinism from `temperature=0`.** No provider guarantees it. The honest claim
-  is: deterministic *given fixed model responses* (cassette replay, CI-asserted); model
-  stochasticity is **measured, not suppressed**.
+  is deterministic *given fixed model responses* (cassette replay, CI-asserted); model
+  stochasticity is **measured, not suppressed** — which is what `StochasticAgent` and pass^k
+  already exist for.
+- A real adapter **must never read `ModelRequest.env_state`**. It sees rendered text and tool
+  results only, exactly as a real model would. A grep-style static check asserts nothing under
+  `model/providers/` references it, mirroring the numeric-lint defence in `policy/loader.py`.
+- Cassette records carry the **provider and model id they were recorded against**, so a replay
+  cannot silently stand in for a different model.
+- Credentials never enter a cassette. The exporter's secret scan already refuses them; the
+  cassette writer refuses earlier.
 
-**Exit:** adapters pass against recorded cassettes. No live API calls in this phase.
+**Exit:** adapters pass against recorded cassettes, including a multi-turn tool-calling
+conversation whose thought signatures are round-tripped verbatim and asserted byte-equal. A
+signature-stripping test must fail loudly. `verify --strict` still passes on a cassette-backed
+run. No live API calls in this phase.
 
 ---
 
