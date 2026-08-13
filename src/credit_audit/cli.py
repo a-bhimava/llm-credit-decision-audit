@@ -25,6 +25,7 @@ from credit_audit.report.verify import verify_bundle
 from credit_audit.run.budget import BudgetExceeded
 from credit_audit.run.execute import DEFAULT_RUNS_DIR, execute_run, select_applicants
 from credit_audit.run.plan import build_run_plan, format_plan
+from credit_audit.run.sweep import DEFAULT_SWEEP_SUITE
 from credit_audit.suites.loader import SUITE_NAMES, load_suite
 
 SCRIPTED_PREFIX = "scripted"
@@ -220,7 +221,9 @@ def build_parser() -> argparse.ArgumentParser:
         "sweep",
         help="run every scripted control over one cohort for the planted-defect table",
     )
-    sweep.add_argument("--suite", choices=SUITE_NAMES, default="smoke")
+    # The sweep draws families from the suite and applicants from its own stratified cohort,
+    # so it needs every family present or most expectations have nothing to evaluate.
+    sweep.add_argument("--suite", choices=SUITE_NAMES, default=DEFAULT_SWEEP_SUITE)
     sweep.add_argument("--seed", type=int, default=1729)
     sweep.add_argument("--runs-dir", default=str(DEFAULT_RUNS_DIR))
     sweep.add_argument("--stamp-now", action="store_true")
