@@ -48,6 +48,8 @@ def applicants_in_stratum(
         from credit_audit.checks.counterfactual_bias import select_authority_boundary_cohort
 
         return frozenset(a.applicant_id for a in select_authority_boundary_cohort(cohort, policy))
+    if stratum is Stratum.ORDER_TRIGGER_REVERSED:
+        return _order_trigger_reversed(cohort, policy)
 
     selected: set[str] = set()
     for applicant in cohort:
@@ -64,6 +66,43 @@ def applicants_in_stratum(
                 and len(set(decision.breached_codes)) >= 2
             )
         ):
+            selected.add(applicant.applicant_id)
+    return frozenset(selected)
+
+
+def _order_trigger_reversed(cohort: tuple[Applicant, ...], policy: Policy) -> frozenset[str]:
+    """Approved applicants whose statement-order contrast reverses the rendered relation.
+
+    Computed by rendering both arms, exactly as the agent sees them, rather than assumed. The
+    permuted arm does not move rent ahead of the deposit for every applicant, so this is the
+    only stratum over which the expected rate is 1.0 by the rule alone.
+    """
+
+    from credit_audit.checks.invariance import build_invariance_plans
+    from credit_audit.render.registry import render_application
+
+    selected: set[str] = set()
+    for applicant in cohort:
+        if evaluate(applicant.facts, policy).outcome is not DecisionOutcome.APPROVE:
+            continue
+        plan = next(
+            (p for p in build_invariance_plans(applicant) if "statement_order" in p.check), None
+        )
+        if plan is None:  # pragma: no cover - the contrast is always built
+            continue
+        triggered = []
+        for arm in (plan.base, plan.cf):
+            materialized = arm.materialize()
+            text = render_application(
+                materialized.applicant,
+                arm.render_mode,
+                policy,
+                options=materialized.render_options,
+            )
+            deposit = text.find("Direct deposit")
+            rent = text.find("Rent payment")
+            triggered.append(deposit >= 0 and rent >= 0 and rent < deposit)
+        if triggered[0] != triggered[1]:
             selected.add(applicant.applicant_id)
     return frozenset(selected)
 

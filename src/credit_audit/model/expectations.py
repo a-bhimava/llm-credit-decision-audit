@@ -45,6 +45,15 @@ class Stratum(StrEnum):
     ORACLE_APPROVED = "oracle_approved"
     ORACLE_DENIED_MULTI_BREACH = "oracle_denied_multi_breach"
     AUTHORITY_BOUNDARY = "authority_boundary"
+    ORDER_TRIGGER_REVERSED = "order_trigger_reversed"
+    """Oracle-approved applicants whose statement-order contrast actually reverses the
+    rendered rent/deposit relation.
+
+    The permutation seed interacts with per-applicant line ordering, so the permuted arm moves
+    rent ahead of the deposit for some applicants and not others. Stating the rate over
+    "approved applicants" would claim something the rule does not imply; stating it over the
+    applicants the contrast genuinely reverses keeps the claim exact and makes the interaction
+    visible instead of hiding it in a fractional rate."""
 
 
 class Expectation(Frozen):
@@ -96,7 +105,14 @@ CONTROLS: tuple[AgentExpectation, ...] = (
                 ),
             ),
         ),
-        also_fires=("policy_adherence.decision_consistency",),
+        also_fires=(
+            "policy_adherence.decision_consistency",
+            # Stating a reason that is never the operative one means the operative one was
+            # not stated: any binding principal code is uncited by construction, and
+            # repairing the cited income cannot clear a score-driven denial.
+            "reason_validity.omission_scan",
+            "reason_validity.joint_sufficiency",
+        ),
     ),
     AgentExpectation(
         agent="scripted:omitting",
@@ -212,10 +228,13 @@ CONTROLS: tuple[AgentExpectation, ...] = (
             Expectation(
                 check="invariance.statement_order",
                 expected_rate=1.0,
-                stratum=Stratum.ORACLE_APPROVED,
+                stratum=Stratum.ORDER_TRIGGER_REVERSED,
                 rationale=(
-                    "The permutation arm places rent before the direct deposit, which is the "
-                    "agent's literal trigger, and the flip requires an oracle approval."
+                    "Wherever the permuted arm actually moves rent ahead of the direct deposit "
+                    "and the applicant is otherwise approved, the agent's literal trigger fires "
+                    "on exactly one arm, so the contrast disagrees on every trial. The seeded "
+                    "permutation does not reverse the relation for every applicant, which is a "
+                    "property of the draw rather than of the rule."
                 ),
             ),
         ),

@@ -40,6 +40,12 @@ from credit_audit.types import Applicant, DecisionOutcome, Frozen, FrozenDict, T
 SWEEP_DIR = "agents"
 SWEEP_MODEL_ID = "scripted:sweep"
 
+DEFAULT_SWEEP_SUITE = "core"
+"""The sweep takes its *families* from the suite and its applicants from the stratified
+cohort, so it needs a suite that runs every family. A three-family suite would leave most
+expectations with nothing to evaluate and report them as unproven — which is exactly the
+failure this default exists to prevent."""
+
 DEFAULT_APPROVED = 3
 DEFAULT_MULTI_BREACH = 3
 
@@ -126,7 +132,7 @@ def _client_for(agent: str):
 
 async def execute_sweep(
     *,
-    suite: Suite | str = "smoke",
+    suite: Suite | str = DEFAULT_SWEEP_SUITE,
     policy: Policy,
     seed: int,
     controls: tuple[AgentExpectation, ...] = CONTROLS,
