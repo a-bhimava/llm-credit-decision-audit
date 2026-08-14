@@ -3,7 +3,7 @@
 > Every agent below is a control whose true decision rule is code in this repository.
 > Expected rates are derived from those rules, never read off this run.
 
-- agents: 14
+- defect controls: 14 (15 rows below, including the positive control)
 - caught: 14
 - missed: 0
 - false alarms: 0

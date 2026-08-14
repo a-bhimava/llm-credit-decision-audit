@@ -196,11 +196,7 @@ async def execute_sweep(
         total_results += len(ordered)
         all_results.extend(ordered)
 
-    # build_run_plan bounds *one* client over the cohort. A sweep executes every agent over the
-    # same cohort, so the unscaled bound published `planned: 2265` beside `executed: 31665` --
-    # a planned-vs-executed strip that renders as nonsense.
-    per_agent = build_run_plan(suite, cohort, policy)
-    plan = per_agent.model_copy(update={"episodes_max": per_agent.episodes_max * len(agents)})
+    plan = build_run_plan(suite, cohort, policy)
     manifest = _build_manifest(
         run_id=run_id,
         suite=suite,
@@ -218,6 +214,10 @@ async def execute_sweep(
         trajectories=(),
         budget=_zero_budget(total_episodes),
         plan=plan,
+        # build_run_plan bounds *one* client over the cohort. A sweep executes every agent
+        # over the same cohort, so the unscaled bound published `planned: 2265` beside
+        # `executed: 31665` -- a strip built from those two numbers renders as nonsense.
+        planned_override=plan.episodes_max * len(agents),
     )
     manifest = manifest.model_copy(
         update={
