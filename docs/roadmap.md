@@ -7,7 +7,7 @@
 
 ---
 
-## Current status — 2026-08-12
+## Current status — 2026-08-14
 
 Phases 0–9 are implemented. Phase 5 was hardened before Phase 6 so that every later check
 inherits matched-trial completion semantics and trustworthy evidence identities. Phase 7 added
@@ -21,9 +21,9 @@ crossed the live boundary once to record real responses.
 cassettes exist to validate the adapters, not to report on a model: six episodes is not a
 finding, and the export lint would refuse to let it ship as one.
 
-`PREREGISTRATION.yaml` is written but **not yet frozen**: `frozen_at` and `git_tag` are null,
-and both the manifest and the integrity chain report that rather than hiding it. Tagging
-`prereg-v1` happens before the first *published* run.
+`PREREGISTRATION.yaml` is **frozen and git-tagged `prereg-v1`**. The manifest and the
+integrity chain both carry the freeze time, and the chain derives `frozen_before_run` from
+actual git ancestry rather than from the presence of a tag string.
 
 Framing is deliberately deferred. Phases 10–11 below remain plans, not implemented claims.
 
@@ -393,7 +393,7 @@ README and the site can never disagree about which method actually ran.
 
 **Exit — met:** `credit-audit run --suite core --model scripted --seed 1729` executes 5,630
 episodes into 913 results at $0.00 (the planner's 5,280–6,080 bound held). `export` produces
-140 files / 6.7 MB, inside every budget. Exporting again to a second directory is
+142 files / 6.9 MB, inside every budget. Exporting again to a second directory is
 **byte-identical**, same bundle sha256, `diff -r` clean. `credit-audit verify --strict`
 re-derives all 65 estimates, the summary, and all 39 check-row tables from raw JSONL and
 passes. `FaithfulAgent` scores 762 FAITHFUL / 0 DEFICIENT end to end.
@@ -426,10 +426,15 @@ byte-identical across two runs.
 
 **Not emitted yet — 1 of the 11 file types**
 
-- `replay.json` belongs to Phase 9, with cassettes.
+- `replay.json`. Phase 9 shipped cassettes without it: the cassette layer records at the
+  protocol boundary and nothing consumes a step-through document yet. The schema stays as a
+  declared contract awaiting its producer, and the count above says so rather than implying
+  eleven kinds of file are published.
 
-*Carried into Phase 11:* the manifest records the git commit, so a bundle exported at commit A
-differs from one exported at commit B by that field. Phase 11's `git diff --exit-code
+*Resolved before Phase 10:* a bundle used to differ depending on the commit it was exported
+at, because the git tag and remote were read live at export time. Both now come from the run's
+own manifest, and export refuses outright when the working tree is at a different commit than
+the run. Phase 11's `git diff --exit-code
 web/public/runs/` gate therefore requires the bundle to be regenerated in the same PR that
 changes the code — which is the intended workflow, but it is a real constraint rather than a
 free one.

@@ -56,9 +56,9 @@ Facially invalid, vague, unmapped, and reason-count findings belong to policy ad
 `reason_validity.fabrication` is narrower: it covers a cited, reachable, rule-backed code that
 the applicant did not breach.
 
-## Phase 6 checks
+## The checks
 
-Phase 6 runs all contrasts through one immutable `PairPlan`/`ArmPlan` execution path with
+Every contrast runs through one immutable `PairPlan`/`ArmPlan` execution path with
 common trial seeds, arm-specific episode identities, and a normalized decision signature.
 
 - **Policy adherence:** required tools must succeed before submission, code-specific tools are
@@ -115,7 +115,7 @@ data — the last of which fails loudly if anyone later removes the clustering.
 
 ```bash
 credit-audit run --suite core --model scripted --seed 1729   # 5,630 episodes, $0.00
-credit-audit export --run <run_id>                            # 140 files, 6.7 MB
+credit-audit export --run <run_id>                            # 142 files, 6.9 MB
 credit-audit verify --run <run_id> --strict
 ```
 
@@ -136,9 +136,10 @@ The exporter enforces three rules in code rather than by discipline:
 
 Two things make the bundle checkable by a stranger. Exporting the same run twice produces
 **byte-identical** output — same bundle sha256, `diff -r` clean — so re-exporting and diffing
-is a real test. And `verify --strict` re-derives every estimate, the summary, and every
-check-row table from the raw JSONL rather than only re-checking hashes, which is what catches a
-doctored file whose hashes were rebuilt.
+is a real test. And `verify --strict` rebuilds **every published file** from the raw JSONL and
+compares bytes, rather than only re-checking hashes; that is what catches a doctored file
+whose hashes were rebuilt, and it reports anything present in a bundle that the exporter does
+not produce.
 
 Raw run artifacts never enter git. A scripted run regenerates them in seconds at zero cost, and
 the integrity chain closes through their recorded sha256.

@@ -15,9 +15,11 @@ hypotheses, α, δ thresholds, estimands, and BH grouping before any run is scor
 travels in every run manifest and every estimates document, so a reader can verify which
 declaration the reported numbers were scored against.
 
-**It is not yet frozen.** `frozen_at` and `git_tag` are null and reported as null; the document
-is git-tagged `prereg-v1` before the first published run. A field that claimed the tag predated
-the run when no tag exists would be exactly the overstatement preregistration is for.
+**It is frozen and git-tagged `prereg-v1`**, so the hypotheses provably predate every
+published run. `frozen_before_run` is not taken on trust: the exporter resolves the tag in
+git, confirms its commit is an ancestor of the run's commit, and compares the freeze time to
+the run's. It reports `null` when it cannot check, which is deliberately distinct from a
+checked `false`. Changing a hypothesis now requires a visible re-freeze.
 
 Two asymmetries are deliberate:
 

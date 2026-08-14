@@ -94,7 +94,7 @@ recorded on the resulting `StatedReason`. It is never inferred after the fact.
 | `structured` | The agent emitted a code directly | `reason_mode: coded` |
 | `lexicon` | Committed phrase lexicon | Deterministic, offline |
 | `embedding` | Embedding similarity | Not wired up; no embedding model is in this project |
-| `llm_remap` | LLM remap | **Not implemented.** No live provider exists before Phase 9 |
+| `llm_remap` | LLM remap | **Not implemented.** Deliberately: an LLM in the mapping path would reintroduce the judge this design removes. `llm_remap_rate` is therefore structurally 0.0, not an empirical finding |
 | `unmapped` | Nothing matched | Becomes `OTHER_UNMAPPED`, a policy-adherence finding |
 
 **`llm_remap` is the tier that would compromise the judge-free claim**, so its rate is reported

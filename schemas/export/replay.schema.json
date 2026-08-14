@@ -2,86 +2,218 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "credit-audit/replay@1",
   "title": "Recorded episode replay",
-  "description": "Pre-release contract for a future step-through of a hash-verified recorded episode. Phase 9 supplies cassettes; no current Phase 6 artifact claims a provider replay.",
+  "description": "Step-through of a hash-verified recorded episode. Declared and not yet emitted: the cassette layer records at the protocol boundary and no exporter writes this file, so it is a contract awaiting its producer rather than a description of anything in a published bundle.",
   "type": "object",
-  "required": ["schema", "episode_id", "trajectory_id", "run_id", "recorded", "termination", "usage", "steps"],
+  "required": [
+    "schema",
+    "episode_id",
+    "trajectory_id",
+    "run_id",
+    "recorded",
+    "termination",
+    "usage",
+    "steps"
+  ],
   "properties": {
-    "schema": { "const": "credit-audit/replay@1" },
-    "episode_id": { "type": "string" },
-    "trajectory_id": { "type": "string" },
-    "run_id": { "type": "string" },
-    "pair_id": { "type": ["string", "null"] },
+    "schema": {
+      "const": "credit-audit/replay@1"
+    },
+    "episode_id": {
+      "type": "string"
+    },
+    "trajectory_id": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "pair_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "cluster_id": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "description": "Originating source applicant when this episode contributes to a paired result."
     },
-    "side": { "enum": ["base", "cf"] },
-    "termination": { "enum": ["submitted", "stop", "max_steps", "max_tokens", "error", "refusal"] },
+    "side": {
+      "enum": [
+        "base",
+        "cf"
+      ]
+    },
+    "termination": {
+      "enum": [
+        "submitted",
+        "stop",
+        "max_steps",
+        "max_tokens",
+        "error",
+        "refusal"
+      ]
+    },
     "usage": {
       "type": "object",
-      "required": ["input_tokens", "output_tokens", "cached_tokens", "thought_tokens", "cost_usd", "cache_hit", "replayed"],
+      "required": [
+        "input_tokens",
+        "output_tokens",
+        "cached_tokens",
+        "thought_tokens",
+        "cost_usd",
+        "cache_hit",
+        "replayed"
+      ],
       "properties": {
-        "input_tokens": { "type": "integer", "minimum": 0 },
-        "output_tokens": { "type": "integer", "minimum": 0 },
-        "cached_tokens": { "type": "integer", "minimum": 0 },
-        "thought_tokens": { "type": "integer", "minimum": 0 },
-        "cost_usd": { "type": "number", "minimum": 0 },
-        "cache_hit": { "type": "boolean" },
-        "replayed": { "type": "boolean" }
+        "input_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cached_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "thought_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cost_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "cache_hit": {
+          "type": "boolean"
+        },
+        "replayed": {
+          "type": "boolean"
+        }
       }
     },
     "recorded": {
       "const": true,
       "description": "Always true, and surfaced as a persistent non-dismissible label. Nothing here is live."
     },
-    "recorded_at": { "type": "string", "format": "date-time" },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
     "cassette": {
       "type": "object",
       "properties": {
-        "path": { "type": "string" },
-        "sha256": { "type": "string" },
-        "record_index": { "type": "integer" }
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "record_index": {
+          "type": "integer"
+        }
       }
     },
     "applicant_packet": {
       "type": "object",
       "properties": {
-        "render": { "enum": ["table", "prose", "json"] },
-        "text": { "type": "string" }
+        "render": {
+          "enum": [
+            "table",
+            "prose",
+            "json"
+          ]
+        },
+        "text": {
+          "type": "string"
+        }
       }
     },
     "steps": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["i", "kind"],
+        "required": [
+          "i",
+          "kind"
+        ],
         "properties": {
-          "i": { "type": "integer", "minimum": 0 },
-          "kind": { "enum": ["system", "user", "assistant", "tool_call", "decision"] },
-          "step": { "type": "integer", "minimum": 0 },
-          "turn_index": { "type": "integer", "minimum": 0 },
+          "i": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "kind": {
+            "enum": [
+              "system",
+              "user",
+              "assistant",
+              "tool_call",
+              "decision"
+            ]
+          },
+          "step": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "turn_index": {
+            "type": "integer",
+            "minimum": 0
+          },
           "call_id": {
             "type": "string",
             "description": "Provider call ID used to correlate the assistant request and tool result."
           },
-          "title": { "type": "string" },
-          "body": { "type": "string" },
-          "body_ref": { "type": "string" },
-          "name": { "type": "string" },
-          "arguments": { "type": "object" },
-          "result": { "type": "object" },
-          "ok": { "type": "boolean" },
-          "error": { "type": ["string", "null"] },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "body_ref": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "arguments": {
+            "type": "object"
+          },
+          "result": {
+            "type": "object"
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "tool_calls": {
             "type": "array",
             "description": "Assistant-requested tool calls retained on the assistant message.",
             "items": {
               "type": "object",
-              "required": ["call_id", "name", "arguments"],
+              "required": [
+                "call_id",
+                "name",
+                "arguments"
+              ],
               "properties": {
-                "call_id": { "type": "string" },
-                "name": { "type": "string" },
-                "arguments": { "type": "object" }
+                "call_id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "arguments": {
+                  "type": "object"
+                }
               }
             }
           },
@@ -92,19 +224,54 @@
           "policy": {
             "type": "object",
             "properties": {
-              "rule": { "type": "string" },
-              "kind": { "type": "string" },
-              "effect": { "enum": ["satisfied", "violated", "n/a"] },
-              "trap": { "type": "boolean" }
+              "rule": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "effect": {
+                "enum": [
+                  "satisfied",
+                  "violated",
+                  "n/a"
+                ]
+              },
+              "trap": {
+                "type": "boolean"
+              }
             }
           },
-          "decision": { "type": "object" },
-          "spans": { "type": "array", "items": { "type": "object" } }
+          "decision": {
+            "type": "object"
+          },
+          "spans": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
         },
         "allOf": [
           {
-            "if": { "properties": { "kind": { "const": "tool_call" } } },
-            "then": { "required": ["call_id", "step", "turn_index", "name", "arguments", "result", "ok"] }
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "tool_call"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "call_id",
+                "step",
+                "turn_index",
+                "name",
+                "arguments",
+                "result",
+                "ok"
+              ]
+            }
           }
         ]
       }
@@ -115,14 +282,32 @@
       "items": {
         "type": "object",
         "properties": {
-          "after_step": { "type": "integer" },
-          "credit_report_pulled": { "type": "boolean" },
-          "income_verified": { "type": "boolean" },
-          "trap_called": { "type": "boolean" },
-          "violations": { "type": "array", "items": { "type": "string" } }
+          "after_step": {
+            "type": "integer"
+          },
+          "credit_report_pulled": {
+            "type": "boolean"
+          },
+          "income_verified": {
+            "type": "boolean"
+          },
+          "trap_called": {
+            "type": "boolean"
+          },
+          "violations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
         }
       }
     },
-    "badges": { "type": "array", "items": { "type": "string" } }
+    "badges": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
   }
 }
