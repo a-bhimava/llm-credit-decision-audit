@@ -63,7 +63,15 @@ from credit_audit.run.execute import (
 from credit_audit.run.gitmeta import GitMetadata, git_metadata
 from credit_audit.stats.estimates import build_estimates
 from credit_audit.stats.families import Preregistration, load_preregistration
-from credit_audit.types import Frozen, RunManifest, TestResult, TestStatus, Trajectory
+from credit_audit.types import (
+    Applicant,
+    Frozen,
+    InterventionRecord,
+    RunManifest,
+    TestResult,
+    TestStatus,
+    Trajectory,
+)
 
 DEFAULT_PAIRS_PER_CHECK = 4
 
@@ -124,9 +132,7 @@ def lint_scripted_headlines(summary: dict[str, Any]) -> None:
     if summary.get("kind") != "scripted":
         return
     for headline in summary.get("headline", ()):
-        lint_scripted_prose(
-            f"headline {headline.get('id')!r}", str(headline.get("statement", ""))
-        )
+        lint_scripted_prose(f"headline {headline.get('id')!r}", str(headline.get("statement", "")))
 
 
 def lint_scripted_bundle(writer: BundleWriter, *, kind: str) -> None:
@@ -242,6 +248,118 @@ def _trajectories_by_id(trajectories: tuple[Trajectory, ...]) -> dict[str, Traje
     return {trajectory.trajectory_id: trajectory for trajectory in trajectories}
 
 
+class BundleContent(Frozen):
+    """Every content file of a bundle, as the exact bytes that will be published.
+
+    ``manifest.json`` and ``integrity/chain.json`` are excluded: both carry the digest of
+    everything else, so they cannot be part of what that digest covers.
+    """
+
+    files: dict[str, bytes]
+    n_pairs: int
+    prompts: dict[str, str]
+
+    model_config = {"arbitrary_types_allowed": True, "frozen": True}
+
+
+def build_bundle_content(
+    manifest: RunManifest,
+    *,
+    results: tuple[TestResult, ...],
+    trajectories: tuple[Trajectory, ...],
+    applicants: dict[str, Applicant],
+    interventions: dict[tuple[str, str], InterventionRecord],
+    policy: Policy,
+    prereg: Preregistration,
+    estimates_doc: dict[str, Any],
+    summary: dict[str, Any],
+    deterministic: bool,
+    pairs_per_check: int = DEFAULT_PAIRS_PER_CHECK,
+) -> BundleContent:
+    """Assemble every published content file from the raw artifacts.
+
+    Extracted so ``export`` and ``verify`` share one definition of what a bundle contains. They
+    used to disagree by construction: the exporter built eight kinds of file and ``verify``
+    re-derived three of them, so a doctored ``pairs/*.json``, ``policy.json``, or ``report.md``
+    passed a full ``--strict`` run once its hash was rebuilt -- and the pair files are the
+    drill-down evidence, the part a skeptical reader actually opens. Anything added here is
+    verified the day it is added, rather than the day someone remembers to extend the verifier.
+    """
+
+    files: dict[str, bytes] = {}
+
+    def add_json(relpath: str, payload: Any) -> None:
+        files[relpath] = portable_json(payload) + b"\n"
+
+    add_json("summary.json", summary)
+    add_json("policy.json", export_policy_snapshot(policy))
+    add_json("stats/estimates.json", estimates_doc)
+
+    grouped = group_by_check(results)
+    rows_bytes: dict[str, int] = {}
+    for check, bucket in grouped.items():
+        encoded = portable_json(build_check_rows(check, bucket, run_id=manifest.run_id)) + b"\n"
+        rows_bytes[check] = len(encoded)
+        files[rows_file_for(check)] = encoded
+
+    prompts = collect_prompts(trajectories)
+    prompt_refs = {prompt_hash: prompt_file_for(prompt_hash) for prompt_hash in sorted(prompts)}
+    for prompt_hash, text in sorted(prompts.items()):
+        add_json(
+            prompt_refs[prompt_hash],
+            {"prompt_hash": prompt_hash, "role": "system", "content": text},
+        )
+
+    by_trajectory_id = _trajectories_by_id(trajectories)
+    detail_counts: dict[str, int] = {}
+    n_pairs = 0
+    for result in select_detail_pairs(results, per_check=pairs_per_check):
+        base = tuple(
+            by_trajectory_id[tid] for tid in result.base_trajectory_ids if tid in by_trajectory_id
+        )
+        cf = tuple(
+            by_trajectory_id[tid] for tid in result.cf_trajectory_ids if tid in by_trajectory_id
+        )
+        if not base or not cf:
+            # Nothing to drill into: an inapplicable contrast never executed both arms.
+            continue
+        add_json(
+            pair_file_for(result.pair_id),
+            build_pair(
+                result,
+                run_id=manifest.run_id,
+                base_trajectories=base,
+                cf_trajectories=cf,
+                applicants=applicants,
+                policy=policy,
+                prompt_refs=prompt_refs,
+                estimates_doc=estimates_doc,
+                interventions=interventions,
+            ),
+        )
+        detail_counts[result.check] = detail_counts.get(result.check, 0) + 1
+        n_pairs += 1
+
+    check_index = build_check_index(
+        grouped,
+        run_id=manifest.run_id,
+        estimates_doc=estimates_doc,
+        prereg=prereg,
+        rows_bytes=rows_bytes,
+        detail_counts=detail_counts,
+    )
+    add_json("checks/index.json", check_index)
+
+    files["report.md"] = render_report(
+        manifest=build_manifest(manifest, deterministic=deterministic),
+        summary=summary,
+        check_index=check_index,
+        estimates=estimates_doc,
+    ).encode("utf-8")
+
+    return BundleContent(files=files, n_pairs=n_pairs, prompts=prompts)
+
+
 def export_run(
     run_dir: Path,
     *,
@@ -265,9 +383,10 @@ def export_run(
     check_export_commit(manifest, git, allow_drift=allow_commit_drift)
     results = load_run_results(run_dir)
     trajectories = load_run_trajectories(run_dir)
-    from credit_audit.run.execute import load_run_applicants
+    from credit_audit.run.execute import load_run_applicants, load_run_interventions
 
     applicants = load_run_applicants(run_dir)
+    interventions = load_run_interventions(run_dir)
 
     estimates_doc = build_estimates(results, prereg=prereg, B=bootstrap_B)
     summary = build_summary(
@@ -286,75 +405,23 @@ def export_run(
     root = Path(out_root) / manifest.run_id
     writer = BundleWriter(root, budget=budget)
 
-    writer.add_json("summary.json", summary)
-    writer.add_json("policy.json", export_policy_snapshot(policy))
-    writer.add_json("stats/estimates.json", estimates_doc)
-
-    grouped = group_by_check(results)
-    rows_bytes: dict[str, int] = {}
-    for check, bucket in grouped.items():
-        payload = build_check_rows(check, bucket, run_id=manifest.run_id)
-        from credit_audit.ids import portable_json
-
-        encoded = portable_json(payload) + b"\n"
-        rows_bytes[check] = len(encoded)
-        writer.add_bytes(rows_file_for(check), encoded)
-
-    prompts = collect_prompts(trajectories)
-    prompt_refs = {prompt_hash: prompt_file_for(prompt_hash) for prompt_hash in sorted(prompts)}
-    for prompt_hash, text in sorted(prompts.items()):
-        writer.add_json(
-            prompt_refs[prompt_hash],
-            {"prompt_hash": prompt_hash, "role": "system", "content": text},
-        )
-
-    by_trajectory_id = _trajectories_by_id(trajectories)
-    detail = select_detail_pairs(results, per_check=pairs_per_check)
-    detail_counts: dict[str, int] = {}
-    exported_pairs = 0
-    for result in detail:
-        base = tuple(
-            by_trajectory_id[tid] for tid in result.base_trajectory_ids if tid in by_trajectory_id
-        )
-        cf = tuple(
-            by_trajectory_id[tid] for tid in result.cf_trajectory_ids if tid in by_trajectory_id
-        )
-        if not base or not cf:
-            # Nothing to drill into: an inapplicable contrast never executed both arms.
-            continue
-        payload = build_pair(
-            result,
-            run_id=manifest.run_id,
-            base_trajectories=base,
-            cf_trajectories=cf,
-            applicants=applicants,
-            policy=policy,
-            prompt_refs=prompt_refs,
-        )
-        writer.add_json(pair_file_for(result.pair_id), payload)
-        detail_counts[result.check] = detail_counts.get(result.check, 0) + 1
-        exported_pairs += 1
-
-    check_index = build_check_index(
-        grouped,
-        run_id=manifest.run_id,
-        estimates_doc=estimates_doc,
+    content = build_bundle_content(
+        manifest,
+        results=results,
+        trajectories=trajectories,
+        applicants=applicants,
+        interventions=interventions,
+        policy=policy,
         prereg=prereg,
-        rows_bytes=rows_bytes,
-        detail_counts=detail_counts,
+        estimates_doc=estimates_doc,
+        summary=summary,
+        deterministic=deterministic,
+        pairs_per_check=pairs_per_check,
     )
-    writer.add_json("checks/index.json", check_index)
-
-    manifest_payload = build_manifest(manifest, deterministic=deterministic)
-    writer.add_text(
-        "report.md",
-        render_report(
-            manifest=manifest_payload,
-            summary=summary,
-            check_index=check_index,
-            estimates=estimates_doc,
-        ),
-    )
+    for relpath, data in sorted(content.files.items()):
+        writer.add_bytes(relpath, data)
+    exported_pairs = content.n_pairs
+    prompts = content.prompts
 
     # manifest.json and integrity/chain.json both report the bundle hash, and a file cannot
     # contain its own hash. The digest is therefore taken over the content files, then those
@@ -638,6 +705,8 @@ def describe_checks() -> dict[str, str]:
 
 __all__ = [
     "DEFAULT_BUNDLE_ROOT",
+    "BundleContent",
+    "build_bundle_content",
     "check_export_commit",
     "DEFAULT_PAIRS_PER_CHECK",
     "MODEL_CLAIM_PHRASES",

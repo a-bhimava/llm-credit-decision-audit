@@ -29,10 +29,13 @@ from pydantic import BaseModel
 from credit_audit.ids import applicant_content_id, content_id
 from credit_audit.policy.loader import Policy
 from credit_audit.policy.oracle import evaluate
+from credit_audit.reasons.codes import CODE_META, ReasonCode
 from credit_audit.report.catalog import prose_for
 from credit_audit.report.summary import verdict_for
 from credit_audit.types import (
     Applicant,
+    InterventionRecord,
+    InterventionSpec,
     Layer,
     Message,
     TestResult,
@@ -104,13 +107,44 @@ def _scalar(value: Any) -> Any:
     return value
 
 
-def _diff(base: Applicant, cf: Applicant) -> list[dict[str, Any]]:
+def _held_out_fields(check: str, held_out_code: str | None) -> frozenset[str]:
+    """Which fact fields the deliberately-unrepaired reason code is carried by.
+
+    The necessity test repairs every breach *except* one, so the reader has to be able to see
+    which row is the one left alone -- the roadmap requires it to carry its own glyph and the
+    literal words "deliberately not repaired", and a reader who misses it misreads the whole
+    test. ``CODE_META[code].target_fields`` already maps a reason code to the fields that repair
+    it, so nothing new needs deriving.
+
+    Restricted to the necessity check on purpose. ``public_records`` backs two different codes,
+    and outside necessity a matching field name means nothing.
+    """
+
+    if not held_out_code or not check.endswith("necessity_loo"):
+        return frozenset()
+    try:
+        meta = CODE_META[ReasonCode(held_out_code)]
+    except (KeyError, ValueError):  # pragma: no cover - observed codes are always in the enum
+        return frozenset()
+    return frozenset(meta.target_fields)
+
+
+def _diff(
+    base: Applicant,
+    cf: Applicant,
+    *,
+    check: str = "",
+    held_out_code: str | None = None,
+    intervention_ids: Mapping[str, str] | None = None,
+) -> list[dict[str, Any]]:
     """Every field that differs, tagged with the layer it belongs to.
 
     The facts/presentation split is structural in the type system; surfacing which layer each
     change touched turns that guarantee into something a reader can check by eye.
     """
 
+    held_out_fields = _held_out_fields(check, held_out_code)
+    by_field = dict(intervention_ids or {})
     entries: list[dict[str, Any]] = []
     for layer, holder in ((Layer.FACTS, "facts"), (Layer.PRESENTATION, "presentation")):
         before_obj = getattr(base, holder)
@@ -127,12 +161,53 @@ def _diff(base: Applicant, cf: Applicant) -> list[dict[str, Any]]:
                     "after": _scalar(after),
                     "layer": layer.value,
                     "display": f"{name}: {_scalar(before)} -> {_scalar(after)}",
-                    "intervention_id": None,
-                    "direction": None,
-                    "held_out": False,
+                    "intervention_id": by_field.get(name),
+                    # The observed sign, not the spec's ``direction``: every intervention
+                    # builder in the repo passes "set", so the declared field says nothing.
+                    "direction": _observed_direction(before, after),
+                    "held_out": holder == "facts" and name in held_out_fields,
                 }
             )
     return entries
+
+
+def _observed_direction(before: Any, after: Any) -> str | None:
+    """Which way a field moved, for readers scanning a diff column."""
+
+    if isinstance(before, bool) or isinstance(after, bool):
+        return "set"
+    if isinstance(before, (int, float)) and isinstance(after, (int, float)):
+        if after > before:
+            return "increase"
+        if after < before:
+            return "decrease"
+        return "set"
+    return "set"
+
+
+def _contributions(result: TestResult, estimates_doc: Mapping[str, Any] | None) -> list[dict]:
+    """Which published statistics this pair fed.
+
+    Without it a pair page reads as an anecdote somebody chose. Every check builds
+    ``test_id == pair_id``, so the link is a lookup against each estimate's
+    ``support_test_ids`` rather than anything new.
+
+    ``pass_k`` is deliberately absent: it publishes only aggregates and records no unit ids, so
+    claiming this pair fed it would be an assertion rather than a lookup.
+    """
+
+    if not estimates_doc:
+        return []
+    contributions = [
+        {
+            "estimate_id": estimate["estimate_id"],
+            "role": f"{estimate.get('estimand', '')}/{estimate.get('stratum', '')}".strip("/"),
+            "cluster_id": result.cluster_id,
+        }
+        for estimate in estimates_doc.get("estimates", ())
+        if result.test_id in estimate.get("support_test_ids", ())
+    ]
+    return sorted(contributions, key=lambda row: row["estimate_id"])
 
 
 def _hashes(base: Applicant, cf: Applicant) -> dict[str, Any]:
@@ -221,6 +296,74 @@ def _side_payload(trajectories: tuple[Trajectory, ...], *, prompt_refs: dict[str
     }
 
 
+def _spec_payload(spec: InterventionSpec, *, arm: str) -> dict[str, Any]:
+    return {
+        "arm": arm,
+        "intervention_id": spec.intervention_id,
+        "family": str(spec.family),
+        "name": spec.name,
+        "layer": spec.layer.value,
+        "target_field": spec.target_field,
+        "direction": spec.direction,
+        "expected_relation": str(spec.expected_relation),
+        "params": _scalar(dict(spec.params)),
+    }
+
+
+def _applied_interventions(
+    base_trajectories: tuple[Trajectory, ...],
+    cf_trajectories: tuple[Trajectory, ...],
+    interventions: Mapping[tuple[str, str], InterventionRecord] | None,
+    base_content_id: str,
+    cf_content_id: str,
+) -> list[dict[str, Any]]:
+    """What each arm actually did, read from the run's recorded intervention evidence.
+
+    Eight of the exported pairs have an empty applicant diff because their contrast is field
+    ordering or serialization format rather than a fact -- for those this is the *only* place
+    the contrast appears at all, which is why an empty list here was not a cosmetic gap.
+
+    Empty for a run recorded before ``interventions.jsonl`` existed, rather than reconstructed:
+    guessing what an old run did and publishing it as observation is exactly the move this
+    bundle exists to avoid.
+    """
+
+    if not interventions:
+        return []
+    payload: list[dict[str, Any]] = []
+    for arm, trajectories, content_id_ in (
+        ("base", base_trajectories, base_content_id),
+        ("cf", cf_trajectories, cf_content_id),
+    ):
+        if not trajectories:
+            continue
+        record = interventions.get((trajectories[0].key.arm_id, content_id_))
+        if record is None:
+            continue
+        payload.extend(_spec_payload(spec, arm=arm) for spec in record.interventions)
+    return payload
+
+
+def _intervention_ids_by_field(applied: list[dict[str, Any]]) -> dict[str, str]:
+    """Map a changed fact field back to the intervention that changed it.
+
+    Counterfactual repairs name every field they touch in ``params.targets``; simple
+    interventions name one in ``target_field``. Later arms win, which is what the reader wants:
+    the cf leg is the one that moved the value they are looking at.
+    """
+
+    by_field: dict[str, str] = {}
+    for spec in applied:
+        target = spec.get("target_field")
+        if isinstance(target, str) and target:
+            by_field[target] = spec["intervention_id"]
+        targets = (spec.get("params") or {}).get("targets")
+        if isinstance(targets, Mapping):
+            for field in targets:
+                by_field[str(field)] = spec["intervention_id"]
+    return by_field
+
+
 def build_pair(
     result: TestResult,
     *,
@@ -230,6 +373,8 @@ def build_pair(
     applicants: dict[str, Applicant],
     policy: Policy,
     prompt_refs: dict[str, str],
+    estimates_doc: Mapping[str, Any] | None = None,
+    interventions: Mapping[tuple[str, str], InterventionRecord] | None = None,
 ) -> dict[str, Any]:
     prose = prose_for(result.check)
     base_content_id = base_trajectories[0].key.applicant_content_id if base_trajectories else ""
@@ -265,7 +410,13 @@ def build_pair(
         )
     }
 
-    held_out = observed.get("held_out_code") or observed.get("isolated_code")
+    # ``omitted_code`` is the omission scan's name for the same thing. The old fallback read
+    # ``isolated_code``, a key nothing has ever written, so omission pairs published a null
+    # here; invisible until a run actually produced one.
+    held_out = observed.get("held_out_code") or observed.get("omitted_code")
+    applied = _applied_interventions(
+        base_trajectories, cf_trajectories, interventions, base_content_id, cf_content_id
+    )
 
     return {
         "schema": PAIR_SCHEMA,
@@ -291,7 +442,13 @@ def build_pair(
             "cf_content_id": cf_content_id,
             "base": _facts_payload(base_applicant, policy),
             "cf": _facts_payload(cf_applicant, policy),
-            "diff": _diff(base_applicant, cf_applicant),
+            "diff": _diff(
+                base_applicant,
+                cf_applicant,
+                check=result.check,
+                held_out_code=str(held_out) if held_out else None,
+                intervention_ids=_intervention_ids_by_field(applied),
+            ),
             "unchanged_facts_count": sum(
                 1
                 for name in type(base_applicant.facts).model_fields
@@ -299,13 +456,13 @@ def build_pair(
             ),
             "hashes": _hashes(base_applicant, cf_applicant),
         },
-        "interventions": [],
+        "interventions": applied,
         "metrics": metrics,
         "sides": {
             "base": _side_payload(base_trajectories, prompt_refs=prompt_refs),
             "cf": _side_payload(cf_trajectories, prompt_refs=prompt_refs),
         },
-        "contributes_to": [],
+        "contributes_to": _contributions(result, estimates_doc),
         "provenance": {"source_lines": {}, "truncated": False},
     }
 

@@ -111,9 +111,7 @@ def tag_precedes_commit(tag: str, commit: str, *, root: Path | None = None) -> b
         return None
     if tagged == commit:
         return True
-    return (
-        _git("merge-base", "--is-ancestor", tagged, commit, cwd=cwd) is not None
-    )
+    return _git("merge-base", "--is-ancestor", tagged, commit, cwd=cwd) is not None
 
 
 def run_timestamp(git: GitMetadata, *, stamp_now: bool) -> tuple[datetime, bool]:

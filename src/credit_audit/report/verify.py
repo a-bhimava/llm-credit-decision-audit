@@ -16,8 +16,8 @@ from pathlib import Path
 from typing import Any
 
 from credit_audit.ids import sha256_bytes, sha256_file
+from credit_audit.policy.loader import load_policy
 from credit_audit.report.bundle import SHA256SUMS
-from credit_audit.report.checks import build_check_rows, group_by_check, rows_file_for
 from credit_audit.report.export import check_headline_support, lint_scripted_headlines
 from credit_audit.report.summary import build_summary
 from credit_audit.run.execute import (
@@ -27,7 +27,7 @@ from credit_audit.run.execute import (
 )
 from credit_audit.stats.estimates import build_estimates
 from credit_audit.stats.families import Preregistration, load_preregistration
-from credit_audit.types import Frozen
+from credit_audit.types import Frozen, RunManifest, TestResult, Trajectory
 
 
 class VerifyFinding(Frozen):
@@ -183,7 +183,11 @@ def verify_bundle(
 
     # 4. The summary is a function of the results, not an editorial layer.
     summary_path = bundle_root / "summary.json"
-    if summary_path.exists() and rederived:
+    if not summary_path.exists():
+        # Absence used to be a silent skip while a missing estimates.json was a failure. A
+        # bundle with no summary has nothing to verify and should say so, not pass quietly.
+        findings.append(VerifyFinding(claim="summary.json is present", ok=False, detail="missing"))
+    elif rederived:
         rebuilt = build_summary(
             run_id=manifest.run_id,
             kind=manifest.kind,
@@ -219,29 +223,114 @@ def verify_bundle(
                 )
             )
 
-    # 5. Every exported check-rows table re-derives from the raw results.
+    # 5. Every published content file re-derives, byte for byte, from the raw artifacts.
+    #
+    # Not just the estimates, the summary, and the check rows. Those three were all that was
+    # ever re-derived, so a doctored pairs/*.json, policy.json, report.md, or checks/index.json
+    # passed --strict once its hash had been rebuilt -- and the pair files are the drill-down
+    # evidence, the part a reader actually opens to decide whether to believe any of it.
     if strict:
-        grouped = group_by_check(results)
-        row_problems: list[str] = []
-        for check, bucket in grouped.items():
-            path = bundle_root / rows_file_for(check)
-            if not path.exists():
-                row_problems.append(f"{check}: rows file missing")
-                continue
-            difference = _first_difference(
-                build_check_rows(check, bucket, run_id=manifest.run_id), _load(path)
-            )
-            if difference:
-                row_problems.append(f"{check}: {difference}")
-        findings.append(
-            VerifyFinding(
-                claim=f"all {len(grouped)} check-row tables re-derive from the raw results",
-                ok=not row_problems,
-                detail="; ".join(row_problems[:3]),
+        findings.extend(
+            _verify_content(
+                run_dir,
+                bundle_root,
+                manifest=manifest,
+                results=results,
+                trajectories=trajectories,
+                prereg=prereg,
+                estimates_doc=rederived,
+                deterministic=_deterministic,
             )
         )
 
     return VerifyReport(run_id=manifest.run_id, findings=tuple(findings))
+
+
+#: Files that legitimately differ from a plain re-derivation. Both carry the digest of every
+#: other file, so neither can be part of what that digest covers; ``SHA256SUMS`` is the list
+#: itself. All three are still hash-checked in step 1.
+_SELF_DESCRIBING = frozenset({"manifest.json", "integrity/chain.json", SHA256SUMS})
+
+
+def _verify_content(
+    run_dir: Path,
+    bundle_root: Path,
+    *,
+    manifest: RunManifest,
+    results: tuple[TestResult, ...],
+    trajectories: tuple[Trajectory, ...],
+    prereg: Preregistration,
+    estimates_doc: dict[str, Any],
+    deterministic: bool,
+) -> list[VerifyFinding]:
+    """Rebuild the bundle from the artifacts and compare it to what was published."""
+
+    from credit_audit.report.export import build_bundle_content
+    from credit_audit.run.execute import load_run_applicants, load_run_interventions
+
+    if not estimates_doc:
+        return [
+            VerifyFinding(
+                claim="published files re-derive from the raw artifacts",
+                ok=False,
+                detail="estimates could not be re-derived, so nothing downstream can be checked",
+            )
+        ]
+
+    summary = build_summary(
+        run_id=manifest.run_id,
+        kind=manifest.kind,
+        results=results,
+        trajectories=trajectories,
+        estimates_doc=estimates_doc,
+        prereg=prereg,
+    )
+    content = build_bundle_content(
+        manifest,
+        results=results,
+        trajectories=trajectories,
+        applicants=load_run_applicants(run_dir),
+        interventions=load_run_interventions(run_dir),
+        policy=load_policy(),
+        prereg=prereg,
+        estimates_doc=estimates_doc,
+        summary=summary,
+        deterministic=deterministic,
+    )
+
+    problems: list[str] = []
+    for relpath, expected in sorted(content.files.items()):
+        path = bundle_root / relpath
+        if not path.exists():
+            problems.append(f"{relpath}: re-derived but absent from the bundle")
+            continue
+        if path.read_bytes() != expected:
+            problems.append(f"{relpath}: published bytes differ from the re-derivation")
+
+    findings = [
+        VerifyFinding(
+            claim=f"all {len(content.files)} published files re-derive from the raw artifacts",
+            ok=not problems,
+            detail="; ".join(problems[:3]),
+        )
+    ]
+
+    # A file nobody re-derived and nobody hashed is a file nobody checked. SHA256SUMS only ever
+    # covered what it listed, so an extra file added to a published bundle went unnoticed.
+    published = {
+        path.relative_to(bundle_root).as_posix()
+        for path in bundle_root.rglob("*")
+        if path.is_file()
+    }
+    orphans = sorted(published - set(content.files) - _SELF_DESCRIBING)
+    findings.append(
+        VerifyFinding(
+            claim="the bundle contains nothing beyond what the exporter produces",
+            ok=not orphans,
+            detail="; ".join(orphans[:5]),
+        )
+    )
+    return findings
 
 
 __all__ = ["VerifyFinding", "VerifyReport", "verify_bundle"]
