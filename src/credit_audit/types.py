@@ -699,17 +699,17 @@ class InterventionRecord(Frozen):
     re-derived intervention is the exporter's opinion about what happened, and everything else
     in this bundle is an observation of what happened.
 
-    Keyed by ``(arm_id, applicant_content_id)``. ``arm_id`` alone is reused across applicants —
-    monotonicity interventions are applicant-specific — so it does not identify a record.
+    Indexed by the episode identities the arm produced, which is the only key that actually
+    distinguishes arms. ``arm_id`` is reused across applicants, and ``(arm_id,
+    applicant_content_id)`` is not unique either: on a leave-one-out necessity test every
+    held-out choice for one applicant repairs to the *same* fully-repaired counterfactual, so
+    several pairs share one cf applicant while having applied different repairs to reach it.
     """
 
     arm_id: str
     applicant_content_id: str
+    episode_ids: tuple[str, ...] = ()
     interventions: tuple[InterventionSpec, ...] = ()
-
-    @property
-    def key(self) -> tuple[str, str]:
-        return (self.arm_id, self.applicant_content_id)
 
 
 class TestResult(Frozen):

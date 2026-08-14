@@ -31,7 +31,14 @@ from credit_audit.ids import applicant_content_id, derive_seed
 from credit_audit.model.client import ModelClient
 from credit_audit.policy.loader import Policy
 from credit_audit.render.registry import render_application
-from credit_audit.types import Applicant, InterventionRecord, RenderMode, Trajectory
+from credit_audit.types import (
+    Applicant,
+    EpisodeKey,
+    InterventionRecord,
+    InterventionSpec,
+    RenderMode,
+    Trajectory,
+)
 
 if TYPE_CHECKING:
     from credit_audit.interventions.apply import ArmPlan
@@ -87,15 +94,21 @@ def _record(trajectory: Trajectory, applicant: Applicant) -> Trajectory:
     return trajectory
 
 
-def _record_interventions(arm: ArmPlan, applicant: Applicant) -> None:
+def _record_interventions(
+    arm_id: str,
+    applicant: Applicant,
+    keys: list[EpisodeKey],
+    interventions: tuple[InterventionSpec, ...],
+) -> None:
     sink = _INTERVENTION_RECORDER.get()
     if sink is None:
         return
     sink(
         InterventionRecord(
-            arm_id=arm.arm_id,
+            arm_id=arm_id,
             applicant_content_id=applicant_content_id(applicant),
-            interventions=arm.interventions,
+            episode_ids=tuple(key.episode_id for key in keys),
+            interventions=interventions,
         )
     )
 
@@ -122,8 +135,15 @@ async def run_trials(
     k_trials: int,
     reason_mode: ReasonMode = "coded",
     render_options: RenderOptions | None = None,
+    interventions: tuple[InterventionSpec, ...] = (),
 ) -> tuple[Trajectory, ...]:
-    """Render and execute ``k_trials`` through the canonical episode protocol."""
+    """Render and execute ``k_trials`` through the canonical episode protocol.
+
+    ``interventions`` are the specs this arm applied, recorded alongside the trajectories.
+    Recorded here rather than in :func:`run_arm_trials` because only monotonicity goes through
+    an ``ArmPlan``; every other check materializes its arm and calls this directly, so recording
+    one level up captured a tenth of the run and silently missed the rest.
+    """
 
     if k_trials < 1:
         raise ValueError("k_trials must be at least 1")
@@ -133,14 +153,8 @@ async def run_trials(
         policy,
         options=render_options,
     )
-    trajectories: list[Trajectory] = []
-    for trial_index in range(k_trials):
-        seed = paired_trial_seed(
-            run_seed,
-            seed_group,
-            trial_index,
-        )
-        key = build_episode_key(
+    keys = [
+        build_episode_key(
             applicant=applicant,
             arm_id=arm_id,
             render_id=render_mode,
@@ -148,9 +162,15 @@ async def run_trials(
             model_id=client.model_id,
             policy=policy,
             reason_mode=reason_mode,
-            seed=seed,
+            seed=paired_trial_seed(run_seed, seed_group, trial_index),
             render_options=render_options,
         )
+        for trial_index in range(k_trials)
+    ]
+    _record_interventions(arm_id, applicant, keys, interventions)
+
+    trajectories: list[Trajectory] = []
+    for key in keys:
         trajectories.append(
             _record(
                 await run_episode(
@@ -181,7 +201,6 @@ async def run_arm_trials(
     """Materialize an immutable arm plan and execute it through :func:`run_trials`."""
 
     materialized = arm.materialize()
-    _record_interventions(arm, materialized.applicant)
     return await run_trials(
         applicant=materialized.applicant,
         client=client,
@@ -193,6 +212,7 @@ async def run_arm_trials(
         k_trials=k_trials,
         reason_mode=reason_mode,
         render_options=materialized.render_options,
+        interventions=arm.interventions,
     )
 
 

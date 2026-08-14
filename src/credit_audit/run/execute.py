@@ -339,21 +339,22 @@ async def execute_run(
 
     trajectories: dict[str, Trajectory] = {}
     variants: dict[str, Applicant] = {}
-    interventions: dict[tuple[str, str], InterventionRecord] = {}
+    interventions: dict[tuple[str, ...], InterventionRecord] = {}
     results: list[TestResult] = []
     aborted = False
     abort_reason = ""
 
     def intervention_sink(record: InterventionRecord) -> None:
-        existing = interventions.get(record.key)
+        key = record.episode_ids
+        existing = interventions.get(key)
         if existing is not None and existing.interventions != record.interventions:
-            # One arm applied to one applicant must mean one set of interventions. Two answers
-            # is an identity bug in the plan builders, not a duplicate to drop quietly.
+            # One set of episodes must mean one set of interventions. Two answers is an
+            # identity bug in the plan builders, not a duplicate to drop quietly.
             raise ValueError(
-                f"arm {record.arm_id} on applicant {record.applicant_content_id} recorded two "
-                f"different intervention sets"
+                f"arm {record.arm_id} recorded two different intervention sets for the same "
+                f"episodes"
             )
-        interventions[record.key] = record
+        interventions[key] = record
 
     def sink(trajectory: Trajectory, applicant: Applicant) -> None:
         existing = trajectories.get(trajectory.episode_id)
@@ -494,8 +495,8 @@ def load_run_trajectories(run_dir: Path) -> tuple[Trajectory, ...]:
     return tuple(read_models(Path(run_dir) / TRAJECTORIES_FILE, Trajectory))
 
 
-def load_run_interventions(run_dir: Path) -> dict[tuple[str, str], InterventionRecord]:
-    """What each arm did, keyed by ``(arm_id, applicant_content_id)``.
+def load_run_interventions(run_dir: Path) -> dict[str, InterventionRecord]:
+    """What each arm did, indexed by every episode identity it produced.
 
     Returns empty for a run recorded before this artifact existed, so the exporter degrades to
     the old behaviour (empty ``interventions``) instead of refusing to export an older run.
@@ -506,7 +507,11 @@ def load_run_interventions(run_dir: Path) -> dict[tuple[str, str], InterventionR
     path = Path(run_dir) / INTERVENTIONS_FILE
     if not path.exists():
         return {}
-    return {record.key: record for record in read_models(path, InterventionRecord)}
+    return {
+        episode_id: record
+        for record in read_models(path, InterventionRecord)
+        for episode_id in record.episode_ids
+    }
 
 
 def load_run_applicants(run_dir: Path) -> dict[str, Applicant]:

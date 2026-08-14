@@ -313,9 +313,7 @@ def _spec_payload(spec: InterventionSpec, *, arm: str) -> dict[str, Any]:
 def _applied_interventions(
     base_trajectories: tuple[Trajectory, ...],
     cf_trajectories: tuple[Trajectory, ...],
-    interventions: Mapping[tuple[str, str], InterventionRecord] | None,
-    base_content_id: str,
-    cf_content_id: str,
+    interventions: Mapping[str, InterventionRecord] | None,
 ) -> list[dict[str, Any]]:
     """What each arm actually did, read from the run's recorded intervention evidence.
 
@@ -331,13 +329,12 @@ def _applied_interventions(
     if not interventions:
         return []
     payload: list[dict[str, Any]] = []
-    for arm, trajectories, content_id_ in (
-        ("base", base_trajectories, base_content_id),
-        ("cf", cf_trajectories, cf_content_id),
-    ):
+    for arm, trajectories in (("base", base_trajectories), ("cf", cf_trajectories)):
         if not trajectories:
             continue
-        record = interventions.get((trajectories[0].key.arm_id, content_id_))
+        # By episode id: an arm's identity is not enough. Several necessity pairs on one
+        # applicant share a fully-repaired cf applicant while having applied different repairs.
+        record = interventions.get(trajectories[0].episode_id)
         if record is None:
             continue
         payload.extend(_spec_payload(spec, arm=arm) for spec in record.interventions)
@@ -374,7 +371,7 @@ def build_pair(
     policy: Policy,
     prompt_refs: dict[str, str],
     estimates_doc: Mapping[str, Any] | None = None,
-    interventions: Mapping[tuple[str, str], InterventionRecord] | None = None,
+    interventions: Mapping[str, InterventionRecord] | None = None,
 ) -> dict[str, Any]:
     prose = prose_for(result.check)
     base_content_id = base_trajectories[0].key.applicant_content_id if base_trajectories else ""
@@ -414,9 +411,7 @@ def build_pair(
     # ``isolated_code``, a key nothing has ever written, so omission pairs published a null
     # here; invisible until a run actually produced one.
     held_out = observed.get("held_out_code") or observed.get("omitted_code")
-    applied = _applied_interventions(
-        base_trajectories, cf_trajectories, interventions, base_content_id, cf_content_id
-    )
+    applied = _applied_interventions(base_trajectories, cf_trajectories, interventions)
 
     return {
         "schema": PAIR_SCHEMA,
