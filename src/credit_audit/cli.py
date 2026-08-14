@@ -290,12 +290,17 @@ def _export(args: argparse.Namespace) -> int:
     run_dir = _resolve_run_dir(Path(args.runs_dir), args.run)
     try:
         if is_sweep(run_dir):
-            outcome = export_sweep(run_dir, out_root=Path(args.out))
+            outcome = export_sweep(
+                run_dir,
+                out_root=Path(args.out),
+                allow_commit_drift=args.allow_commit_drift,
+            )
         else:
             outcome = export_run(
                 run_dir,
                 out_root=Path(args.out),
                 pairs_per_check=args.pairs_per_check,
+                allow_commit_drift=args.allow_commit_drift,
             )
     except ExportError as error:
         print(f"export refused: {error}", file=sys.stderr)
@@ -392,6 +397,15 @@ def build_parser() -> argparse.ArgumentParser:
     export.add_argument("--runs-dir", default=str(DEFAULT_RUNS_DIR))
     export.add_argument("--out", default=str(DEFAULT_BUNDLE_ROOT))
     export.add_argument("--pairs-per-check", type=int, default=4)
+    export.add_argument(
+        "--allow-commit-drift",
+        action="store_true",
+        help=(
+            "export a run recorded at a different commit than the working tree. Needed when "
+            "re-exporting a committed bundle, since committing it moves HEAD past the "
+            "commit the run was recorded at; the bundle still reports the run's commit."
+        ),
+    )
     export.set_defaults(func=_export)
 
     verify = subparsers.add_parser(
