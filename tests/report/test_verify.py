@@ -11,7 +11,7 @@ import json
 
 from credit_audit.report.verify import verify_bundle
 
-from .conftest import BOOTSTRAP_B
+from .conftest import BOOTSTRAP_B, FIXED_GIT
 
 
 def test_a_freshly_exported_bundle_verifies(smoke_run, smoke_bundle):
@@ -40,7 +40,9 @@ def test_tampering_with_a_published_file_is_caught(smoke_run, tmp_path):
 
     from credit_audit.report.export import export_run
 
-    exported = export_run(smoke_run.run_dir, out_root=tmp_path, git=None, bootstrap_B=BOOTSTRAP_B)
+    exported = export_run(
+        smoke_run.run_dir, out_root=tmp_path, git=FIXED_GIT, bootstrap_B=BOOTSTRAP_B
+    )
     target = exported.root / "summary.json"
     payload = json.loads(target.read_text())
     payload["headline"][0]["value"] = 0.99
@@ -62,7 +64,9 @@ def test_an_edited_statistic_is_caught_even_if_the_hashes_are_rebuilt(smoke_run,
     from credit_audit.report.bundle import SHA256SUMS
     from credit_audit.report.export import export_run
 
-    exported = export_run(smoke_run.run_dir, out_root=tmp_path, git=None, bootstrap_B=BOOTSTRAP_B)
+    exported = export_run(
+        smoke_run.run_dir, out_root=tmp_path, git=FIXED_GIT, bootstrap_B=BOOTSTRAP_B
+    )
     target = exported.root / "stats" / "estimates.json"
     payload = json.loads(target.read_text())
     payload["estimates"][0]["point"] = 0.42

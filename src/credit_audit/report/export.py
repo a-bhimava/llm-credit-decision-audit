@@ -23,7 +23,13 @@ from pathlib import Path
 from typing import Any
 
 from credit_audit.policy.loader import Policy, export_policy_snapshot, load_policy
-from credit_audit.report.bundle import BundleReport, BundleWriter, ExportError, SizeBudget
+from credit_audit.report.bundle import (
+    DEFAULT_BUNDLE_ROOT,
+    BundleReport,
+    BundleWriter,
+    ExportError,
+    SizeBudget,
+)
 from credit_audit.report.catalog import prose_for
 from credit_audit.report.checks import (
     build_check_index,
@@ -43,6 +49,7 @@ from credit_audit.report.pairs import (
 from credit_audit.report.summary import build_summary
 from credit_audit.run.execute import (
     APPLICANTS_FILE,
+    INTERVENTIONS_FILE,
     RESULTS_FILE,
     TRAJECTORIES_FILE,
     load_run_manifest,
@@ -52,9 +59,7 @@ from credit_audit.run.execute import (
 from credit_audit.run.gitmeta import GitMetadata, git_metadata
 from credit_audit.stats.estimates import build_estimates
 from credit_audit.stats.families import Preregistration, load_preregistration
-from credit_audit.types import Frozen, TestResult, TestStatus, Trajectory
-
-DEFAULT_BUNDLE_ROOT = Path("web/public/runs")
+from credit_audit.types import Frozen, RunManifest, TestResult, TestStatus, Trajectory
 
 DEFAULT_PAIRS_PER_CHECK = 4
 
@@ -140,6 +145,35 @@ def check_headline_support(summary: dict[str, Any], estimates_doc: dict[str, Any
             )
 
 
+def check_export_commit(
+    manifest: RunManifest,
+    git: GitMetadata,
+    *,
+    allow_drift: bool = False,
+) -> None:
+    """Refuse to export a run from a commit other than the one that produced it.
+
+    The bundle records the run's commit as provenance, and the site invites a reader to check
+    out that commit and reproduce the run. Exporting from a different tree silently publishes
+    an artifact built by code the manifest does not describe -- and, before the git fields moved
+    onto the manifest, stamped the *export* tree's tag beside the *run's* commit, so a re-export
+    at a later commit produced different bytes for identical inputs.
+
+    Not fatal when git is unavailable: an installed copy outside a repository can still export.
+    """
+
+    if allow_drift or not git.available:
+        return
+    if git.commit == manifest.git_commit:
+        return
+    raise ExportError(
+        f"run {manifest.run_id} was produced at commit {manifest.git_commit[:12]} but the "
+        f"working tree is at {git.commit[:12]}. Check out the run's commit, or re-run the "
+        "suite here; pass allow_commit_drift=True only if you intend to publish a bundle "
+        "whose provenance does not match the tree that built it."
+    )
+
+
 def select_detail_pairs(
     results: tuple[TestResult, ...],
     *,
@@ -181,6 +215,7 @@ def export_run(
     budget: SizeBudget | None = None,
     pairs_per_check: int = DEFAULT_PAIRS_PER_CHECK,
     bootstrap_B: int | None = None,
+    allow_commit_drift: bool = False,
 ) -> ExportOutcome:
     """Read one run's artifacts and write its bundle. Pure function of the artifacts."""
 
@@ -190,6 +225,7 @@ def export_run(
     git = git or git_metadata()
 
     manifest, deterministic = load_run_manifest(run_dir)
+    check_export_commit(manifest, git, allow_drift=allow_commit_drift)
     results = load_run_results(run_dir)
     trajectories = load_run_trajectories(run_dir)
     from credit_audit.run.execute import load_run_applicants
@@ -272,7 +308,7 @@ def export_run(
     )
     writer.add_json("checks/index.json", check_index)
 
-    manifest_payload = build_manifest(manifest, git=git, deterministic=deterministic)
+    manifest_payload = build_manifest(manifest, deterministic=deterministic)
     writer.add_text(
         "report.md",
         render_report(
@@ -291,7 +327,6 @@ def export_run(
         "manifest.json",
         build_manifest(
             manifest,
-            git=git,
             deterministic=deterministic,
             bundle_sha256=content_digest,
         ),
@@ -300,13 +335,17 @@ def export_run(
         "integrity/chain.json",
         build_integrity(
             manifest,
-            git=git,
             prereg=prereg,
             run_dir=run_dir,
             bundle_sha256=content_digest,
             deterministic=deterministic,
             python_version=platform.python_version(),
-            artifact_files=(TRAJECTORIES_FILE, RESULTS_FILE, APPLICANTS_FILE),
+            artifact_files=(
+                TRAJECTORIES_FILE,
+                RESULTS_FILE,
+                APPLICANTS_FILE,
+                INTERVENTIONS_FILE,
+            ),
         ),
     )
     report = writer.finalize()
@@ -404,6 +443,7 @@ def export_sweep(
     git: GitMetadata | None = None,
     budget: SizeBudget | None = None,
     bootstrap_B: int = 2000,
+    allow_commit_drift: bool = False,
 ) -> ExportOutcome:
     """Export a known-answer sweep as its planted-defect table.
 
@@ -425,6 +465,7 @@ def export_sweep(
     git = git or git_metadata()
 
     manifest, deterministic = load_run_manifest(run_dir)
+    check_export_commit(manifest, git, allow_drift=allow_commit_drift)
     _payload, agents, cohort_ids = load_sweep_manifest(run_dir)
     by_id = {applicant.applicant_id: applicant for applicant in read_profiles_jsonl()}
     cohort = tuple(by_id[applicant_id] for applicant_id in cohort_ids if applicant_id in by_id)
@@ -450,15 +491,12 @@ def export_sweep(
     content_digest = writer.digest()
     writer.add_json(
         "manifest.json",
-        build_manifest(
-            manifest, git=git, deterministic=deterministic, bundle_sha256=content_digest
-        ),
+        build_manifest(manifest, deterministic=deterministic, bundle_sha256=content_digest),
     )
     writer.add_json(
         "integrity/chain.json",
         build_integrity(
             manifest,
-            git=git,
             prereg=prereg,
             run_dir=run_dir,
             bundle_sha256=content_digest,
@@ -526,6 +564,7 @@ def describe_checks() -> dict[str, str]:
 
 __all__ = [
     "DEFAULT_BUNDLE_ROOT",
+    "check_export_commit",
     "DEFAULT_PAIRS_PER_CHECK",
     "MODEL_CLAIM_PHRASES",
     "ExportError",

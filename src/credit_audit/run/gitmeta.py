@@ -87,6 +87,35 @@ def git_metadata(root: Path | None = None) -> GitMetadata:
     )
 
 
+def tag_precedes_commit(tag: str, commit: str, *, root: Path | None = None) -> bool | None:
+    """Did ``tag`` exist before ``commit`` was made?
+
+    The preregistration's whole claim is that the hypotheses predate the results. Asserting it
+    because a ``git_tag`` string is present in a YAML file proves nothing -- anyone can type a
+    tag name. This resolves the tag in git and checks that the commit it points at is an
+    ancestor of the run's commit, which is the thing actually being claimed.
+
+    Returns ``None``, never ``False``, when the question cannot be answered: no repository, an
+    unresolvable tag, an unknown run commit. "We cannot check this" and "we checked and it is
+    false" are different findings and the bundle should not conflate them.
+    """
+
+    cwd = root or Path(__file__).resolve().parents[3]
+    if not tag or not commit or commit == UNKNOWN_COMMIT:
+        return None
+    tagged = _git("rev-list", "-n", "1", tag, cwd=cwd)
+    if tagged is None or len(tagged) != 40:
+        return None
+    if _git("cat-file", "-e", f"{commit}^{{commit}}", cwd=cwd) is None:
+        # The run's commit is not in this repository, so ancestry is unanswerable here.
+        return None
+    if tagged == commit:
+        return True
+    return (
+        _git("merge-base", "--is-ancestor", tagged, commit, cwd=cwd) is not None
+    )
+
+
 def run_timestamp(git: GitMetadata, *, stamp_now: bool) -> tuple[datetime, bool]:
     """Return ``(created_at, deterministic)`` for a run.
 
@@ -99,4 +128,11 @@ def run_timestamp(git: GitMetadata, *, stamp_now: bool) -> tuple[datetime, bool]
     return git.committed_at, True
 
 
-__all__ = ["EPOCH_FALLBACK", "UNKNOWN_COMMIT", "GitMetadata", "git_metadata", "run_timestamp"]
+__all__ = [
+    "EPOCH_FALLBACK",
+    "UNKNOWN_COMMIT",
+    "GitMetadata",
+    "git_metadata",
+    "run_timestamp",
+    "tag_precedes_commit",
+]

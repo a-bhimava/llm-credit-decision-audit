@@ -27,20 +27,24 @@ from typing import TYPE_CHECKING
 
 from credit_audit.env.episode import build_episode_key, run_episode
 from credit_audit.env.tools import ReasonMode
-from credit_audit.ids import derive_seed
+from credit_audit.ids import applicant_content_id, derive_seed
 from credit_audit.model.client import ModelClient
 from credit_audit.policy.loader import Policy
 from credit_audit.render.registry import render_application
-from credit_audit.types import Applicant, RenderMode, Trajectory
+from credit_audit.types import Applicant, InterventionRecord, RenderMode, Trajectory
 
 if TYPE_CHECKING:
     from credit_audit.interventions.apply import ArmPlan
     from credit_audit.render.packet import RenderOptions
 
 TrajectorySink = Callable[[Trajectory, Applicant], None]
+InterventionSink = Callable[[InterventionRecord], None]
 
 _RECORDER: ContextVar[TrajectorySink | None] = ContextVar(
     "credit_audit_trajectory_recorder", default=None
+)
+_INTERVENTION_RECORDER: ContextVar[InterventionSink | None] = ContextVar(
+    "credit_audit_intervention_recorder", default=None
 )
 
 
@@ -60,11 +64,40 @@ def recording_trajectories(sink: TrajectorySink) -> Iterator[None]:
         _RECORDER.reset(token)
 
 
+@contextmanager
+def recording_interventions(sink: InterventionSink) -> Iterator[None]:
+    """Record what every arm executed inside this block did to its applicant.
+
+    Same contract as :func:`recording_trajectories`, and installed for the same reason: this is
+    the single path that materializes an arm plan, so nothing can be executed without its
+    interventions being recorded alongside the trajectory they produced.
+    """
+
+    token = _INTERVENTION_RECORDER.set(sink)
+    try:
+        yield
+    finally:
+        _INTERVENTION_RECORDER.reset(token)
+
+
 def _record(trajectory: Trajectory, applicant: Applicant) -> Trajectory:
     sink = _RECORDER.get()
     if sink is not None:
         sink(trajectory, applicant)
     return trajectory
+
+
+def _record_interventions(arm: ArmPlan, applicant: Applicant) -> None:
+    sink = _INTERVENTION_RECORDER.get()
+    if sink is None:
+        return
+    sink(
+        InterventionRecord(
+            arm_id=arm.arm_id,
+            applicant_content_id=applicant_content_id(applicant),
+            interventions=arm.interventions,
+        )
+    )
 
 
 def paired_trial_seed(
@@ -148,6 +181,7 @@ async def run_arm_trials(
     """Materialize an immutable arm plan and execute it through :func:`run_trials`."""
 
     materialized = arm.materialize()
+    _record_interventions(arm, materialized.applicant)
     return await run_trials(
         applicant=materialized.applicant,
         client=client,
@@ -163,8 +197,10 @@ async def run_arm_trials(
 
 
 __all__ = [
+    "InterventionSink",
     "TrajectorySink",
     "paired_trial_seed",
+    "recording_interventions",
     "recording_trajectories",
     "run_arm_trials",
     "run_trials",

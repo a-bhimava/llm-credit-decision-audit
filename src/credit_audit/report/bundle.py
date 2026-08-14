@@ -26,6 +26,14 @@ MB = 1024 * 1024
 
 SHA256SUMS = "integrity/SHA256SUMS"
 
+DEFAULT_BUNDLE_ROOT = Path("web/public/runs")
+"""Where published bundles live.
+
+Declared here rather than in ``export`` because ``integrity`` needs it too, to name the bundle
+in the commands it tells a reader to run, and importing the exporter from the integrity chain
+would be a cycle.
+"""
+
 
 class ExportError(RuntimeError):
     """A bundle was refused. Every path that raises this is a rule enforced in code."""

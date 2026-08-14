@@ -11,6 +11,7 @@ reader can produce the bytes and compare the hash themselves.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -18,7 +19,8 @@ from credit_audit.ids import sha256_file
 from credit_audit.io.jsonl import count_lines
 from credit_audit.policy.loader import MD_PATH, YAML_PATH
 from credit_audit.profiles.generate import PROFILES_PATH
-from credit_audit.run.gitmeta import GitMetadata
+from credit_audit.report.bundle import DEFAULT_BUNDLE_ROOT
+from credit_audit.run.gitmeta import tag_precedes_commit
 from credit_audit.stats.families import PREREG_PATH, Preregistration
 from credit_audit.suites.loader import suite_path
 from credit_audit.types import RunManifest
@@ -40,6 +42,43 @@ def _repo_relative(path: Path) -> str:
         return path.name
 
 
+def _frozen_before_run(prereg: Preregistration, manifest: RunManifest) -> bool | None:
+    """Whether the preregistration provably predates the run.
+
+    Preregistration is worth nothing unless the hypotheses came first, so this is the one field
+    in the chain that carries the method's entire weight. It used to be ``True`` whenever a
+    ``git_tag`` string existed in the YAML, which asserts the ordering from the document that
+    benefits from it. Three independent things have to hold, and all three are checked here:
+    the tag resolves in git, its commit is an ancestor of the run's commit, and the freeze
+    timestamp is not after the run's.
+
+    ``None`` means unproven -- an untagged document, a tag this clone does not have, a run from
+    another repository. It is deliberately distinct from ``False``, which means checked and
+    contradicted, and which the site should render as loudly as it likes.
+    """
+
+    if prereg.git_tag is None:
+        return None
+
+    ancestry = tag_precedes_commit(prereg.git_tag, manifest.git_commit)
+    if ancestry is not True:
+        return ancestry
+
+    if prereg.frozen_at is None:
+        # Tagged and ancestral but undated. The ordering holds by commit; say so.
+        return True
+    try:
+        frozen = datetime.fromisoformat(prereg.frozen_at)
+    except ValueError:  # pragma: no cover - _isoformat normalizes on load
+        return None
+    if frozen.tzinfo is None:
+        frozen = frozen.replace(tzinfo=UTC)
+    created = manifest.created_at
+    if created.tzinfo is None:  # pragma: no cover - manifests are timezone-aware
+        created = created.replace(tzinfo=UTC)
+    return frozen <= created
+
+
 def _input_entry(role: str, path: Path, **extra: Any) -> dict[str, Any]:
     return {
         "role": role,
@@ -53,7 +92,6 @@ def _input_entry(role: str, path: Path, **extra: Any) -> dict[str, Any]:
 def build_integrity(
     manifest: RunManifest,
     *,
-    git: GitMetadata,
     prereg: Preregistration,
     run_dir: Path,
     bundle_sha256: str,
@@ -61,6 +99,17 @@ def build_integrity(
     python_version: str,
     artifact_files: tuple[str, ...],
 ) -> dict[str, Any]:
+    # How a reader without this machine gets the bytes whose hash we publish. A scripted run
+    # regenerates exactly, at zero cost, from the recorded seed; a model run does not, and
+    # saying so is the honest answer rather than publishing a hash of an unobtainable file.
+    if manifest.kind == "scripted":
+        regenerate = (
+            f"credit-audit run --suite {manifest.suite} "
+            f"--model {manifest.model.model_id} --seed {manifest.seed}"
+        )
+    else:
+        regenerate = None
+
     source_artifacts = []
     for name in artifact_files:
         path = run_dir / name
@@ -76,6 +125,10 @@ def build_integrity(
                 # cost, and a model run would ship as a Release asset with this hash.
                 "in_repo": False,
                 "download": None,
+                # Without this a reader is handed a checksum for a file they have no way to
+                # obtain, which is a claim they cannot check -- the thing this document exists
+                # to avoid. Null on a model run, where re-running would not reproduce the bytes.
+                "regenerate": regenerate,
             }
         )
 
@@ -89,23 +142,28 @@ def build_integrity(
             PREREG_PATH,
             git_tag=prereg.git_tag,
             tagged_at=prereg.frozen_at,
-            # Null, not false: the document is not frozen yet, and claiming the tag predates
-            # the run when no tag exists would be the exact overstatement this field guards.
-            frozen_before_run=None if prereg.git_tag is None else True,
+            frozen_before_run=_frozen_before_run(prereg, manifest),
         ),
     ]
 
     run_id = manifest.run_id
+    # The bundle's canonical published location, not ``runs/<run_id>`` -- that is the
+    # gitignored raw-artifact directory, and every one of these commands used to point at it.
+    # A command a reader cannot paste and run is not a verifiable claim, which is the only
+    # reason this array exists. Deliberately not derived from ``--out``: these bytes are
+    # published, and a bundle whose contents depend on where it was written is not
+    # byte-reproducible by whoever re-exports it somewhere else.
+    bundle_dir = f"{DEFAULT_BUNDLE_ROOT.as_posix()}/{run_id}"
     verify = [
         {
             "claim": "Every file in this bundle matches the hash published beside it.",
-            "cmd": f"cd runs/{run_id} && shasum -a 256 -c integrity/SHA256SUMS",
+            "cmd": f"cd {bundle_dir} && shasum -a 256 -c integrity/SHA256SUMS",
         },
         {
             "claim": "Re-running the exporter produces this bundle byte for byte.",
             "cmd": (
                 f"credit-audit export --run {run_id} --out /tmp/recheck && "
-                f"diff -r /tmp/recheck/runs/{run_id} runs/{run_id}"
+                f"diff -r /tmp/recheck/{run_id} {bundle_dir}"
             ),
         },
         {
@@ -125,7 +183,15 @@ def build_integrity(
     return {
         "schema": INTEGRITY_SCHEMA,
         "run_id": run_id,
-        "git": {"commit": manifest.git_commit, "dirty": manifest.git_dirty, "tag": git.tag},
+        # Every field here describes the commit the run executed at, taken from the run's own
+        # manifest. Reading the tag live from ``git describe`` stapled whatever HEAD happened
+        # to carry at export time next to a commit from a different day, which made re-exporting
+        # an unchanged run produce different bytes.
+        "git": {
+            "commit": manifest.git_commit,
+            "dirty": manifest.git_dirty,
+            "tag": manifest.git_tag,
+        },
         "bundle_sha256": bundle_sha256,
         "hash_functions": {
             "content_ids": "blake2b-128",

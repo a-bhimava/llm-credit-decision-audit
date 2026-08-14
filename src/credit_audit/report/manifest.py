@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from credit_audit.run.gitmeta import GitMetadata
 from credit_audit.types import RunManifest
 
 MANIFEST_SCHEMA = "credit-audit/manifest@1"
@@ -23,7 +22,6 @@ BUNDLE_SCHEMA_VERSION = "1"
 def build_manifest(
     manifest: RunManifest,
     *,
-    git: GitMetadata,
     deterministic: bool,
     bundle_sha256: str = "",
 ) -> dict[str, Any]:
@@ -34,14 +32,18 @@ def build_manifest(
         "created_at": manifest.created_at.isoformat(),
         "suite": manifest.suite,
         "kind": manifest.kind,
+        # All five describe the commit the *run* executed at. ``remote`` and ``tag`` used to be
+        # read live from the working tree at export time, which meant re-exporting an unchanged
+        # run after a new tag landed produced different bytes -- and stamped a tag next to a
+        # commit that never carried it.
         "git": {
             "commit": manifest.git_commit,
             "short": manifest.git_commit[:7],
             # Never hidden: a run from uncommitted code is not reproducible from this commit,
             # and the site renders a permanent warning band when this is true.
             "dirty": manifest.git_dirty,
-            "remote": git.remote,
-            "tag": git.tag,
+            "remote": manifest.git_remote,
+            "tag": manifest.git_tag,
         },
         "package_version": manifest.package_version,
         "python_version": manifest.python_version,
