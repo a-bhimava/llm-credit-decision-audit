@@ -88,9 +88,7 @@ def _headline_statement(estimate: dict[str, Any], *, kind: str) -> str:
         )
     if estimand == "decision_signature_change_rate":
         unit = estimate.get("denominator_label") or "matched pairs"
-        return (
-            f"{value:.1%} of {n} {unit} changed decision signature under {check}{provenance}."
-        )
+        return f"{value:.1%} of {n} {unit} changed decision signature under {check}{provenance}."
     denominator = estimate.get("denominator_label") or "applicable test results"
     return f"{value:.1%} of {n} {denominator} failed for {check}{provenance}."
 

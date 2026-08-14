@@ -330,6 +330,12 @@ def build_planted_defects(
         ],
         "agents": agents,
         "summary": {
+            # Two counts, because they differ and publishing one invited the reader to check
+            # the table and find a row too many. The array carries every scored agent including
+            # FaithfulAgent, the must_not_fire positive control, which is not a defect control
+            # and must never be counted among the ones caught.
+            "n_rows": len(agents),
+            "n_defect_agents": len(defect_rows),
             "n_agents": len(defect_rows),
             "caught": sum(1 for row in defect_rows if row["verdict"] == "CAUGHT"),
             "missed": sum(1 for row in defect_rows if row["verdict"] == "MISSED"),
