@@ -202,6 +202,7 @@ def _build_manifest(
     trajectories: tuple[Trajectory, ...],
     budget: BudgetState,
     plan: RunPlan,
+    planned_override: int | None = None,
 ) -> RunManifest:
     denied = sum(
         1
@@ -210,6 +211,8 @@ def _build_manifest(
     )
     pairs = len({result.pair_id for result in results})
     arms = sorted({trajectory.key.arm_id for trajectory in trajectories})
+    # A sweep runs every agent over the cohort, so its planned bound is not one client's.
+    planned = plan.episodes_max if planned_override is None else planned_override
 
     return RunManifest(
         run_id=run_id,
@@ -249,11 +252,11 @@ def _build_manifest(
         renders=(suite.render_mode,),
         k_trials=suite.k_trials,
         counts=RunCounts(
-            planned=plan.episodes_max,
+            planned=planned,
             executed=budget.episodes,
             cached=budget.cache_hits,
             replayed=budget.replayed,
-            skipped=max(0, plan.episodes_max - budget.episodes),
+            skipped=max(0, planned - budget.episodes),
             applicants=len(applicants),
             denied=denied,
             tests=len(results),
