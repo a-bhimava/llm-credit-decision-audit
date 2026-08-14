@@ -22,6 +22,7 @@ import platform
 from pathlib import Path
 from typing import Any
 
+from credit_audit.ids import portable_json
 from credit_audit.policy.loader import Policy, export_policy_snapshot, load_policy
 from credit_audit.report.bundle import (
     DEFAULT_BUNDLE_ROOT,
@@ -29,6 +30,9 @@ from credit_audit.report.bundle import (
     BundleWriter,
     ExportError,
     SizeBudget,
+    check_total_bytes,
+    home_needles,
+    scan_for_secrets,
 )
 from credit_audit.report.catalog import prose_for
 from credit_audit.report.checks import (
@@ -97,21 +101,54 @@ class ExportOutcome(Frozen):
         return self.bundle.total_bytes
 
 
+def lint_scripted_prose(where: str, text: str) -> None:
+    """Rule 2, for one string. A scripted run describes the harness, never a model.
+
+    Callers decide whether the run is scripted; this checks the text.
+    """
+
+    lowered = text.lower()
+    for phrase in MODEL_CLAIM_PHRASES:
+        if phrase in lowered:
+            excerpt = text.strip()
+            raise ExportError(
+                f"scripted run {where} contains the model-claim phrase {phrase!r}: "
+                f"{excerpt[:160]!r}. A known-answer run describes the harness, never a "
+                "provider's model."
+            )
+
+
 def lint_scripted_headlines(summary: dict[str, Any]) -> None:
     """Rule 2. A scripted run is a validation of the harness, not a finding about a model."""
 
     if summary.get("kind") != "scripted":
         return
     for headline in summary.get("headline", ()):
-        statement = str(headline.get("statement", ""))
-        lowered = statement.lower()
-        for phrase in MODEL_CLAIM_PHRASES:
-            if phrase in lowered:
-                raise ExportError(
-                    f"scripted run headline {headline.get('id')!r} contains the model-claim "
-                    f"phrase {phrase!r}: {statement!r}. A known-answer run describes the "
-                    "harness, never a provider's model."
-                )
+        lint_scripted_prose(
+            f"headline {headline.get('id')!r}", str(headline.get("statement", ""))
+        )
+
+
+def lint_scripted_bundle(writer: BundleWriter, *, kind: str) -> None:
+    """Rule 2, over every published byte rather than only the headline strings.
+
+    The lint used to read ``summary.json``'s headlines and nothing else, so ``report.md`` and
+    the check prose in ``checks/index.json`` and ``pairs/*.json`` were unguarded -- a model
+    claim could be introduced in the markdown and survive a full ``verify --strict``, since
+    that file is neither linted nor re-derived. Rule 2 is worth having only if it covers the
+    prose a reader actually reads.
+
+    Runs against the buffered bundle just before it is written, which also catches anything a
+    future exporter adds without knowing this rule exists.
+    """
+
+    if kind != "scripted":
+        return
+    for path, data in sorted(writer.buffered.items()):
+        try:
+            lint_scripted_prose(path, data.decode("utf-8"))
+        except UnicodeDecodeError:  # pragma: no cover - every bundle file is UTF-8
+            continue
 
 
 def check_headline_support(summary: dict[str, Any], estimates_doc: dict[str, Any]) -> None:
@@ -348,6 +385,7 @@ def export_run(
             ),
         ),
     )
+    lint_scripted_bundle(writer, kind=manifest.kind)
     report = writer.finalize()
 
     _write_run_index(
@@ -356,6 +394,7 @@ def export_run(
         bundle_bytes=report.total_bytes,
         headline_id=(summary["headline"][0]["id"] if summary["headline"] else None),
     )
+    check_total_bytes(Path(out_root), budget or SizeBudget())
 
     return ExportOutcome(
         run_id=manifest.run_id,
@@ -396,33 +435,66 @@ def _write_run_index(
         bundle_bytes=bundle_bytes,
         headline_id=headline_id,
         path=f"runs/{manifest.run_id}",
+        can_be_default=can_be_default,
     )
     merged = {row["run_id"]: row for row in existing if isinstance(row, dict)}
     merged[manifest.run_id] = entry
-    ordered = tuple(sorted(merged.values(), key=lambda row: row["run_id"]))
+    ordered = _link_validation(tuple(sorted(merged.values(), key=lambda row: row["run_id"])))
 
-    previous_default = ""
-    if index_path.exists():
-        try:
-            previous_default = json.loads(index_path.read_text(encoding="utf-8")).get(
-                "default_run_id", ""
-            )
-        except (json.JSONDecodeError, OSError):  # pragma: no cover - corrupt index
-            previous_default = ""
+    payload = build_run_index(ordered, default_run_id=_default_run_id(ordered))
 
-    if can_be_default:
-        default_run_id = manifest.run_id
-    else:
-        # Keep whatever was already default; fall back to the first non-sweep run so the
-        # index is never left pointing at nothing.
-        default_run_id = previous_default or next(
-            (row["run_id"] for row in ordered if row["run_id"] != manifest.run_id),
-            manifest.run_id,
-        )
+    # index.json is written outside BundleWriter -- it spans runs, and the writer clears its
+    # own root on finalize -- so it would otherwise be the one published file that reaches disk
+    # without being scanned. Rule 3 says nothing is written until it has been scanned, and "the
+    # aggregate index is special" is how the exception that matters gets in.
+    scan_for_secrets("index.json", portable_json(payload), extra_needles=home_needles())
 
     from credit_audit.io.jsonl import write_json
 
-    write_json(index_path, build_run_index(ordered, default_run_id=default_run_id))
+    write_json(index_path, payload)
+
+
+def _link_validation(entries: tuple[dict[str, Any], ...]) -> tuple[dict[str, Any], ...]:
+    """Point each published run at the sweep that validates the harness it ran on.
+
+    The field existed and was hardcoded ``None``, so the planted-defect table and the runs it
+    vouches for sat in one index with nothing connecting them. Resolved from the index contents
+    rather than a flag, which keeps the file a pure function of the bundles beside it.
+
+    Deliberately silent when there is more than one sweep: picking one would be arbitrary, and
+    an arbitrary provenance link is worse than an absent one.
+    """
+
+    sweeps = [row["run_id"] for row in entries if not row.get("can_be_default", True)]
+    if len(sweeps) != 1:
+        return entries
+    sweep_id = sweeps[0]
+    return tuple(
+        row
+        if row["run_id"] == sweep_id
+        else {**row, "validated_by_run_id": row.get("validated_by_run_id") or sweep_id}
+        for row in entries
+    )
+
+
+def _default_run_id(entries: tuple[dict[str, Any], ...]) -> str:
+    """Which run the site opens on, as a function of the entries rather than of export order.
+
+    This used to be "whichever full run was exported last", which made the file depend on the
+    order the bundles happened to be written: exporting A, B, then A again flipped the default
+    and changed the bytes for identical inputs. Phase 11 diffs this directory to detect staleness,
+    so an order-dependent default reports drift that is not there.
+
+    Newest eligible run wins, ties broken by ``run_id``. A sweep is a validation artifact and is
+    eligible only when it is all there is, so the site never opens on a table about the harness
+    when it has a real run to show.
+    """
+
+    if not entries:  # pragma: no cover - never called without the run just written
+        return ""
+    eligible = [row for row in entries if row.get("can_be_default", True)] or list(entries)
+    newest = max(eligible, key=lambda row: (str(row.get("created_at", "")), row["run_id"]))
+    return str(newest["run_id"])
 
 
 def is_sweep(run_dir: Path) -> bool:
@@ -505,6 +577,7 @@ def export_sweep(
             artifact_files=tuple(sorted(manifest.artifacts)),
         ),
     )
+    lint_scripted_bundle(writer, kind=manifest.kind)
     report = writer.finalize()
 
     # A sweep is a published bundle like any other and belongs in the index, or the site's
@@ -517,6 +590,7 @@ def export_sweep(
         headline_id=None,
         can_be_default=False,
     )
+    check_total_bytes(Path(out_root), budget or SizeBudget())
 
     return ExportOutcome(
         run_id=manifest.run_id,

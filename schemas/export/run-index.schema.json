@@ -49,6 +49,10 @@
             "type": ["string", "null"],
             "description": "On a model run, points back at the scripted run whose planted-defect table validates the harness. Lets that evidence transfer without being restated as a model finding."
           },
+          "can_be_default": {
+            "type": "boolean",
+            "description": "Whether the site may open on this run. False for validation artifacts such as a known-answer sweep: a reader landing on a table about the harness will read it as the result."
+          },
           "bundle_bytes": { "type": "integer", "minimum": 0 },
           "path": { "type": "string" }
         }

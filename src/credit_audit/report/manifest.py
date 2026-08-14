@@ -138,6 +138,8 @@ def run_index_entry(
     bundle_bytes: int,
     headline_id: str | None,
     path: str,
+    can_be_default: bool = True,
+    validated_by_run_id: str | None = None,
 ) -> dict[str, Any]:
     return {
         "run_id": manifest.run_id,
@@ -160,7 +162,13 @@ def run_index_entry(
         },
         "headline_id": headline_id,
         "validates_harness": manifest.kind == "scripted",
-        "validated_by_run_id": None,
+        # Points a run at the known-answer sweep whose planted-defect table shows the harness
+        # catches what it claims to. That evidence transfers to this run without being restated
+        # as a finding about a model, which is the only way a model run may cite it.
+        "validated_by_run_id": validated_by_run_id,
+        # A validation artifact is publishable and linkable but must never be what the site
+        # opens on: a reader landing on a table about the harness will read it as the result.
+        "can_be_default": can_be_default,
         "bundle_bytes": bundle_bytes,
         "path": path,
     }
