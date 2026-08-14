@@ -15,6 +15,7 @@ its own chip. Neither path can silently mint a preregistered p-value.
 
 from __future__ import annotations
 
+from datetime import datetime
 from enum import StrEnum
 from functools import cache
 from pathlib import Path
@@ -344,6 +345,25 @@ class Preregistration(Frozen):
         )
 
 
+def _isoformat(value: Any) -> str:
+    """Normalize a YAML timestamp to ISO-8601.
+
+    PyYAML hands back a ``datetime`` for an unquoted timestamp and a ``str`` for a quoted one.
+    Both must serialize identically, or the published freeze time depends on how the document
+    happened to be typed.
+    """
+
+    if isinstance(value, datetime):
+        return value.isoformat()
+    text = str(value).strip()
+    try:
+        return datetime.fromisoformat(text).isoformat()
+    except ValueError:
+        # Not a timestamp we can normalize. Publish it verbatim rather than guessing; the
+        # freeze time is evidence, and a silently reformatted one is worse than an odd one.
+        return text
+
+
 def _parse(raw: dict[str, Any], *, sha256: str) -> Preregistration:
     families: list[FamilyDeclaration] = []
     for entry in raw.get("families", ()):
@@ -365,7 +385,10 @@ def _parse(raw: dict[str, Any], *, sha256: str) -> Preregistration:
         pass_k=PassKPolicy(**raw["pass_k"]),
         families=tuple(families),
         operational_checks=tuple(raw.get("operational_checks", ())),
-        frozen_at=None if frozen_at is None else str(frozen_at),
+        # ISO-8601, not ``str(datetime)``. The same instant reaches the bundle through three
+        # paths (manifest.json, integrity/chain.json, stats/estimates.json); a space separator
+        # here and a "T" there reads to a reviewer as two different timestamps.
+        frozen_at=None if frozen_at is None else _isoformat(frozen_at),
         git_tag=raw.get("git_tag"),
         sha256=sha256,
     )

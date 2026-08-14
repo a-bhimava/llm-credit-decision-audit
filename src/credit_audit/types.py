@@ -689,6 +689,29 @@ class InterventionSpec(Frozen):
     params: FrozenDict = Field(default_factory=FrozenDict)
 
 
+class InterventionRecord(Frozen):
+    """What one arm actually did to its applicant, persisted as run evidence.
+
+    ``TestResult.intervention_ids`` keeps only the identifiers, flattened across both arms with
+    no boundary between them, so the specs themselves used to vanish once an arm materialized.
+    The pair viewer's whole job is showing which single field a contrast changed and why, and it
+    cannot do that from a hash. Recorded here rather than reconstructed at export time: a
+    re-derived intervention is the exporter's opinion about what happened, and everything else
+    in this bundle is an observation of what happened.
+
+    Keyed by ``(arm_id, applicant_content_id)``. ``arm_id`` alone is reused across applicants —
+    monotonicity interventions are applicant-specific — so it does not identify a record.
+    """
+
+    arm_id: str
+    applicant_content_id: str
+    interventions: tuple[InterventionSpec, ...] = ()
+
+    @property
+    def key(self) -> tuple[str, str]:
+        return (self.arm_id, self.applicant_content_id)
+
+
 class TestResult(Frozen):
     test_id: str
     check: str
@@ -786,6 +809,15 @@ class RunManifest(Frozen):
 
     git_commit: str
     git_dirty: bool = False
+    git_tag: str | None = None
+    """The tag on the commit **the run executed at**, captured here rather than read live.
+
+    The exporter used to call ``git describe`` at export time, which stapled whatever tag HEAD
+    carried that day next to a commit from a different day. Re-exporting an unchanged run then
+    produced different bytes, which is exactly the property the bundle claims not to have.
+    """
+
+    git_remote: str | None = None
     package_version: str = ""
     python_version: str = ""
     platform: str = ""
@@ -825,6 +857,7 @@ __all__ = [
     "Frozen",
     "FrozenDict",
     "freeze_json",
+    "InterventionRecord",
     "InterventionSpec",
     "Layer",
     "MappingMethod",

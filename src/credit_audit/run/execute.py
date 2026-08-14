@@ -25,7 +25,7 @@ from credit_audit.checks.invariance import run_invariance_checks
 from credit_audit.checks.monotonicity import run_monotonicity_check
 from credit_audit.checks.policy_adherence import run_policy_adherence_check
 from credit_audit.checks.reason_validity import run_reason_validity_check
-from credit_audit.checks.runner import recording_trajectories
+from credit_audit.checks.runner import recording_interventions, recording_trajectories
 from credit_audit.checks.serialization import run_serialization_checks
 from credit_audit.ids import sha256_file, short_id
 from credit_audit.io.jsonl import write_json, write_records
@@ -45,6 +45,7 @@ from credit_audit.types import (
     DecisionOutcome,
     Frozen,
     FrozenDict,
+    InterventionRecord,
     ModelSpec,
     PolicyRef,
     PreregRef,
@@ -58,6 +59,7 @@ from credit_audit.types import (
 TRAJECTORIES_FILE = "trajectories.jsonl"
 RESULTS_FILE = "results.jsonl"
 APPLICANTS_FILE = "applicants.jsonl"
+INTERVENTIONS_FILE = "interventions.jsonl"
 MANIFEST_FILE = "manifest.json"
 
 DEFAULT_RUNS_DIR = Path("runs")
@@ -216,6 +218,8 @@ def _build_manifest(
         kind=kind,
         git_commit=git.commit,
         git_dirty=git.dirty,
+        git_tag=git.tag,
+        git_remote=git.remote,
         package_version=_package_version(),
         python_version=platform.python_version(),
         platform=platform.platform(terse=True),
@@ -239,7 +243,7 @@ def _build_manifest(
         prereg_ref=PreregRef(
             sha256=prereg.sha256,
             git_tag=prereg.git_tag,
-            frozen_at=None,
+            frozen_at=prereg.frozen_at,
         ),
         arms=tuple(arms),
         renders=(suite.render_mode,),
@@ -335,9 +339,21 @@ async def execute_run(
 
     trajectories: dict[str, Trajectory] = {}
     variants: dict[str, Applicant] = {}
+    interventions: dict[tuple[str, str], InterventionRecord] = {}
     results: list[TestResult] = []
     aborted = False
     abort_reason = ""
+
+    def intervention_sink(record: InterventionRecord) -> None:
+        existing = interventions.get(record.key)
+        if existing is not None and existing.interventions != record.interventions:
+            # One arm applied to one applicant must mean one set of interventions. Two answers
+            # is an identity bug in the plan builders, not a duplicate to drop quietly.
+            raise ValueError(
+                f"arm {record.arm_id} on applicant {record.applicant_content_id} recorded two "
+                f"different intervention sets"
+            )
+        interventions[record.key] = record
 
     def sink(trajectory: Trajectory, applicant: Applicant) -> None:
         existing = trajectories.get(trajectory.episode_id)
@@ -355,7 +371,7 @@ async def execute_run(
         budget.charge(trajectory)
 
     try:
-        with recording_trajectories(sink):
+        with recording_trajectories(sink), recording_interventions(intervention_sink):
             for applicant in applicants:
                 for family in suite.families:
                     results.extend(
@@ -379,6 +395,7 @@ async def execute_run(
         sorted(results, key=lambda r: (r.check, r.applicant_id, r.pair_id, r.test_id))
     )
     ordered_variants = tuple(variants[key] for key in sorted(variants))
+    ordered_interventions = tuple(interventions[key] for key in sorted(interventions))
 
     manifest = _build_manifest(
         run_id=run_id,
@@ -403,9 +420,11 @@ async def execute_run(
     trajectories_path = run_dir / TRAJECTORIES_FILE
     results_path = run_dir / RESULTS_FILE
     applicants_path = run_dir / APPLICANTS_FILE
+    interventions_path = run_dir / INTERVENTIONS_FILE
     write_records(trajectories_path, ordered_trajectories)
     write_records(results_path, ordered_results)
     write_records(applicants_path, ordered_variants)
+    write_records(interventions_path, ordered_interventions)
 
     manifest = manifest.model_copy(
         update={
@@ -414,6 +433,7 @@ async def execute_run(
                     TRAJECTORIES_FILE: sha256_file(trajectories_path),
                     RESULTS_FILE: sha256_file(results_path),
                     APPLICANTS_FILE: sha256_file(applicants_path),
+                    INTERVENTIONS_FILE: sha256_file(interventions_path),
                 }
             )
         }
@@ -474,6 +494,21 @@ def load_run_trajectories(run_dir: Path) -> tuple[Trajectory, ...]:
     return tuple(read_models(Path(run_dir) / TRAJECTORIES_FILE, Trajectory))
 
 
+def load_run_interventions(run_dir: Path) -> dict[tuple[str, str], InterventionRecord]:
+    """What each arm did, keyed by ``(arm_id, applicant_content_id)``.
+
+    Returns empty for a run recorded before this artifact existed, so the exporter degrades to
+    the old behaviour (empty ``interventions``) instead of refusing to export an older run.
+    """
+
+    from credit_audit.io.jsonl import read_models
+
+    path = Path(run_dir) / INTERVENTIONS_FILE
+    if not path.exists():
+        return {}
+    return {record.key: record for record in read_models(path, InterventionRecord)}
+
+
 def load_run_applicants(run_dir: Path) -> dict[str, Applicant]:
     """Materialized arm applicants, keyed by content identity."""
 
@@ -495,6 +530,7 @@ def status_counts(results: tuple[TestResult, ...]) -> dict[str, int]:
 
 __all__ = [
     "APPLICANTS_FILE",
+    "INTERVENTIONS_FILE",
     "MANIFEST_FILE",
     "RESULTS_FILE",
     "TRAJECTORIES_FILE",
@@ -502,6 +538,7 @@ __all__ = [
     "compute_run_id",
     "execute_run",
     "load_run_applicants",
+    "load_run_interventions",
     "load_run_manifest",
     "load_run_results",
     "load_run_trajectories",
