@@ -64,7 +64,15 @@
       "required": ["n_agents", "caught", "missed", "false_alarms"],
       "additionalProperties": false,
       "properties": {
-        "n_agents": { "type": "integer" },
+        "n_agents": { "type": "integer", "description": "Deprecated alias for n_defect_agents." },
+        "n_rows": {
+          "type": "integer",
+          "description": "Rows in `agents`, including the FaithfulAgent positive control. Differs from n_defect_agents, which is why both are published."
+        },
+        "n_defect_agents": {
+          "type": "integer",
+          "description": "Defect controls only. caught/missed/false_alarms/partial are counted over these, never over the positive control."
+        },
         "caught": { "type": "integer" },
         "missed": { "type": "integer" },
         "false_alarms": { "type": "integer" },

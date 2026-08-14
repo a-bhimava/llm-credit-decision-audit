@@ -676,7 +676,8 @@ def render_planted_report(*, manifest_run_id: str, table: dict[str, Any]) -> str
         "> Every agent below is a control whose true decision rule is code in this repository.",
         "> Expected rates are derived from those rules, never read off this run.",
         "",
-        f"- agents: {summary['n_agents']}",
+        f"- defect controls: {summary['n_defect_agents']}"
+        f" ({summary['n_rows']} rows below, including the positive control)",
         f"- caught: {summary['caught']}",
         f"- missed: {summary['missed']}",
         f"- false alarms: {summary['false_alarms']}",
