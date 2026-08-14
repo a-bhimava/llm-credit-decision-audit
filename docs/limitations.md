@@ -131,4 +131,5 @@ Phase 6 separately evaluates provider-visible synthetic proxy signals using the 
 hashed Census-surname and SSA-first-name catalog, plus pronouns and graduation year. Those
 contrasts rotate templates deterministically and keep protected-class labels hidden. Their
 results are proxy-signal invariance checks, not proof of discrimination and not estimates of
-effects in the HMDA population; statistical inference remains Phase 7.
+effects in the HMDA population; statistical inference is the preregistered layer described in
+[`statistics.md`](./statistics.md).

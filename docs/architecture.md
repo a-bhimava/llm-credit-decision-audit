@@ -4,8 +4,9 @@
 > The phased build sequence lives in [`roadmap.md`](./roadmap.md).
 
 > **Implementation boundary:** this document describes the implemented architecture through
-> Phase 6. Statistics, preregistration, run/export CLI, real-provider adapters, and the evidence
-> site remain future work. Framing is deferred. The current execution paths make zero API calls.
+> Phase 9 — checks, statistics, preregistration, the run/export/verify CLI, and the provider
+> adapters. The evidence site (Phase 10) remains future work, and framing is deferred.
+> Scripted execution paths make zero API calls; a provider run is opt-in and spend-capped.
 
 ---
 
@@ -32,7 +33,7 @@ construction, execution, and measurement inside the zero-API-call checks:
 plan(base) → execute → derive(counterfactual plan from base results) → execute → score
 ```
 
-Phase 8 will move those stages onto persisted JSONL artifacts and add resume/cost planning.
+Those stages run on persisted JSONL artifacts, with budgeted planning, since Phase 8.
 Phase 6 does not claim crash-resumable orchestration or a run/export pipeline.
 
 ### (c) Facts, presentation, and rendering are separated in the type system
@@ -90,14 +91,14 @@ llm-credit-decision-audit/
 └─ docs/
 ```
 
-This is the implemented Phase 8 tree. Provider adapters and the site are deliberately absent
-until their later roadmap phases.
+This is the implemented Phase 9 tree. The evidence site is deliberately absent until Phase 10.
 
 **Dependencies stay small:** `pydantic`, `numpy`, `scipy`, `httpx`, `pyyaml`, and
 `jsonschema`. Statistics are computed from `numpy` and `scipy.stats` primitives rather than a
 modelling framework, so every procedure is readable in one file and testable by simulation.
 The CLI is `argparse` — no Typer, no Rich. A research harness's dependency list is a claim
-about how much of it a reader has to trust. Provider SDKs arrive in Phase 9.
+about how much of it a reader has to trust. Provider SDKs are optional extras: scripted runs
+and cassette replay need neither.
 
 ### Two JSON encodings, on purpose
 
@@ -345,9 +346,13 @@ distinct.
 `src/credit_audit/stats/PREREGISTRATION.yaml` declares families, hypotheses, α, δ thresholds,
 estimands, and BH groups before any run is scored. `stats/families.py` parses, validates, and
 hashes it; the hash travels with every estimate so a reader can verify which declaration the
-reported numbers were scored against. The document is not yet frozen — `frozen_at` and
-`git_tag` are null and reported as such — and is git-tagged `prereg-v1` before the first full
-run in Phase 8.
+reported numbers were scored against.
+
+**It is frozen and git-tagged `prereg-v1`**, so the hypotheses provably predate every
+published run. `frozen_before_run` is not taken on trust: the exporter resolves the tag in
+git, confirms its commit is an ancestor of the run's commit, and compares the freeze time to
+the run's. It reports `null` when it cannot check, which is deliberately distinct from a
+checked `false`. Changing a hypothesis now requires a visible re-freeze.
 
 The family/check asymmetry is the load-bearing part. An **undeclared family raises**, because
 a family is the unit BH multiplicity control is defined over and one invented after seeing
@@ -404,7 +409,7 @@ routing, batch-size-dependent floating-point reduction order, and provider-side 
 across non-identical replicas all break it. Published work confirms items remain
 non-reproducible even under forced greedy decoding.
 
-The correct framing for the future Phase 8 method artifact is:
+The correct framing for the published method artifact is:
 
 1. **The harness is deterministic given a fixed set of model responses.** Everything except a
    future provider call is a pure function of seeds. Phase 6 tests this with scripted responses.
@@ -424,7 +429,7 @@ Usage aggregation preserves input, output, cached, and thought tokens; cache/rep
 combined with logical OR. A replayed response retains provenance and provider telemetry but
 contributes zero dollars to the current run.
 
-Phase 9 will add ordered cassettes and provider adapters. Phase 8 will add persisted JSONL run
+Phase 9 added ordered cassettes and provider adapters. Phase 8 added persisted JSONL run
 artifacts. Neither is claimed by the Phase 6 implementation.
 
 ### Provider abstraction
@@ -434,14 +439,14 @@ class ModelClient(Protocol):
     async def complete(self, req: ModelRequest) -> ModelResponse: ...
 ```
 
-Only scripted clients implement this protocol through Phase 6. Hosted-provider adapters and a
+Scripted clients and both provider adapters implement this protocol. A
 cassette client are Phase 9 work; no live call is possible from the current milestone.
 
 The Phase 6 `prompt_hash` covers the byte-stable system instructions, initial user-task
 template, and provider-visible tool schemas. Applicant-specific rendered input is addressed
 separately by `input_hash`. Provider-specific `cache_control` wiring remains Phase 9 work.
 
-**Future provider execution:** Phase 9 will add bounded `asyncio` concurrency and rate-limit
+**Provider execution:** bounded `asyncio` concurrency and rate-limit
 backoff alongside hosted-provider adapters. Through Phase 6, checks use deterministic scripted
 clients only; the repository does not claim a production rate-limit/retry implementation.
 
@@ -803,7 +808,7 @@ control exactly**. Zero API cost, deterministic, CI in seconds.
 | `RefusingAgent` / `MalformedAgent` | — | Exercises every error path |
 
 Golden tests assert exact `TestResult` signatures and both `must_fire` and `must_not_fire`
-expectations. Confidence intervals, power, and significance are deferred to Phase 7.
+expectations. Confidence intervals, power, and significance arrived in Phase 7.
 
 ### 7.2 Metamorphic tests on the harness
 
@@ -862,20 +867,20 @@ recomputes the statistics instead of merely re-checking `SHA256SUMS`.
 The CI gate is the full unit/golden/stats/run/report suite, Ruff, export-schema validation,
 fixture hashes, `git diff --check`, content-ID stability across `PYTHONHASHSEED`, and the
 run → export → export → `diff -r` → `verify --strict` chain run against the real console entry
-point. Phase 9 will add committed cassette replay.
+point. Committed cassette replay arrived in Phase 9.
 
 ---
 
 ## 8. Cost model
 
-Phase 6 has no provider dependency and costs $0 in API usage. Before Phase 9 permits a live
+A scripted run has no provider dependency and costs $0 in API usage. Before a live
 adapter, Phase 8 must provide a dry-run planner and resumable run budget with explicit call,
 dollar, wall-time, step, and token caps. Prices and episode estimates are intentionally not
 hard-coded here; each future run manifest must capture the provider configuration and the cost
 assumptions actually used.
 
 Boundary-targeted selection remains methodologically useful for monotonicity, but it is not a
-substitute for declared sampling or uncertainty. Phase 7 owns those choices. Response caching
+substitute for declared sampling or uncertainty; the preregistration owns those. Response caching
 is for safe resumption and re-analysis, not an assumed cost multiplier; the manifest will report
 actual cached tokens and current-run cost.
 
@@ -891,6 +896,6 @@ specifics (appraisals, MI, escrow) · anything requiring a container or sandbox.
 
 **Keep no matter what:** the oracle · the scripted agents · joint sufficiency + isolated
 cited-reason necessity + isolated omission · boundary-targeted monotonicity · source-applicant
-clustering in Phase 7 · the run manifest and cassette replay when their phases arrive.
+clustering in Phase 7 · the run manifest and cassette replay in Phases 8 and 9.
 
 ---
