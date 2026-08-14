@@ -40,6 +40,7 @@ async def execute_pair_plan(
         arm_id=plan.base.arm_id,
         k_trials=k_trials,
         reason_mode=reason_mode,
+        interventions=plan.base.interventions,
     )
     cf_trajectories = await run_trials(
         applicant=cf.applicant,
@@ -52,6 +53,7 @@ async def execute_pair_plan(
         arm_id=plan.cf.arm_id,
         k_trials=k_trials,
         reason_mode=reason_mode,
+        interventions=plan.cf.interventions,
     )
     return base_trajectories, cf_trajectories
 

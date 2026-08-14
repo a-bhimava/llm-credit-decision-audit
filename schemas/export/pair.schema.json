@@ -98,7 +98,25 @@
       }
     },
 
-    "interventions": { "type": "array", "items": { "type": "object" } },
+    "interventions": {
+      "type": "array",
+      "description": "What each arm actually did to its applicant, as recorded at run time. Empty only where the contrast is not an intervention at all: a serialization pair differs by render mode, which each trial reports directly.",
+      "items": {
+        "type": "object",
+        "required": ["arm", "intervention_id", "family", "name", "layer"],
+        "properties": {
+          "arm": { "enum": ["base", "cf"] },
+          "intervention_id": { "type": "string" },
+          "family": { "type": "string" },
+          "name": { "type": "string" },
+          "layer": { "enum": ["facts", "presentation", "render"] },
+          "target_field": { "type": ["string", "null"] },
+          "direction": { "enum": ["increase", "decrease", "set", "none"] },
+          "expected_relation": { "type": "string" },
+          "params": { "type": "object" }
+        }
+      }
+    },
 
     "metrics": {
       "type": "object",

@@ -664,6 +664,7 @@ async def run_reason_validity_check(
             reason_mode=reason_mode,
             k_trials=k_trials,
             render_options=base_arm.render_options,
+            interventions=spec.base_interventions,
         )
         counterfactuals[spec.pair_id] = await run_trials(
             applicant=cf_applicant,
@@ -676,6 +677,7 @@ async def run_reason_validity_check(
             reason_mode=reason_mode,
             k_trials=k_trials,
             render_options=cf_arm.render_options,
+            interventions=spec.cf_interventions,
         )
 
     return score_reason_validity(

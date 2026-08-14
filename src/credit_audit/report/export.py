@@ -268,7 +268,7 @@ def build_bundle_content(
     results: tuple[TestResult, ...],
     trajectories: tuple[Trajectory, ...],
     applicants: dict[str, Applicant],
-    interventions: dict[tuple[str, str], InterventionRecord],
+    interventions: dict[str, InterventionRecord],
     policy: Policy,
     prereg: Preregistration,
     estimates_doc: dict[str, Any],
