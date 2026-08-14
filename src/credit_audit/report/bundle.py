@@ -44,8 +44,35 @@ class SizeBudget(Frozen):
 
     max_run_bytes: int = 15 * MB
     max_total_bytes: int = 40 * MB
+    """Across every bundle under the publish root, not just this one.
+
+    Enforced by :func:`check_total_bytes` after a bundle lands, because a single writer only
+    ever sees its own run and the limit that actually matters is what the site ships.
+    """
+
     max_file_bytes: int = 2 * MB
     max_files: int = 800
+
+
+def check_total_bytes(out_root: Path, budget: SizeBudget) -> int:
+    """Enforce the cross-run publish budget, returning the measured total.
+
+    ``max_total_bytes`` was declared and never read while "≤40 MB total" was published as an
+    enforced limit. A budget nothing checks is a wish. Measured over the whole publish root,
+    since that is what a reader downloads and what the repository carries.
+    """
+
+    root = Path(out_root)
+    if not root.exists():  # pragma: no cover - the caller just wrote a bundle into it
+        return 0
+    total = sum(path.stat().st_size for path in root.rglob("*") if path.is_file())
+    if total > budget.max_total_bytes:
+        raise ExportError(
+            f"published bundles under {root.as_posix()} total {total} bytes, over the "
+            f"{budget.max_total_bytes}-byte budget. Drop a run, or raise the budget "
+            "deliberately -- the limit is published as an enforced one."
+        )
+    return total
 
 
 _SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
@@ -127,6 +154,15 @@ class BundleWriter:
     @property
     def root(self) -> Path:
         return self._root
+
+    @property
+    def buffered(self) -> dict[str, bytes]:
+        """Everything staged so far, for whole-bundle checks that run before writing.
+
+        A copy: a caller inspecting the bundle must not be able to edit it on the way past.
+        """
+
+        return dict(self._files)
 
     def add_json(self, relpath: str, payload: Any) -> None:
         self.add_bytes(relpath, portable_json(payload) + b"\n")
