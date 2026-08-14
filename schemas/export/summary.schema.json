@@ -63,7 +63,7 @@
           "inapplicable": { "type": "integer" },
           "error": { "type": "integer" },
           "pass_rate": { "type": ["number", "null"] },
-          "ci95": { "type": ["array", "null"], "items": { "type": "number" } },
+          "pass_rate_denominator": { "type": "integer", "minimum": 0 },
           "fdr": {
             "type": "object",
             "properties": {
