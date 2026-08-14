@@ -42,6 +42,24 @@ def verdict_for(status: TestStatus) -> str:
     return _VERDICT_BY_STATUS[status]
 
 
+ESTIMAND_PRIORITY = (
+    "paired_rate_difference",
+    "forbidden_transition_rate",
+    "decision_signature_change_rate",
+    "check_failure_rate",
+)
+"""Which estimand speaks for a family, most informative first.
+
+Headlines were restricted to ``check_failure_rate``, which meant every paired and causal
+estimate -- the thing this harness exists to produce -- was computed, published in
+``stats/estimates.json``, and structurally unable to reach the front page. A causal audit whose
+headline is a pass rate is describing the least interesting thing it measured.
+
+The order is fixed here, in advance, and never consults a value. Ranking by effect size would
+be cherry-picking, and a reader who noticed would be right to discount the rest of the page.
+"""
+
+
 def _headline_statement(estimate: dict[str, Any], *, kind: str) -> str:
     """Plain English, and deliberately unglamorous.
 
@@ -52,37 +70,85 @@ def _headline_statement(estimate: dict[str, Any], *, kind: str) -> str:
 
     value = estimate["point"]
     n = estimate["n"]
-    denominator = estimate.get("denominator_label") or "applicable test results"
+    check = estimate["check"]
+    estimand = estimate.get("estimand", "check_failure_rate")
     provenance = " in this scripted known-answer run" if kind == "scripted" else ""
-    return f"{value:.1%} of {n} {denominator} failed for {estimate['check']}{provenance}."
+
+    if estimand == "paired_rate_difference":
+        unit = estimate.get("denominator_label") or "matched pairs"
+        return (
+            f"{value:+.1%} difference between the matched arms of {check} "
+            f"across {n} {unit}{provenance}."
+        )
+    if estimand == "forbidden_transition_rate":
+        unit = estimate.get("denominator_label") or "matched pairs"
+        return (
+            f"{value:.1%} of {n} {unit} crossed a decision boundary in the "
+            f"forbidden direction for {check}{provenance}."
+        )
+    if estimand == "decision_signature_change_rate":
+        unit = estimate.get("denominator_label") or "matched pairs"
+        return (
+            f"{value:.1%} of {n} {unit} changed decision signature under {check}{provenance}."
+        )
+    denominator = estimate.get("denominator_label") or "applicable test results"
+    return f"{value:.1%} of {n} {denominator} failed for {check}{provenance}."
 
 
-def build_headlines(estimates_doc: dict[str, Any], *, kind: str) -> list[dict[str, Any]]:
-    """One headline per family: its preregistered failure rate with the largest sample.
+def _exemplar_pair_id(
+    estimate: dict[str, Any],
+    failing_test_ids: frozenset[str],
+) -> str | None:
+    """One pair a reader can open to see what the number is made of.
 
-    Selection is mechanical and deterministic -- largest ``n`` within a family, ties broken by
-    estimate id. Picking headlines by effect size would be a quiet form of cherry-picking, and
-    a reader who noticed would be right to discount everything else on the page.
+    A failing pair when there is one, because that is what a reader wants to inspect; otherwise
+    the lowest-sorted supporting pair, so a clean run still links to its evidence. Every check
+    builds ``test_id == pair_id``, so no lookup table is needed. Lowest-sorted rather than
+    "most extreme": the exemplar illustrates the estimate, it does not argue for it.
     """
+
+    supporting = sorted(estimate.get("support_test_ids", ()))
+    if not supporting:
+        return None
+    failing = [test_id for test_id in supporting if test_id in failing_test_ids]
+    return (failing or supporting)[0]
+
+
+def build_headlines(
+    estimates_doc: dict[str, Any],
+    *,
+    kind: str,
+    failing_test_ids: frozenset[str] = frozenset(),
+) -> list[dict[str, Any]]:
+    """One headline per family, choosing its most informative preregistered estimand.
+
+    Selection is mechanical and deterministic -- the declared estimand order above, then largest
+    ``n``, ties broken by estimate id. Nothing in the rule reads a point estimate.
+    """
+
+    rank = {estimand: index for index, estimand in enumerate(ESTIMAND_PRIORITY)}
+
+    def sort_key(estimate: dict[str, Any]) -> tuple[int, int, str]:
+        return (
+            rank.get(estimate.get("estimand", ""), len(rank)),
+            -estimate["n"],
+            estimate["estimate_id"],
+        )
 
     by_family: dict[str, dict[str, Any]] = {}
     for estimate in estimates_doc.get("estimates", ()):
         if not estimate.get("prereg") or estimate.get("exploratory"):
             continue
-        if estimate.get("estimand") != "check_failure_rate":
+        if estimate.get("estimand") not in rank:
             continue
         if not estimate.get("support_test_ids"):
             continue
         family = estimate["family"]
         incumbent = by_family.get(family)
-        key = (estimate["n"], estimate["estimate_id"])
-        if incumbent is None or key > (incumbent["n"], incumbent["estimate_id"]):
+        if incumbent is None or sort_key(estimate) < sort_key(incumbent):
             by_family[family] = estimate
 
-    chosen = sorted(
-        by_family.values(),
-        key=lambda estimate: (-estimate["n"], estimate["estimate_id"]),
-    )[:MAX_HEADLINES]
+    chosen = sorted(by_family.values(), key=sort_key)[:MAX_HEADLINES]
 
     headlines: list[dict[str, Any]] = []
     for estimate in chosen:
@@ -105,7 +171,7 @@ def build_headlines(estimates_doc: dict[str, Any], *, kind: str) -> list[dict[st
                     "check": estimate["check"],
                     "estimate_id": estimate["estimate_id"],
                     "n_test_ids": len(estimate["support_test_ids"]),
-                    "exemplar_pair_id": None,
+                    "exemplar_pair_id": _exemplar_pair_id(estimate, failing_test_ids),
                 },
             }
         )
@@ -139,8 +205,12 @@ def build_families(
                 "fail": counts[TestStatus.FAIL],
                 "inapplicable": counts[TestStatus.INAPPLICABLE],
                 "error": counts[TestStatus.ERROR],
+                # Deliberately no family-level ci95. A family pools heterogeneous checks with
+                # different denominators, so a single interval over them would describe nothing
+                # in particular; a published null invites the reader to assume it was
+                # suppressed. Intervals live on the estimates, where they mean something.
                 "pass_rate": (counts[TestStatus.PASS] / scored) if scored else None,
-                "ci95": None,
+                "pass_rate_denominator": scored,
                 "fdr": {
                     "method": "benjamini_hochberg",
                     "q_target": prereg.fdr.q,
@@ -229,7 +299,13 @@ def build_summary(
         "schema": SUMMARY_SCHEMA,
         "run_id": run_id,
         "kind": kind,
-        "headline": build_headlines(estimates_doc, kind=kind),
+        "headline": build_headlines(
+            estimates_doc,
+            kind=kind,
+            failing_test_ids=frozenset(
+                result.test_id for result in results if result.status is TestStatus.FAIL
+            ),
+        ),
         "families": build_families(results, estimates_doc, prereg),
         "verdicts": {
             "FAITHFUL": verdicts["FAITHFUL"],
