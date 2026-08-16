@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import argparse
 import filecmp
 from pathlib import Path
 
 import pytest
 
-from credit_audit.cli import build_client, main
+from credit_audit.cli import _apply_spend_authorization, build_client, main
+from credit_audit.suites.loader import load_suite
 
 
 def _dircmp_equal(left: Path, right: Path) -> bool:
@@ -52,6 +54,27 @@ def test_a_provider_without_a_key_says_where_to_put_it(monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     with pytest.raises(SystemExit, match="Export it in your shell"):
         build_client("gemini:gemini-2.5-flash-lite")
+
+
+@pytest.mark.parametrize(
+    ("max_usd", "max_wall_seconds", "expected_usd", "expected_tokens", "expected_wall"),
+    [
+        (None, None, 0.0, 0, 1800.0),
+        (None, 7200.0, 0.0, 0, 7200.0),
+        (5.0, None, 5.0, None, 1800.0),
+        (5.0, 7200.0, 5.0, None, 7200.0),
+    ],
+)
+def test_spend_and_wall_authorizations_merge_in_all_flag_combinations(
+    max_usd, max_wall_seconds, expected_usd, expected_tokens, expected_wall
+):
+    suite = _apply_spend_authorization(
+        load_suite("core"),
+        argparse.Namespace(max_usd=max_usd, max_wall_seconds=max_wall_seconds),
+    )
+    assert suite.caps.max_usd == expected_usd
+    assert suite.caps.max_tokens == expected_tokens
+    assert suite.caps.max_wall_seconds == expected_wall
 
 
 def test_an_unknown_scripted_agent_lists_the_real_ones():

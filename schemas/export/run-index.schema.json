@@ -14,7 +14,7 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["run_id", "label", "kind", "suite", "created_at", "path", "counts"],
+        "required": ["run_id", "label", "kind", "evidence_label", "suite", "created_at", "path", "counts"],
         "additionalProperties": false,
         "properties": {
           "run_id": { "type": "string" },
@@ -22,6 +22,10 @@
           "kind": {
             "enum": ["scripted", "model"],
             "description": "A scripted run is a known-answer validation of the harness, not a finding about any model. This single field drives the non-dismissible provenance banner on every route."
+          },
+          "evidence_label": {
+            "type": ["string", "null"],
+            "description": "The sole public label for scripted known-answer evidence. Scripted runs use exactly 'Synthetic'; model runs use null."
           },
           "suite": { "enum": ["smoke", "core", "full"] },
           "model": {

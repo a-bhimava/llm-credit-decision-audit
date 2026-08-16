@@ -419,6 +419,10 @@ async def execute_run(
         budget=budget.state(),
         plan=plan,
     )
+    if aborted:
+        manifest = manifest.model_copy(
+            update={"terminal_status": "aborted", "abort_reason": abort_reason}
+        )
 
     run_dir = Path(runs_dir) / run_id
     trajectories_path = run_dir / TRAJECTORIES_FILE

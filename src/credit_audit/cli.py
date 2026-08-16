@@ -214,7 +214,11 @@ def _apply_spend_authorization(suite, args: argparse.Namespace):
     # zero token cap in place would abort every provider run on its first episode and make
     # the flag mean nothing.
     return suite.model_copy(
-        update={"caps": suite.caps.model_copy(update={"max_usd": args.max_usd, "max_tokens": None})}
+        update={
+            "caps": suite.caps.model_copy(
+                update={**caps_update, "max_usd": args.max_usd, "max_tokens": None}
+            )
+        }
     )
 
 
@@ -324,6 +328,25 @@ def _verify(args: argparse.Namespace) -> int:
     return 0 if report.ok else 1
 
 
+def _archive_attempt(args: argparse.Namespace) -> int:
+    """Seal a partial, unpublished raw run outside the public evidence tree."""
+
+    from credit_audit.run.attempts import archive_aborted_attempt
+
+    run_dir = _resolve_run_dir(Path(args.runs_dir), args.run)
+    try:
+        destination = archive_aborted_attempt(
+            run_dir,
+            attempts_dir=Path(args.attempts_dir),
+            abort_reason=args.abort_reason,
+        )
+    except ValueError as error:
+        print(f"archive refused: {error}", file=sys.stderr)
+        return 2
+    print(f"archived partial attempt: {destination}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="credit-audit",
@@ -420,6 +443,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="also re-derive every check-row table, not just the statistics and summary",
     )
     verify.set_defaults(func=_verify)
+
+    archive = subparsers.add_parser(
+        "archive-attempt", help="copy a verified partial run into the unpublished attempt archive"
+    )
+    archive.add_argument("--run", required=True)
+    archive.add_argument("--runs-dir", default=str(DEFAULT_RUNS_DIR))
+    archive.add_argument("--attempts-dir", default="runs/attempts")
+    archive.add_argument(
+        "--abort-reason",
+        required=True,
+        help="the hard-cap reason for this partial attempt; recorded verbatim",
+    )
+    archive.set_defaults(func=_archive_attempt)
 
     return parser
 

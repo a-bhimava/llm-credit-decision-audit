@@ -4,13 +4,15 @@
   "title": "Run manifest",
   "description": "Mirror of the Python RunManifest plus an export block. Every claim on the site is traceable to this file.",
   "type": "object",
-  "required": ["schema", "run_id", "created_at", "suite", "kind", "git", "model", "seed", "profile_set", "policy_ref", "counts", "cost", "export"],
+  "required": ["schema", "run_id", "created_at", "suite", "kind", "terminal_status", "abort_reason", "git", "model", "seed", "profile_set", "policy_ref", "counts", "cost", "export"],
   "properties": {
     "schema": { "const": "credit-audit/manifest@1" },
     "run_id": { "type": "string" },
     "created_at": { "type": "string", "format": "date-time" },
     "suite": { "enum": ["smoke", "core", "full"] },
     "kind": { "enum": ["scripted", "model"] },
+    "terminal_status": { "enum": ["completed", "aborted"] },
+    "abort_reason": { "type": ["string", "null"] },
     "git": {
       "type": "object",
       "required": ["commit", "dirty"],

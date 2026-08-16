@@ -225,6 +225,41 @@ def test_a_mid_run_overrun_keeps_the_partial_evidence(tmp_path, smoke_suite, pol
     assert (outcome.run_dir / TRAJECTORIES_FILE).exists()
     manifest, _ = load_run_manifest(outcome.run_dir)
     assert manifest.counts.skipped > 0
+    assert manifest.terminal_status == "aborted"
+    assert manifest.abort_reason == outcome.abort_reason
+
+
+def test_partial_run_can_be_archived_without_becoming_published_evidence(
+    tmp_path, smoke_suite, policy
+):
+    """The archive is an exact local copy, keyed by the source manifest's digest."""
+
+    from credit_audit.run.attempts import ATTEMPT_RECORD_FILE, archive_aborted_attempt
+
+    capped = smoke_suite.model_copy(
+        update={"caps": smoke_suite.caps.model_copy(update={"max_wall_seconds": 1e-9})}
+    )
+    outcome = _run(tmp_path / "raw", capped, policy)
+    archive = archive_aborted_attempt(
+        outcome.run_dir,
+        attempts_dir=tmp_path / "attempts",
+        abort_reason=outcome.abort_reason,
+    )
+
+    assert archive == archive_aborted_attempt(
+        outcome.run_dir,
+        attempts_dir=tmp_path / "attempts",
+        abort_reason=outcome.abort_reason,
+    )
+    payload = json.loads((archive / ATTEMPT_RECORD_FILE).read_text())
+    assert payload["schema"] == "credit-audit/attempt@1"
+    assert payload["archived_status"] == "aborted"
+    assert payload["abort_reason"] == outcome.abort_reason
+    assert payload["counts"]["executed"] == outcome.n_trajectories
+    for name, digest in payload["artifacts"].items():
+        from credit_audit.ids import sha256_file
+
+        assert sha256_file(archive / name) == digest
 
 
 def test_selection_is_a_stable_head_never_a_sample(smoke_suite, policy):
