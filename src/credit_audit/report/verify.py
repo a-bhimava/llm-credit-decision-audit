@@ -246,6 +246,142 @@ def verify_bundle(
     return VerifyReport(run_id=manifest.run_id, findings=tuple(findings))
 
 
+def verify_sweep_bundle(
+    run_dir: Path,
+    bundle_root: Path,
+    *,
+    prereg: Preregistration | None = None,
+    strict: bool = True,
+    bootstrap_B: int = 2000,
+) -> VerifyReport:
+    """Verify the compact known-answer sweep bundle from its per-agent raw artifacts."""
+
+    from credit_audit.profiles.generate import read_profiles_jsonl
+    from credit_audit.report.export import export_policy_snapshot, render_planted_report
+    from credit_audit.report.planted import build_planted_defects
+    from credit_audit.run.sweep import load_agent_results, load_sweep_manifest
+
+    run_dir = Path(run_dir)
+    bundle_root = Path(bundle_root)
+    manifest, _deterministic = load_run_manifest(run_dir)
+    prereg = prereg or load_preregistration()
+    findings = _verify_hashes_and_raw_artifacts(manifest, run_dir, bundle_root)
+    if not all(finding.ok for finding in findings):
+        return VerifyReport(run_id=manifest.run_id, findings=tuple(findings))
+
+    _payload, agents, cohort_ids = load_sweep_manifest(run_dir)
+    by_id = {applicant.applicant_id: applicant for applicant in read_profiles_jsonl()}
+    cohort = tuple(by_id[applicant_id] for applicant_id in cohort_ids if applicant_id in by_id)
+    table = build_planted_defects(
+        source_run_id=manifest.run_id,
+        results_by_agent={agent: load_agent_results(run_dir, agent) for agent in agents},
+        cohort=cohort,
+        policy=load_policy(),
+        seed=manifest.seed,
+        bootstrap_B=bootstrap_B,
+    )
+    table_path = bundle_root / "planted-defects.json"
+    difference = _first_difference(table, _load(table_path)) if table_path.exists() else "missing"
+    findings.append(
+        VerifyFinding(
+            claim="the planted-defect table re-derives from every raw control result",
+            ok=difference is None,
+            detail=difference or "",
+        )
+    )
+
+    if strict:
+        expected = {
+            "planted-defects.json": table,
+            "policy.json": export_policy_snapshot(load_policy()),
+            "report.md": render_planted_report(manifest_run_id=manifest.run_id, table=table),
+        }
+        problems = []
+        for relpath, payload in expected.items():
+            path = bundle_root / relpath
+            if not path.exists():
+                problems.append(f"{relpath}: re-derived but absent from the bundle")
+            elif (
+                path.read_text(encoding="utf-8") if relpath.endswith(".md") else _load(path)
+            ) != payload:
+                problems.append(f"{relpath}: published content differs from the re-derivation")
+        findings.append(
+            VerifyFinding(
+                claim=(
+                    f"all {len(expected)} published sweep content files re-derive "
+                    "from raw artifacts"
+                ),
+                ok=not problems,
+                detail="; ".join(problems[:3]),
+            )
+        )
+        published = {
+            path.relative_to(bundle_root).as_posix()
+            for path in bundle_root.rglob("*")
+            if path.is_file()
+        }
+        expected_files = set(expected) | _SELF_DESCRIBING
+        orphans = sorted(published - expected_files)
+        findings.append(
+            VerifyFinding(
+                claim="the sweep bundle contains nothing beyond what its exporter produces",
+                ok=not orphans,
+                detail="; ".join(orphans[:5]),
+            )
+        )
+
+    return VerifyReport(run_id=manifest.run_id, findings=tuple(findings))
+
+
+def _verify_hashes_and_raw_artifacts(
+    manifest: RunManifest, run_dir: Path, bundle_root: Path
+) -> list[VerifyFinding]:
+    """Checks shared by ordinary-run and sweep verification."""
+
+    findings: list[VerifyFinding] = []
+    sums_path = bundle_root / SHA256SUMS
+    mismatches: list[str] = []
+    listed = 0
+    if not sums_path.exists():
+        findings.append(
+            VerifyFinding(claim="integrity/SHA256SUMS is present", ok=False, detail="missing")
+        )
+    else:
+        for line in sums_path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            digest, _, relpath = line.partition("  ")
+            listed += 1
+            target = bundle_root / relpath
+            if not target.exists():
+                mismatches.append(f"{relpath}: listed but absent")
+            elif sha256_bytes(target.read_bytes()) != f"sha256:{digest}":
+                mismatches.append(f"{relpath}: content does not match its published hash")
+        findings.append(
+            VerifyFinding(
+                claim=f"every one of {listed} published files matches its hash",
+                ok=not mismatches,
+                detail="; ".join(mismatches[:3]),
+            )
+        )
+
+    artifact_problems = []
+    for name, expected in sorted(manifest.artifacts.items()):
+        path = run_dir / name
+        if not path.exists():
+            artifact_problems.append(f"{name}: raw artifact missing")
+        elif sha256_file(path) != str(expected):
+            artifact_problems.append(f"{name}: raw artifact has changed since the run")
+    findings.append(
+        VerifyFinding(
+            claim="raw run artifacts match the hashes recorded at run time",
+            ok=not artifact_problems,
+            detail="; ".join(artifact_problems),
+        )
+    )
+    return findings
+
+
 #: Files that legitimately differ from a plain re-derivation. Both carry the digest of every
 #: other file, so neither can be part of what that digest covers; ``SHA256SUMS`` is the list
 #: itself. All three are still hash-checked in step 1.
@@ -333,4 +469,4 @@ def _verify_content(
     return findings
 
 
-__all__ = ["VerifyFinding", "VerifyReport", "verify_bundle"]
+__all__ = ["VerifyFinding", "VerifyReport", "verify_bundle", "verify_sweep_bundle"]

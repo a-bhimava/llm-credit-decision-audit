@@ -319,11 +319,18 @@ def _export(args: argparse.Namespace) -> int:
 
 
 def _verify(args: argparse.Namespace) -> int:
+    from credit_audit.report.export import is_sweep
+    from credit_audit.report.verify import verify_sweep_bundle
+
     run_dir = _resolve_run_dir(Path(args.runs_dir), args.run)
     bundle_root = Path(args.out) / args.run
     if not bundle_root.exists():
         raise SystemExit(f"no bundle at {bundle_root}. Run `credit-audit export` first.")
-    report = verify_bundle(run_dir, bundle_root, strict=args.strict)
+    report = (
+        verify_sweep_bundle(run_dir, bundle_root, strict=args.strict)
+        if is_sweep(run_dir)
+        else verify_bundle(run_dir, bundle_root, strict=args.strict)
+    )
     print(report.format())
     return 0 if report.ok else 1
 

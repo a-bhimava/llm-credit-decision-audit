@@ -375,6 +375,14 @@ def test_the_sweep_bundle_carries_its_integrity_chain(sweep_bundle):
     assert {"planted-defects.json", "manifest.json", "integrity/chain.json", "report.md"} <= paths
 
 
+def test_the_sweep_bundle_rederives_from_its_raw_control_results(sweep, sweep_bundle):
+    from credit_audit.report.verify import verify_sweep_bundle
+
+    outcome, _cohort, _controls = sweep
+    report = verify_sweep_bundle(outcome.run_dir, sweep_bundle.root, bootstrap_B=200)
+    assert report.ok, report.format()
+
+
 def test_exporting_a_sweep_twice_is_byte_identical(sweep, tmp_path, policy):
     outcome, _cohort, _controls = sweep
     first = export_sweep(
