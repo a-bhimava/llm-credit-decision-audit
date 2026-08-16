@@ -2,15 +2,13 @@
 
 > **Scripted run.** Every agent in this run is a control whose true decision rule is code in this repository. These numbers validate the harness against known answers. They are not findings about any hosted model.
 
-> **Uncommitted working tree.** This run was produced from code that is not in any commit, so it is not reproducible from the hash below.
-
 | | |
 |---|---|
 | suite | `core` |
 | model | `scripted:faithful` (scripted) |
 | seed | `1729` |
 | trials per arm | 5 |
-| commit | `fd14eb6` |
+| commit | `b506237` |
 | applicants | 24 |
 | episodes | 5630 |
 | tests | 913 |
