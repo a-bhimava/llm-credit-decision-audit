@@ -78,6 +78,7 @@ def test_the_run_index_validates_and_registers_the_run(smoke_bundle, validators)
     entry = next(row for row in index["runs"] if row["run_id"] == smoke_bundle.run_id)
     # The single field that drives the non-dismissible provenance banner on every route.
     assert entry["kind"] == "scripted"
+    assert entry["evidence_label"] == "Synthetic"
     assert entry["validates_harness"] is True
 
 

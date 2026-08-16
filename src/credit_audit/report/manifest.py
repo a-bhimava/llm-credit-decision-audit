@@ -32,6 +32,8 @@ def build_manifest(
         "created_at": manifest.created_at.isoformat(),
         "suite": manifest.suite,
         "kind": manifest.kind,
+        "terminal_status": manifest.terminal_status,
+        "abort_reason": manifest.abort_reason,
         # All five describe the commit the *run* executed at. ``remote`` and ``tag`` used to be
         # read live from the working tree at export time, which meant re-exporting an unchanged
         # run after a new tag landed produced different bytes -- and stamped a tag next to a
@@ -146,6 +148,9 @@ def run_index_entry(
         "label": f"{manifest.suite} / {manifest.model.model_id}",
         # This single field drives the non-dismissible provenance banner on every route.
         "kind": manifest.kind,
+        # The site renders this exact label for known-answer evidence; it never calls it a
+        # provider finding. Model runs deliberately carry no substitute label.
+        "evidence_label": "Synthetic" if manifest.kind == "scripted" else None,
         "suite": manifest.suite,
         "model": {
             "provider": manifest.model.provider,

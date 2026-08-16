@@ -837,7 +837,21 @@ class RunManifest(Frozen):
 
     counts: RunCounts = RunCounts()
     cost: CostSummary = CostSummary()
+    terminal_status: Literal["completed", "aborted"] = "completed"
+    """Whether the suite completed its planned execution or stopped at a hard cap."""
+
+    abort_reason: str | None = None
+    """The enforced cap that stopped an aborted run; absent for a completed run."""
+
     artifacts: FrozenDict = Field(default_factory=FrozenDict)
+
+    @model_validator(mode="after")
+    def _terminal_status_matches_reason(self) -> RunManifest:
+        if self.terminal_status == "aborted" and not self.abort_reason:
+            raise ValueError("an aborted run manifest requires an abort_reason")
+        if self.terminal_status == "completed" and self.abort_reason is not None:
+            raise ValueError("a completed run manifest cannot have an abort_reason")
+        return self
 
 
 __all__ = [

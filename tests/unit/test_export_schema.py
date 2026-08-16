@@ -275,3 +275,4 @@ def test_run_index_carries_kind_for_the_provenance_banner():
 
     assert "kind" in run["required"]
     assert set(run["properties"]["kind"]["enum"]) == {"scripted", "model"}
+    assert "evidence_label" in run["required"]
