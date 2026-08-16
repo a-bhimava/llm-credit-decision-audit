@@ -11,6 +11,9 @@ build/
 .coverage
 htmlcov/
 
+# Local agent transcripts and worktrees are implementation notes, never audit evidence.
+.claude/
+
 # Raw run artifacts NEVER enter git.
 # Scripted runs regenerate in under a minute at zero cost; real-model runs ship as
 # GitHub Release assets with their sha256 recorded in the exported integrity/chain.json.
