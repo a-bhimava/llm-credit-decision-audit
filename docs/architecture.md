@@ -4,8 +4,8 @@
 > The phased build sequence lives in [`roadmap.md`](./roadmap.md).
 
 > **Implementation boundary:** this document describes the implemented architecture through
-> Phase 9 — checks, statistics, preregistration, the run/export/verify CLI, and the provider
-> adapters. The evidence site (Phase 10) remains future work, and framing is deferred.
+> Phase 10 — checks, statistics, preregistration, the run/export/verify CLI, provider adapters,
+> and the static evidence site. Framing is deferred.
 > Scripted execution paths make zero API calls; a provider run is opt-in and spend-capped.
 
 ---
@@ -91,7 +91,17 @@ llm-credit-decision-audit/
 └─ docs/
 ```
 
-This is the implemented Phase 9 tree. The evidence site is deliberately absent until Phase 10.
+This is the implemented Phase 10 tree. The evidence site is a separate static application:
+
+```
+web/
+├─ app/                           # static App Router pages
+├─ components/                    # evidence-ledger UI and SVG/CSS visualizations
+├─ lib/evidence.ts                # schema-aware read-only bundle loader
+├─ public/runs/                   # reviewed public evidence projection
+├─ scripts/assert-static.mjs       # rejects dynamic request behavior at build time
+└─ vercel.json                    # headers and public bundle CORS
+```
 
 **Dependencies stay small:** `pydantic`, `numpy`, `scipy`, `httpx`, `pyyaml`, and
 `jsonschema`. Statistics are computed from `numpy` and `scipy.stats` primitives rather than a

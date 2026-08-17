@@ -1,0 +1,4 @@
+allowBuilds:
+  # This static site does not use Next image optimization. Keep Sharp's optional
+  # native install script disabled so local and CI installs are non-interactive.
+  sharp: false
