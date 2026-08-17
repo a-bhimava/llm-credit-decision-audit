@@ -45,6 +45,7 @@ web/public/cassettes/
 
 # Node / Next.js
 node_modules/
+.pnpm-store/
 .next/
 out/
 .vercel/
