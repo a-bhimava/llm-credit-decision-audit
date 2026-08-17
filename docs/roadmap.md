@@ -584,6 +584,11 @@ Build order — **pair viewer first**, while there's energy for it:
 5. `/r/[runId]/checks` + `/checks/[check]` + forest plot + McNemar panel
 6. `/r/[runId]/integrity`, `/r/[runId]/methods`
 
+**Exit — met.** `pnpm build` pre-renders the committed evidence routes and `assert-static.mjs`
+rejects middleware, route handlers, server actions, and dynamic fallbacks. Every displayed
+result is loaded from the committed bundle; compact check rows are decoded clientlessly from
+their declared column/dictionary encoding.
+
 **Non-obvious requirements**
 
 - **`CIRail` takes `n` as a required prop.** A CI cannot render without a sample size beside it.
@@ -596,14 +601,14 @@ Build order — **pair viewer first**, while there's energy for it:
   literal words "deliberately not repaired." A reader who misses it misunderstands the test.
 - The **forest plot sorts by declared prereg order, never by effect size** — sorting by effect
   is a subtle form of cherry-picking that a statistically literate reader will notice.
-- `kind: "scripted"` drives a **non-dismissible banner on every route**, plus `<title>`, meta
-  description, and OG image.
+- `kind: "scripted"` drives the exact visible text `Synthetic` in the overview Results panel.
+  Per launch decision, it does not add a second provenance tag, banner, or metadata wording.
 - Ship **three charts only**. A chart earns its place if it shows uncertainty or a mechanism.
   Cut pass-rate bars (redundant with the forest plot) and any calibration diagram (category
   error — we produce no probabilistic forecasts).
 
-**Exit:** `pnpm build` succeeds and `assert-static` passes; every number on every page traces to
-`stats/estimates.json`.
+The site has no external font or image dependency, and the status/diff/held-out encodings stay
+legible without color alone.
 
 ---
 

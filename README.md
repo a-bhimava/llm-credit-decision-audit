@@ -3,10 +3,10 @@
 **A causal audit harness for testing whether an underwriting agent's stated adverse-action
 reasons are the reasons it actually acted on.**
 
-> ### Status: implementation through Phase 9
+> ### Status: implementation through Phase 10
 >
 > The reason-validity engine, the judge-free checks, the statistics, the run/export/verify
-> pipeline, and the provider adapters are implemented and validated against deterministic
+> pipeline, provider adapters, and a fully static evidence site are implemented and validated against deterministic
 > scripted agents. A handful of real responses have been recorded to validate the adapters
 > against the wire format, and **there are no provider findings to report** — six episodes is
 > not a result, the published evidence remains the scripted known-answer run, and the exporter
@@ -172,7 +172,25 @@ mode raises if it is reached at all.
 refused until `--max-usd` says otherwise; `Usage.cost_usd` is computed from returned token
 counts against a dated price table, and an unpriced model is flagged rather than assumed free.
 
-The evidence site begins in a later phase.
+### Evidence site
+
+The committed evidence bundles are rendered as a static Next.js site in [`web/`](web). It has
+no API routes, middleware, server actions, or dynamic fallbacks; the build rejects those before
+it can be deployed. It generates the overview, paired-record viewer, validation controls,
+checks, integrity chain, and methods pages directly from [`web/public/runs/`](web/public/runs).
+
+```bash
+cd web
+corepack enable
+pnpm install --frozen-lockfile
+pnpm build
+```
+
+`pnpm build` pre-renders all committed evidence routes and runs the static-site assertion. The
+repository's GitHub workflow runs the same type-check and build before deployment. To connect a
+Vercel project, set its Root Directory to `web`; Git integration should deploy `main` to the
+production URL and pull requests to preview URLs. The configuration is documented in
+[`docs/deployment.md`](docs/deployment.md).
 
 ## Evidence integrity
 
@@ -218,6 +236,7 @@ Supported Python versions are 3.11–3.14. The simulation-based calibration test
 - [`docs/reason-codes.md`](docs/reason-codes.md) — the vocabulary, the tiers, and the repairs
 - [`docs/architecture.md`](docs/architecture.md) — evidence identities, execution, and checks
 - [`docs/limitations.md`](docs/limitations.md) — where the data anchoring stops
+- [`docs/deployment.md`](docs/deployment.md) — static-site build, CI, and Vercel configuration
 - [`docs/roadmap.md`](docs/roadmap.md) — completed and deferred phases
 - [`docs/related-work.md`](docs/related-work.md) — competitive map and novelty delta
 
