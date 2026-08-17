@@ -8,15 +8,17 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build && node scripts/assert-static.mjs",
+    "build": "next build && node scripts/assert-security-boundaries.mjs",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "check": "pnpm typecheck && pnpm build"
   },
   "dependencies": {
+    "@google/genai": "2.17.1",
     "next": "15.5.21",
     "react": "19.1.1",
-    "react-dom": "19.1.1"
+    "react-dom": "19.1.1",
+    "workflow": "4.8.3"
   },
   "devDependencies": {
     "@types/node": "22.15.32",

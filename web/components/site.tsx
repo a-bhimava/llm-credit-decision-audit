@@ -24,6 +24,7 @@ export function Shell({
       {children}
       <footer className="siteFooter">
         <span>Evidence is generated from committed audit bundles.</span>
+        <Link href="/audit">Audit Studio</Link>
         <a href="/runs/index.json">Run index</a>
       </footer>
     </div>
@@ -77,4 +78,3 @@ export function DefinitionList({
     </dl>
   );
 }
-

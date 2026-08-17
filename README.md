@@ -3,10 +3,10 @@
 **A causal audit harness for testing whether an underwriting agent's stated adverse-action
 reasons are the reasons it actually acted on.**
 
-> ### Status: implementation through Phase 10
+> ### Status: Phase 10 evidence site complete; private TypeScript runtime migration in progress
 >
 > The reason-validity engine, the judge-free checks, the statistics, the run/export/verify
-> pipeline, provider adapters, and a fully static evidence site are implemented and validated against deterministic
+> pipeline, provider adapters, and a static evidence ledger are implemented and validated against deterministic
 > scripted agents. A handful of real responses have been recorded to validate the adapters
 > against the wire format, and **there are no provider findings to report** — six episodes is
 > not a result, the published evidence remains the scripted known-answer run, and the exporter
@@ -172,12 +172,13 @@ mode raises if it is reached at all.
 refused until `--max-usd` says otherwise; `Usage.cost_usd` is computed from returned token
 counts against a dated price table, and an unpriced model is flagged rather than assumed free.
 
-### Evidence site
+### Evidence ledger and private runtime
 
-The committed evidence bundles are rendered as a static Next.js site in [`web/`](web). It has
-no API routes, middleware, server actions, or dynamic fallbacks; the build rejects those before
-it can be deployed. It generates the overview, paired-record viewer, validation controls,
+The committed evidence bundles are rendered as static evidence routes in [`web/`](web), at
+`/evidence` and `/r/*`. They generate the overview, paired-record viewer, validation controls,
 checks, integrity chain, and methods pages directly from [`web/public/runs/`](web/public/runs).
+The same Next.js project now contains a facts-only private Audit Studio at `/audit`; its live
+server workflow is disabled until the TypeScript port reaches the documented parity gate.
 
 ```bash
 cd web
@@ -186,11 +187,12 @@ pnpm install --frozen-lockfile
 pnpm build
 ```
 
-`pnpm build` pre-renders all committed evidence routes and runs the static-site assertion. The
-repository's GitHub workflow runs the same type-check and build before deployment. To connect a
-Vercel project, set its Root Directory to `web`; Git integration should deploy `main` to the
-production URL and pull requests to preview URLs. The configuration is documented in
-[`docs/deployment.md`](docs/deployment.md).
+`pnpm build` pre-renders the evidence routes and runs a dynamic security-boundary assertion.
+The repository's GitHub workflow runs the same type-check and build before deployment. To
+connect a Vercel project, set its Root Directory to `web`; Git integration should deploy `main`
+to the production URL and pull requests to preview URLs. The configuration and the gated runtime
+port are documented in [`docs/deployment.md`](docs/deployment.md) and
+[`docs/typescript-runtime-migration.md`](docs/typescript-runtime-migration.md).
 
 ## Evidence integrity
 

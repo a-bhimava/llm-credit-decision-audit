@@ -571,9 +571,10 @@ tables. PASS.
 
 ## Phase 10 — The site
 
-`web/` — Next.js 15 App Router SSG (**not `output: 'export'`**; instead `assert-static.mjs` as
-`postbuild` fails the build if any route is dynamic, any middleware exists, or function count >
-0 — a stronger and more checkable claim).
+`web/` — Next.js 15 App Router evidence ledger. Phase 10's `/evidence` and `/r/*` remain SSG;
+the later private runtime migration adds a separate facts-only `/audit` surface, API routes, and
+durable workflow boundary. It replaces the old all-static assertion with a security-boundary
+assertion and is not a Phase 10 evidence result.
 
 Build order — **pair viewer first**, while there's energy for it:
 
@@ -584,10 +585,10 @@ Build order — **pair viewer first**, while there's energy for it:
 5. `/r/[runId]/checks` + `/checks/[check]` + forest plot + McNemar panel
 6. `/r/[runId]/integrity`, `/r/[runId]/methods`
 
-**Exit — met.** `pnpm build` pre-renders the committed evidence routes and `assert-static.mjs`
-rejects middleware, route handlers, server actions, and dynamic fallbacks. Every displayed
+**Exit — met.** `pnpm build` pre-renders the committed evidence routes. Every displayed Phase 10
 result is loaded from the committed bundle; compact check rows are decoded clientlessly from
-their declared column/dictionary encoding.
+their declared column/dictionary encoding. The subsequent private runtime remains launch-gated
+until it matches the Python conformance fixtures.
 
 **Non-obvious requirements**
 

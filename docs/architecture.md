@@ -5,7 +5,8 @@
 
 > **Implementation boundary:** this document describes the implemented architecture through
 > Phase 10 — checks, statistics, preregistration, the run/export/verify CLI, provider adapters,
-> and the static evidence site. Framing is deferred.
+> and the static evidence ledger. A separately launch-gated TypeScript/Vercel runtime migration
+> is in progress; it does not replace the Python conformance authority yet. Framing is deferred.
 > Scripted execution paths make zero API calls; a provider run is opt-in and spend-capped.
 
 ---
@@ -91,15 +92,17 @@ llm-credit-decision-audit/
 └─ docs/
 ```
 
-This is the implemented Phase 10 tree. The evidence site is a separate static application:
+This is the implemented Phase 10 tree. The evidence ledger is a separate application; its
+evidence routes are static, while the launch-gated runtime adds isolated server-only paths:
 
 ```
 web/
-├─ app/                           # static App Router pages
+├─ app/                           # static evidence pages plus gated audit/API routes
 ├─ components/                    # evidence-ledger UI and SVG/CSS visualizations
 ├─ lib/evidence.ts                # schema-aware read-only bundle loader
 ├─ public/runs/                   # reviewed public evidence projection
-├─ scripts/assert-static.mjs       # rejects dynamic request behavior at build time
+├─ workflows/                      # opaque-ID durable orchestration (runtime migration)
+├─ scripts/assert-security-boundaries.mjs
 └─ vercel.json                    # headers and public bundle CORS
 ```
 

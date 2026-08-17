@@ -1,9 +1,10 @@
-# Static evidence-site deployment
+# Evidence ledger and private-preview deployment
 
-The evidence site lives in `web/`. It is a Next.js App Router application that builds every
-known run, check, and pair as static HTML. Its data source is the reviewed projection in
-`web/public/runs/`; it does not read raw `runs/` artifacts, contact a provider, or require an
-environment variable at build or runtime.
+The evidence ledger lives in `web/`. Its evidence routes build every known run, check, and pair
+as static HTML from the reviewed projection in `web/public/runs/`; they do not read raw `runs/`
+artifacts or contact a provider. The same Vercel project now also includes a gated private Audit
+Studio API and durable workflow path. It is disabled by default and must not be exposed publicly
+until the TypeScript conformance gate is complete.
 
 ## Local release check
 
@@ -17,9 +18,11 @@ pnpm typecheck
 pnpm build
 ```
 
-`pnpm build` runs Next's production build and then `scripts/assert-static.mjs`. The assertion
-fails if the application adds middleware, a route handler, a server-action module, or a dynamic
-fallback. Build output must list the site pages as Static or SSG, never dynamic server routes.
+`pnpm build` runs Next's production build and then `scripts/assert-security-boundaries.mjs`. The
+assertion rejects public credential-shaped environment variables and server-secret references in
+client modules, and requires API handlers to send `Cache-Control: no-store`. Build output must
+keep `/evidence` and `/r/*` static/SSG; the private API and workflow internals are expected to
+be dynamic.
 
 The `Evidence site` GitHub Actions job repeats those checks on every pull request and `main`
 push. Keep that job required in the repository's branch-protection rule before enabling
@@ -36,11 +39,13 @@ Create or import a Vercel project from this GitHub repository, then set:
 | Install Command | default (`pnpm install --frozen-lockfile`) |
 | Build Command | default (`pnpm build`) |
 | Node.js version | 22 |
-| Environment variables | none required |
+| Environment variables | none for evidence-only deployment; private-preview values are documented separately |
 
 With Git integration enabled, Vercel uses `main` for the production deployment and creates a
-preview deployment for each pull request. Do not add a provider key to Vercel: the public site
-needs none, and a deployed site must never execute an audit run.
+preview deployment for each pull request. The public evidence ledger needs no provider key. The
+private preview may use server-only Vercel environment secrets after the TypeScript engine is
+complete and its launch flags have been intentionally set; see
+[`typescript-runtime-migration.md`](typescript-runtime-migration.md).
 
 Before treating the production URL as official, enable branch protection for `main` and require
 the GitHub `Evidence site` and Python `test` checks. This makes a passing static build a
