@@ -215,8 +215,11 @@ class GeminiClient:
         self,
         model_id: str = DEFAULT_MODEL,
         *,
-        api_key: str,
+        api_key: str | None = None,
         provider: str = "gemini",
+        vertexai: bool = False,
+        location: str | None = None,
+        project: str | None = None,
         transport: Any | None = None,
     ) -> None:
         self.model_id = model_id
@@ -231,7 +234,10 @@ class GeminiClient:
                 "the google-genai package is required for GeminiClient; "
                 "install it with `pip install -e '.[gemini]'`"
             ) from error
-        self._client = genai.Client(api_key=api_key)
+        if vertexai:
+            self._client = genai.Client(vertexai=True, location=location, project=project)
+        else:
+            self._client = genai.Client(api_key=api_key)
 
     def build_config(self, req: ModelRequest) -> dict[str, Any]:
         """The config body, exposed so tests can assert it without a network call."""

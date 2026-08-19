@@ -57,6 +57,7 @@ def _snake(name: str) -> str:
 
 GEMINI_PREFIX = "gemini"
 COMPAT_PREFIX = "openai-compat"
+VERTEX_PREFIX = "vertex"
 
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 
@@ -73,14 +74,14 @@ def build_client(spec: str, *, api_key: str | None = None) -> tuple[ModelClient,
     finding about somebody's model. It is decided here, where someone chose it.
     """
 
-    if spec.startswith((f"{GEMINI_PREFIX}:", f"{COMPAT_PREFIX}:")) or spec == GEMINI_PREFIX:
+    if spec.startswith((f"{GEMINI_PREFIX}:", f"{COMPAT_PREFIX}:", f"{VERTEX_PREFIX}:")) or spec in (GEMINI_PREFIX, VERTEX_PREFIX):
         return _provider_client(spec, api_key=api_key)
 
     if spec == SCRIPTED_PREFIX:
         spec = f"{SCRIPTED_PREFIX}:faithful"
     if not spec.startswith(f"{SCRIPTED_PREFIX}:"):
         raise SystemExit(
-            f"unknown model {spec!r}. Try scripted, scripted:<agent>, gemini:<id>, or "
+            f"unknown model {spec!r}. Try scripted, scripted:<agent>, gemini:<id>, vertex:<id>, or "
             "openai-compat:<id>."
         )
     short = spec.split(":", 1)[1]
@@ -111,6 +112,13 @@ def _provider_client(spec: str, *, api_key: str | None) -> tuple[ModelClient, st
     from credit_audit.model.providers.openai_compat import OpenAICompatClient
 
     scheme, _, model_id = spec.partition(":")
+    if scheme == VERTEX_PREFIX:
+        from credit_audit.model.providers.gemini import GeminiClient
+        model_id = model_id or "gemini-2.5-flash-lite"
+        project = os.environ.get("GOOGLE_CLOUD_PROJECT")
+        location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
+        return GeminiClient(model_id, vertexai=True, location=location, project=project, provider="vertex"), "model", "vertex"
+
     if scheme == GEMINI_PREFIX:
         model_id = model_id or "gemini-2.5-flash-lite"
         base_url = GEMINI_BASE_URL
@@ -163,12 +171,17 @@ def _client_for_run(args: argparse.Namespace) -> tuple[ModelClient, str, str]:
 
     spec = args.model
     replaying = args.cassette and args.cassette_mode == "replay"
-    is_provider = spec.startswith(("gemini", "openai-compat"))
+    is_provider = spec.startswith(("gemini", "openai-compat", "vertex"))
 
     if replaying and is_provider:
         scheme, _, model_id = spec.partition(":")
         model_id = model_id or "gemini-2.5-flash-lite"
-        provider = "gemini_openai_compat" if scheme == "gemini" else "openai_compat"
+        if scheme == "gemini":
+            provider = "gemini_openai_compat"
+        elif scheme == "vertex":
+            provider = "vertex"
+        else:
+            provider = "openai_compat"
         return _wrap_cassette(_NoLiveCalls(model_id), args, provider=provider), "model", provider
 
     client, kind, provider = build_client(spec)
