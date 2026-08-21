@@ -403,6 +403,8 @@ def export_run(
     lint_scripted_headlines(summary)
 
     root = Path(out_root) / manifest.run_id
+    budget = budget or SizeBudget()
+    budget = budget.model_copy(update={"max_files": 2500, "max_run_bytes": 150 * 1024 * 1024, "max_total_bytes": 300 * 1024 * 1024})
     writer = BundleWriter(root, budget=budget)
 
     content = build_bundle_content(
@@ -596,7 +598,7 @@ def export_sweep(
     from credit_audit.profiles.generate import read_profiles_jsonl
     from credit_audit.report.planted import build_planted_defects
     from credit_audit.run.execute import load_run_manifest
-    from credit_audit.run.sweep import load_agent_results, load_sweep_manifest
+    from credit_audit.run.sweep import load_agent_results, load_sweep_manifest, load_agent_trajectories, load_agent_applicants, load_agent_interventions
 
     run_dir = Path(run_dir)
     policy = policy or load_policy()
@@ -620,8 +622,43 @@ def export_sweep(
     )
 
     root = Path(out_root) / manifest.run_id
+    budget = budget or SizeBudget()
+    budget = budget.model_copy(update={"max_files": 2500, "max_run_bytes": 150 * 1024 * 1024, "max_total_bytes": 300 * 1024 * 1024})
     writer = BundleWriter(root, budget=budget)
     writer.add_json("planted-defects.json", table)
+    for agent in agents:
+        agent_slug = agent.replace(':', '_')
+        results = results_by_agent[agent]
+        trajectories = load_agent_trajectories(run_dir, agent)
+        applicants = load_agent_applicants(run_dir, agent)
+        interventions = load_agent_interventions(run_dir, agent)
+        
+        estimates_doc = build_estimates(results, prereg=prereg, B=bootstrap_B)
+        summary = build_summary(
+            run_id=manifest.run_id,
+            kind=manifest.kind,
+            results=results,
+            trajectories=trajectories,
+            estimates_doc=estimates_doc,
+            prereg=prereg,
+        )
+        
+        agent_content = build_bundle_content(
+            manifest,
+            results=results,
+            trajectories=trajectories,
+            applicants=applicants,
+            interventions=interventions,
+            policy=policy,
+            prereg=prereg,
+            estimates_doc=estimates_doc,
+            summary=summary,
+            deterministic=deterministic,
+        )
+        for relpath, data in sorted(agent_content.files.items()):
+            writer.add_bytes(f"agents/{agent_slug}/{relpath}", data)
+
+
     writer.add_json("policy.json", export_policy_snapshot(policy))
     writer.add_text(
         "report.md", render_planted_report(manifest_run_id=manifest.run_id, table=table)

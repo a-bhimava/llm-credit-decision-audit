@@ -119,8 +119,11 @@ def compute_sweep_id(
     )
 
 
+def agent_dir_for(agent: str) -> str:
+    return f"{SWEEP_DIR}/{agent.replace(':', '_')}"
+
 def agent_results_file(agent: str) -> str:
-    return f"{SWEEP_DIR}/{agent.replace(':', '_')}.jsonl"
+    return f"{agent_dir_for(agent)}/results.jsonl"
 
 
 def _client_for(agent: str):
@@ -164,15 +167,27 @@ async def execute_sweep(
     artifacts: dict[str, str] = {}
     all_results: list[TestResult] = []
 
+    from credit_audit.run.execute import TRAJECTORIES_FILE, APPLICANTS_FILE, INTERVENTIONS_FILE, RESULTS_FILE
+    from credit_audit.checks.runner import recording_interventions
+
     for agent in agents:
         client = _client_for(agent)
         episodes: list[str] = []
         results: list[TestResult] = []
+        trajectories: dict[str, Trajectory] = {}
+        variants: dict[str, Applicant] = {}
+        interventions: dict[tuple[str, ...], InterventionRecord] = {}
 
-        def sink(trajectory, _applicant, _episodes=episodes) -> None:
-            _episodes.append(trajectory.episode_id)
+        def intervention_sink(record: InterventionRecord) -> None:
+            key = record.episode_ids
+            interventions[key] = record
 
-        with recording_trajectories(sink):
+        def sink(trajectory, applicant) -> None:
+            episodes.append(trajectory.episode_id)
+            trajectories[trajectory.episode_id] = trajectory
+            variants.setdefault(trajectory.key.applicant_content_id, applicant)
+
+        with recording_trajectories(sink), recording_interventions(intervention_sink):
             for applicant in cohort:
                 for family in suite.families:
                     results.extend(
@@ -189,9 +204,20 @@ async def execute_sweep(
         ordered = tuple(
             sorted(results, key=lambda r: (r.check, r.applicant_id, r.pair_id, r.test_id))
         )
-        path = run_dir / agent_results_file(agent)
-        write_records(path, ordered)
-        artifacts[agent_results_file(agent)] = sha256_file(path)
+        
+        agent_dir = run_dir / agent_dir_for(agent)
+        agent_dir.mkdir(parents=True, exist_ok=True)
+        
+        write_records(agent_dir / TRAJECTORIES_FILE, trajectories.values())
+        write_records(agent_dir / RESULTS_FILE, ordered)
+        write_records(agent_dir / APPLICANTS_FILE, variants.values())
+        write_records(agent_dir / INTERVENTIONS_FILE, interventions.values())
+        
+        artifacts[f"{agent_dir_for(agent)}/{TRAJECTORIES_FILE}"] = sha256_file(agent_dir / TRAJECTORIES_FILE)
+        artifacts[f"{agent_dir_for(agent)}/{RESULTS_FILE}"] = sha256_file(agent_dir / RESULTS_FILE)
+        artifacts[f"{agent_dir_for(agent)}/{APPLICANTS_FILE}"] = sha256_file(agent_dir / APPLICANTS_FILE)
+        artifacts[f"{agent_dir_for(agent)}/{INTERVENTIONS_FILE}"] = sha256_file(agent_dir / INTERVENTIONS_FILE)
+
         total_episodes += len(set(episodes))
         total_results += len(ordered)
         all_results.extend(ordered)
@@ -254,6 +280,29 @@ def load_sweep_manifest(run_dir: Path) -> tuple[dict, tuple[str, ...], tuple[str
     payload = json.loads((Path(run_dir) / MANIFEST_FILE).read_text(encoding="utf-8"))
     sweep = payload.get("sweep") or {}
     return payload, tuple(sweep.get("agents", ())), tuple(sweep.get("cohort", ()))
+
+
+
+def load_agent_trajectories(run_dir: Path, agent: str) -> tuple[Trajectory, ...]:
+    from credit_audit.io.jsonl import read_models
+    from credit_audit.run.execute import TRAJECTORIES_FILE
+    from credit_audit.types import Trajectory
+    return tuple(read_models(Path(run_dir) / agent_dir_for(agent) / TRAJECTORIES_FILE, Trajectory))
+
+def load_agent_applicants(run_dir: Path, agent: str) -> dict[str, Applicant]:
+    from credit_audit.io.jsonl import read_models
+    from credit_audit.run.execute import APPLICANTS_FILE
+    from credit_audit.types import Applicant
+    from credit_audit.ids import applicant_content_id
+    applicants = tuple(read_models(Path(run_dir) / agent_dir_for(agent) / APPLICANTS_FILE, Applicant))
+    return {applicant_content_id(a): a for a in applicants}
+
+def load_agent_interventions(run_dir: Path, agent: str) -> dict[tuple[str, ...], InterventionRecord]:
+    from credit_audit.io.jsonl import read_models
+    from credit_audit.run.execute import INTERVENTIONS_FILE
+    from credit_audit.types import InterventionRecord
+    interventions = tuple(read_models(Path(run_dir) / agent_dir_for(agent) / INTERVENTIONS_FILE, InterventionRecord))
+    return {tuple(i.episode_ids): i for i in interventions}
 
 
 def load_agent_results(run_dir: Path, agent: str) -> tuple[TestResult, ...]:

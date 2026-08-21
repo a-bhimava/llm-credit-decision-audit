@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { DefectPlot } from "@/components/visuals";
 import { entries, field, getDefects, getRun, loadRunIndex, percent, type JsonObject } from "@/lib/evidence";
 import { RunNav, Shell, Status } from "@/components/site";
@@ -55,7 +56,7 @@ export default async function DefectsPage({ params }: Props) {
                   {agents.map((agent) => (
                     <tr key={field(agent, "agent")}>
                       <td>{field(agent, "agent")}</td>
-                      <td>{field(agent, "defect")}</td>
+                      <td><Link href={`/r/${sourceRunId}/a/${field(agent, "agent").replace(":", "_")}/checks`}>{field(agent, "defect")}</Link></td>
                       <td><Status status={field(agent, "verdict")} /></td>
                     </tr>
                   ))}

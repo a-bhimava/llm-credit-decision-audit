@@ -356,7 +356,7 @@ def _paired_result(
                 observed=observed,
                 effect=score.effect,
                 notes=(
-                    "the model did not approve every matched oracle-approved full-repair "
+                    "the agent did not approve every matched oracle-approved full-repair "
                     "trial; causal isolation was not established"
                 ),
             )

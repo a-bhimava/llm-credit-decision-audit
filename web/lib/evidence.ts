@@ -123,7 +123,7 @@ export const getSummary = cache(async (runId: string): Promise<JsonObject | null
   }
 });
 
-export const getEstimates = cache(async (runId: string): Promise<JsonObject | null> => {
+export const getEstimates = cache(async (runId: string, agent?: string): Promise<JsonObject | null> => {
   try {
     await getRun(runId);
     const estimates = await jsonFile(`${runId}/stats/estimates.json`);
@@ -177,23 +177,23 @@ export const getPairs = cache(async (runId: string): Promise<JsonObject[]> => {
   }
 });
 
-export const getPair = cache(async (runId: string, pairId: string): Promise<JsonObject> => {
+export const getPair = cache(async (runId: string, pairId: string, agent?: string): Promise<JsonObject> => {
   const pairs = await getPairs(runId);
   const pair = pairs.find((candidate) => candidate.pair_id === pairId);
   if (!pair) notFound();
   return pair;
 });
 
-export const getChecks = cache(async (runId: string): Promise<JsonObject[]> => {
+export const getChecks = cache(async (runId: string, agent?: string): Promise<JsonObject[]> => {
   const index = await getCheckIndex(runId);
   if (!index) return [];
   return array(index.checks, "checks").map((entry) => object(entry, "check"));
 });
 
-export const getCheckRows = cache(async (runId: string, check: string): Promise<JsonObject> => {
+export const getCheckRows = cache(async (runId: string, check: string, agent?: string): Promise<JsonObject> => {
   const checks = await getChecks(runId);
   if (!checks.some((entry) => entry.check === check)) notFound();
-  return jsonFile(`${runId}/checks/rows/${check}.json`);
+  return jsonFile(agent ? `${runId}/agents/${agent}/checks/rows/${check}.json` : `${runId}/checks/rows/${check}.json`);
 });
 
 /** Decode the compact check-row export without changing its on-disk evidence. */
