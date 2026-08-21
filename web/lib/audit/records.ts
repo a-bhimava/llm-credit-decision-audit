@@ -1,22 +1,33 @@
-import { FinancialFacts, AuditFamily } from "./contracts";
-import { Ratio, assertCents } from "./money";
+import { FinancialFacts, AuditFamily, PublicRecordKind, EmploymentStatus } from "./contracts";
+import { Ratio } from "./money";
 
 export type DemographicTags = Readonly<{
-  race_ethnicity: "asian_nhpi" | "black_non_hispanic" | "hispanic_latino" | "white_non_hispanic" | "none";
-  recorded_sex: "male" | "female" | "none";
-  age: "1952_1961" | "1992_2001" | "none";
+  race_ethnicity_signal?: string;
+  sex_signal?: string;
+  age_band_signal?: string;
+  source?: string;
+  synthetic?: boolean;
+}>;
+
+export type BankTxn = Readonly<{
+  day: number;
+  description: string;
+  amount_cents: number;
 }>;
 
 export type Presentation = Readonly<{
   applicant_name: string;
+  bank_statement_lines: readonly BankTxn[];
+  demographic_tags: DemographicTags;
   employer_name: string;
   employer_prestige_tier: number;
-  pronouns: "he" | "she" | "they";
-  tone: "casual" | "professional" | "deferential" | "entitled" | "anxious";
-  document_order: readonly string[];
-  statement_order: readonly string[];
-  format: "json" | "xml" | "yaml" | "csv" | "prose";
-  demographics: DemographicTags;
+  free_text_notes: readonly string[];
+  graduation_year: number | null;
+  line_order_seed: number;
+  narrative_tone: string;
+  pronouns: string | null;
+  referral_note: string | null;
+  school: string | null;
 }>;
 
 export type Provenance = Readonly<{
@@ -27,52 +38,91 @@ export type Provenance = Readonly<{
   intervention_lineage: readonly string[];
 }>;
 
-export type Applicant = Readonly<{
-  applicant_id: string;
-  facts: FinancialFacts;
-  presentation: Presentation;
-  provenance: Provenance;
-  dti: number;
-  cltv: number;
-  utilization: number;
+export type InternalFinancialFacts = Readonly<{
+  annual_income_cents: number;
+  credit_score: number;
+  delinq_30d_24m: number;
+  delinq_60d_24m: number;
+  delinq_90p_24m: number;
+  employment_months: number;
+  employment_status: EmploymentStatus;
+  income_documented: boolean;
+  inquiries_6m: number;
+  loan_amount_cents: number;
+  loan_term_months: number;
+  monthly_debt_cents: number;
+  oldest_tradeline_months: number;
+  open_tradelines: number;
+  property_value_cents: number;
+  public_records: readonly Readonly<{
+    kind: PublicRecordKind;
+    months_ago: number;
+    amount_cents: number;
+  }>[];
+  revolving_balance_cents: number;
+  revolving_limit_cents: number;
 }>;
+
+export interface Applicant {
+  readonly applicant_id: string;
+  readonly facts: InternalFinancialFacts;
+  readonly presentation: Presentation;
+  readonly provenance: Provenance;
+  readonly dti: Ratio;
+  readonly cltv: Ratio;
+  readonly utilization: Ratio;
+}
 
 export function buildApplicant(
   applicant_id: string,
-  facts: FinancialFacts,
+  facts: InternalFinancialFacts,
   presentation: Presentation,
   provenance: Provenance
 ): Applicant {
-  const monthlyIncomeCents = Math.floor(facts.annualIncomeCents / 12);
-  const dti = monthlyIncomeCents > 0
-    ? Ratio.fromFraction(facts.monthlyDebtCents, monthlyIncomeCents).toNumber()
-    : Ratio.fromNumber(1).toNumber();
-
-  const cltv = Ratio.fromNumber(0).toNumber();
-
-  const utilization = facts.revolvingLimitCents > 0
-    ? Ratio.fromFraction(facts.revolvingBalanceCents, facts.revolvingLimitCents).toNumber()
-    : Ratio.fromNumber(0).toNumber();
-
-  return Object.freeze({
+  const applicant: any = {
     applicant_id,
-    facts: Object.freeze({ ...facts }),
+    facts: Object.freeze({ ...facts, public_records: Object.freeze([...facts.public_records.map(r => Object.freeze({ ...r }))]) }),
     presentation: Object.freeze({
       ...presentation,
-      document_order: Object.freeze([...presentation.document_order]),
-      statement_order: Object.freeze([...presentation.statement_order]),
-      demographics: Object.freeze({ ...presentation.demographics })
+      bank_statement_lines: Object.freeze(presentation.bank_statement_lines.map(t => Object.freeze({ ...t }))),
+      demographic_tags: Object.freeze({ ...presentation.demographic_tags }),
+      free_text_notes: Object.freeze([...presentation.free_text_notes])
     }),
     provenance: Object.freeze({
       ...provenance,
       intervention_lineage: Object.freeze([...provenance.intervention_lineage])
     }),
-    dti,
-    cltv,
-    utilization,
+  };
+  
+  Object.defineProperty(applicant, "dti", {
+    enumerable: false,
+    get: function() {
+      const monthlyIncomeCents = Math.floor(this.facts.annual_income_cents / 12);
+      if (monthlyIncomeCents <= 0) return Ratio.fromNumber(1);
+      return Ratio.fromFraction(this.facts.monthly_debt_cents, monthlyIncomeCents);
+    }
   });
+
+  Object.defineProperty(applicant, "cltv", {
+    enumerable: false,
+    get: function() {
+      if (this.facts.property_value_cents <= 0) return Ratio.fromNumber(0);
+      return Ratio.fromFraction(this.facts.loan_amount_cents, this.facts.property_value_cents);
+    }
+  });
+
+  Object.defineProperty(applicant, "utilization", {
+    enumerable: false,
+    get: function() {
+      if (this.facts.revolving_limit_cents <= 0) return Ratio.fromNumber(0);
+      return Ratio.fromFraction(this.facts.revolving_balance_cents, this.facts.revolving_limit_cents);
+    }
+  });
+
+  return Object.freeze(applicant as Applicant);
 }
 
+// Ensure other types from step 1 are preserved
 export type MappingMethod = "keyword" | "llm" | "unmapped";
 export type ParseStatus = "structured" | "unstructured" | "malformed";
 export type DecisionOutcome = "APPROVE" | "DENY" | "COUNTEROFFER";
