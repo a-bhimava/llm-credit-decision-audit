@@ -8,7 +8,7 @@
 | model | `scripted:faithful` (scripted) |
 | seed | `1729` |
 | trials per arm | 5 |
-| commit | `b506237` |
+| commit | `126cac9` |
 | applicants | 24 |
 | episodes | 5630 |
 | tests | 913 |
