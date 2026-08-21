@@ -123,7 +123,7 @@ export function buildApplicant(
 }
 
 // Ensure other types from step 1 are preserved
-export type MappingMethod = "keyword" | "llm" | "unmapped";
+export type MappingMethod = "lexicon" | "embedding" | "llm_remap" | "unmapped";
 export type ParseStatus = "structured" | "unstructured" | "malformed";
 export type DecisionOutcome = "APPROVE" | "DENY" | "COUNTEROFFER";
 
