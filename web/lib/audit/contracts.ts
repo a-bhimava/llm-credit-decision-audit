@@ -1,95 +1,43 @@
-/**
- * Public-runtime contracts for a one-applicant diagnostic audit.
- *
- * The Python implementation remains the executable conformance reference while the
- * TypeScript runner is ported family by family. These records deliberately accept only
- * fictional financial facts: there is no name, address, free text, identifier, upload,
- * demographic field, or account number anywhere in the public request shape.
- */
+export type AuditFamily = "REASON_REPAIR" | "MONOTONE" | "INVARIANCE" | "SERIALIZATION" | "POLICY_ADHERENCE" | "DEMOGRAPHIC" | "AUTHORITY";
+export type Family = AuditFamily;
+export type PublicRecordKind = "BANKRUPTCY_CH7" | "BANKRUPTCY_CH13" | "TAX_LIEN" | "JUDGMENT" | "COLLECTION";
+export type EmploymentStatus = "FULL_TIME" | "PART_TIME" | "SELF_EMPLOYED" | "UNEMPLOYED" | "RETIRED" | "CONTRACT";
 
-export const AUDIT_FAMILIES = [
-  "policy_adherence",
-  "monotonicity",
-  "invariance",
-  "serialization",
-  "counterfactual_bias",
-  "reason_validity",
-] as const;
-
-export type AuditFamily = (typeof AUDIT_FAMILIES)[number];
-
-export const EMPLOYMENT_STATUSES = [
-  "FULL_TIME",
-  "PART_TIME",
-  "SELF_EMPLOYED",
-  "CONTRACT",
-  "RETIRED",
-  "UNEMPLOYED",
-] as const;
-
-export type EmploymentStatus = (typeof EMPLOYMENT_STATUSES)[number];
-
-export const PUBLIC_RECORD_KINDS = ["NONE", "COLLECTION", "TAX_LIEN", "JUDGMENT", "BANKRUPTCY_CH7", "BANKRUPTCY_CH13"] as const;
-export type PublicRecordKind = (typeof PUBLIC_RECORD_KINDS)[number];
+export type PublicRecord = Readonly<{
+  kind: PublicRecordKind;
+  months_ago: number;
+  amount_cents: number;
+}>;
 
 export type FinancialFacts = Readonly<{
-  annualIncomeCents: number;
-  monthlyDebtCents: number;
-  loanAmountCents: number;
-  loanTermMonths: number;
-  creditScore: number;
-  revolvingBalanceCents: number;
-  revolvingLimitCents: number;
-  delinq30d24m: number;
-  delinq60d24m: number;
-  delinq90p24m: number;
-  publicRecordKind: PublicRecordKind;
-  publicRecordMonthsAgo: number;
-  inquiries6m: number;
-  employmentMonths: number;
-  employmentStatus: EmploymentStatus;
-  incomeDocumented: boolean;
+  annual_income_cents: number;
+  monthly_debt_cents: number;
+  loan_amount_cents: number;
+  property_value_cents: number;
+  loan_term_months: number;
+  
+  credit_score: number;
+  open_tradelines: number;
+  revolving_balance_cents: number;
+  revolving_limit_cents: number;
+  
+  delinq_30d_24m: number;
+  delinq_60d_24m: number;
+  delinq_90p_24m: number;
+  public_records: readonly PublicRecord[];
+  
+  oldest_tradeline_months: number;
+  inquiries_6m: number;
+  
+  employment_months: number;
+  employment_status: EmploymentStatus;
+  income_documented: boolean;
 }>;
 
-export type AuditIntake = Readonly<{
-  facts: FinancialFacts;
-  /** User-facing acknowledgement that the facts are fictional. */
-  fictionalAcknowledged: true;
-}>;
+export const AUDIT_FAMILIES = ["POLICY_ADHERENCE", "MONOTONE", "INVARIANCE", "SERIALIZATION", "DEMOGRAPHIC", "AUTHORITY"] as const;
 
-export type AuditConfiguration = Readonly<{
-  id: "baseline" | "platform";
-  label: string;
-  description: string;
-  toolsEnabled: boolean;
-}>;
-
-export const AUDIT_CONFIGURATIONS: readonly AuditConfiguration[] = [
-  {
-    id: "baseline",
-    label: "Structured baseline",
-    description: "The policy and application are supplied together; the model submits one structured decision without audit tools.",
-    toolsEnabled: false,
-  },
-  {
-    id: "platform",
-    label: "Tool-guided platform",
-    description: "The same policy is supplied with auditable tools and required-tool checks before a decision is accepted.",
-    toolsEnabled: true,
-  },
-] as const;
-
-export type AuditStatus =
-  | "queued"
-  | "planning"
-  | "running"
-  | "complete"
-  | "cancelled"
-  | "failed"
-  | "budget_exhausted";
-
-export type AuditPreflight = Readonly<{
-  kTrials: 5;
+export type AuditPreflight = {
+  kTrials: number;
   families: readonly AuditFamily[];
   plannedEpisodesLower: number;
   plannedEpisodesUpper: number;
@@ -98,21 +46,25 @@ export type AuditPreflight = Readonly<{
   jobUsdCap: number;
   dailyUsdCap: number;
   pricingVersion: string;
-}>;
+};
 
-export type AuditProgress = Readonly<{
-  status: AuditStatus;
-  completedEpisodes: number;
-  plannedEpisodesUpper: number;
-  currentConfiguration?: AuditConfiguration["id"];
-  spentUsd: number;
-  message: string;
-}>;
+export type AuditIntake = {
+  facts: FinancialFacts;
+  fictionalAcknowledged: boolean;
+};
 
-export type AuditJobView = Readonly<{
+export type AuditJobView = {
   id: string;
   expiresAt: string;
   preflight: AuditPreflight;
   progress: AuditProgress;
   workflowRunId?: string;
-}>;
+};
+
+export type AuditProgress = {
+  status: string;
+  completedEpisodes: number | any[];
+  plannedEpisodesUpper: number;
+  spentUsd: number;
+  message: string;
+};

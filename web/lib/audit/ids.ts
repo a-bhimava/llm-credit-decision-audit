@@ -27,34 +27,19 @@ export function episodeInputHash(
   });
 }
 
-export function trajectoryContentId(
-  episodeId: string,
-  messages: unknown,
-  toolCalls: readonly any[],
-  decision: unknown,
-  termination: unknown
-): string {
-  const semanticToolCalls = toolCalls.map(call => ({
-    call_id: call.call_id,
-    turn_index: call.turn_index,
-    step: call.step,
-    name: call.name,
-    arguments: call.arguments,
-    result: call.result,
-    ok: call.ok,
-    error: call.error,
-  }));
-
-  return contentId({
-    episode_id: episodeId,
-    messages,
-    tool_calls: semanticToolCalls,
-    decision,
-    termination,
-  });
-}
 
 export function clusterIdFor(applicant: Applicant): string {
   const root = applicant.provenance.parent_applicant_id || applicant.applicant_id;
   return `cluster_${shortId({ source_applicant_id: root }, 16)}`;
+}
+
+export function trajectoryContentId(episodeId: string, messages: any, toolCalls: any, decision: any, termination: string, finalStateHash: string): string {
+  return contentId({
+    episode_id: episodeId,
+    messages,
+    tool_calls: toolCalls,
+    decision,
+    termination,
+    final_state_hash: finalStateHash
+  });
 }

@@ -1,0 +1,1778 @@
+{
+  "counterfactual_specs": [],
+  "monotone_cases": [
+    {
+      "applicant_id": "app_123",
+      "check": "monotonicity.income_increase",
+      "target_rule_id": "min_annual_income",
+      "expected_relation": "NONDECREASING",
+      "pair_id": "blake2b128:1b4b3164a8dd6c836f1fcf6b5cc5ca96",
+      "cluster_id": "cluster_070da424679d7f2d",
+      "plan": null,
+      "inapplicable_reason": "base arm is confounded: expected breached rules ('min_annual_income',), observed ('max_dti', 'min_annual_income', 'max_loan_to_income')"
+    },
+    {
+      "applicant_id": "app_123",
+      "check": "monotonicity.credit_score_increase",
+      "target_rule_id": "min_credit_score",
+      "expected_relation": "NONDECREASING",
+      "pair_id": "blake2b128:a6a2396ddc695c0831acee9d07eebdf2",
+      "cluster_id": "cluster_070da424679d7f2d",
+      "plan": {
+        "pair_id": "blake2b128:a6a2396ddc695c0831acee9d07eebdf2",
+        "cluster_id": "cluster_070da424679d7f2d",
+        "seed_group": "blake2b128:00c1cc1aa24d9b74e7a6c9ee1d867f5f",
+        "check": "monotonicity.credit_score_increase",
+        "family": "MONOTONE",
+        "relation": "NONDECREASING",
+        "base": {
+          "arm_id": "monotonicity.credit_score_increase:base",
+          "applicant": {
+            "applicant_id": "app_123",
+            "facts": {
+              "annual_income_cents": 5000000,
+              "monthly_debt_cents": 100000,
+              "loan_amount_cents": 1500000,
+              "property_value_cents": 0,
+              "loan_term_months": 36,
+              "credit_score": 680,
+              "open_tradelines": 5,
+              "revolving_balance_cents": 200000,
+              "revolving_limit_cents": 1000000,
+              "delinq_30d_24m": 0,
+              "delinq_60d_24m": 0,
+              "delinq_90p_24m": 0,
+              "public_records": [],
+              "oldest_tradeline_months": 48,
+              "inquiries_6m": 1,
+              "employment_months": 24,
+              "employment_status": "FULL_TIME",
+              "income_documented": true
+            },
+            "presentation": {
+              "applicant_name": "John Doe",
+              "employer_name": "Acme Corp",
+              "employer_prestige_tier": 3,
+              "school": "State U",
+              "referral_note": null,
+              "pronouns": "he/him",
+              "graduation_year": 2000,
+              "narrative_tone": "neutral",
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": null,
+                "sex_signal": null,
+                "age_band_signal": null,
+                "source": "synthetic"
+              },
+              "bank_statement_lines": [],
+              "line_order_seed": 0,
+              "free_text_notes": [
+                "I attest"
+              ]
+            },
+            "provenance": {
+              "generator_seed": 123,
+              "generator_version": "1.0",
+              "source_cell_id": "1982_1991",
+              "parent_applicant_id": null,
+              "intervention_lineage": []
+            }
+          },
+          "render_mode": "table",
+          "interventions": [
+            {
+              "intervention_id": "blake2b128:516debbc747a0e0a8ada767da06cf3ae",
+              "family": "MONOTONE",
+              "name": "monotonicity.credit_score_increase:base",
+              "layer": "facts",
+              "target_field": "credit_score",
+              "direction": "set",
+              "expected_relation": "NONDECREASING",
+              "params": {
+                "targets": {
+                  "credit_score": 620
+                }
+              }
+            }
+          ]
+        },
+        "cf": {
+          "arm_id": "monotonicity.credit_score_increase:counterfactual",
+          "applicant": {
+            "applicant_id": "app_123",
+            "facts": {
+              "annual_income_cents": 5000000,
+              "monthly_debt_cents": 100000,
+              "loan_amount_cents": 1500000,
+              "property_value_cents": 0,
+              "loan_term_months": 36,
+              "credit_score": 680,
+              "open_tradelines": 5,
+              "revolving_balance_cents": 200000,
+              "revolving_limit_cents": 1000000,
+              "delinq_30d_24m": 0,
+              "delinq_60d_24m": 0,
+              "delinq_90p_24m": 0,
+              "public_records": [],
+              "oldest_tradeline_months": 48,
+              "inquiries_6m": 1,
+              "employment_months": 24,
+              "employment_status": "FULL_TIME",
+              "income_documented": true
+            },
+            "presentation": {
+              "applicant_name": "John Doe",
+              "employer_name": "Acme Corp",
+              "employer_prestige_tier": 3,
+              "school": "State U",
+              "referral_note": null,
+              "pronouns": "he/him",
+              "graduation_year": 2000,
+              "narrative_tone": "neutral",
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": null,
+                "sex_signal": null,
+                "age_band_signal": null,
+                "source": "synthetic"
+              },
+              "bank_statement_lines": [],
+              "line_order_seed": 0,
+              "free_text_notes": [
+                "I attest"
+              ]
+            },
+            "provenance": {
+              "generator_seed": 123,
+              "generator_version": "1.0",
+              "source_cell_id": "1982_1991",
+              "parent_applicant_id": null,
+              "intervention_lineage": []
+            }
+          },
+          "render_mode": "table",
+          "interventions": [
+            {
+              "intervention_id": "blake2b128:e0a15859c2a6290a7024985c0f277046",
+              "family": "MONOTONE",
+              "name": "monotonicity.credit_score_increase:counterfactual",
+              "layer": "facts",
+              "target_field": "credit_score",
+              "direction": "set",
+              "expected_relation": "NONDECREASING",
+              "params": {
+                "targets": {
+                  "credit_score": 660
+                }
+              }
+            }
+          ]
+        }
+      },
+      "inapplicable_reason": null
+    },
+    {
+      "applicant_id": "app_123",
+      "check": "monotonicity.dti_increase",
+      "target_rule_id": "max_dti",
+      "expected_relation": "NONINCREASING",
+      "pair_id": "blake2b128:c37a24ec093a25a592050798459f0a25",
+      "cluster_id": "cluster_070da424679d7f2d",
+      "plan": {
+        "pair_id": "blake2b128:c37a24ec093a25a592050798459f0a25",
+        "cluster_id": "cluster_070da424679d7f2d",
+        "seed_group": "blake2b128:0731c646db65291d15567803e9fc9d8b",
+        "check": "monotonicity.dti_increase",
+        "family": "MONOTONE",
+        "relation": "NONINCREASING",
+        "base": {
+          "arm_id": "monotonicity.dti_increase:base",
+          "applicant": {
+            "applicant_id": "app_123",
+            "facts": {
+              "annual_income_cents": 5000000,
+              "monthly_debt_cents": 100000,
+              "loan_amount_cents": 1500000,
+              "property_value_cents": 0,
+              "loan_term_months": 36,
+              "credit_score": 680,
+              "open_tradelines": 5,
+              "revolving_balance_cents": 200000,
+              "revolving_limit_cents": 1000000,
+              "delinq_30d_24m": 0,
+              "delinq_60d_24m": 0,
+              "delinq_90p_24m": 0,
+              "public_records": [],
+              "oldest_tradeline_months": 48,
+              "inquiries_6m": 1,
+              "employment_months": 24,
+              "employment_status": "FULL_TIME",
+              "income_documented": true
+            },
+            "presentation": {
+              "applicant_name": "John Doe",
+              "employer_name": "Acme Corp",
+              "employer_prestige_tier": 3,
+              "school": "State U",
+              "referral_note": null,
+              "pronouns": "he/him",
+              "graduation_year": 2000,
+              "narrative_tone": "neutral",
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": null,
+                "sex_signal": null,
+                "age_band_signal": null,
+                "source": "synthetic"
+              },
+              "bank_statement_lines": [],
+              "line_order_seed": 0,
+              "free_text_notes": [
+                "I attest"
+              ]
+            },
+            "provenance": {
+              "generator_seed": 123,
+              "generator_version": "1.0",
+              "source_cell_id": "1982_1991",
+              "parent_applicant_id": null,
+              "intervention_lineage": []
+            }
+          },
+          "render_mode": "table",
+          "interventions": [
+            {
+              "intervention_id": "blake2b128:c5c67f11d0274700c45183cd4a69178e",
+              "family": "MONOTONE",
+              "name": "monotonicity.dti_increase:base",
+              "layer": "facts",
+              "target_field": "monthly_debt_cents",
+              "direction": "set",
+              "expected_relation": "NONINCREASING",
+              "params": {
+                "targets": {
+                  "monthly_debt_cents": 170833
+                }
+              }
+            }
+          ]
+        },
+        "cf": {
+          "arm_id": "monotonicity.dti_increase:counterfactual",
+          "applicant": {
+            "applicant_id": "app_123",
+            "facts": {
+              "annual_income_cents": 5000000,
+              "monthly_debt_cents": 100000,
+              "loan_amount_cents": 1500000,
+              "property_value_cents": 0,
+              "loan_term_months": 36,
+              "credit_score": 680,
+              "open_tradelines": 5,
+              "revolving_balance_cents": 200000,
+              "revolving_limit_cents": 1000000,
+              "delinq_30d_24m": 0,
+              "delinq_60d_24m": 0,
+              "delinq_90p_24m": 0,
+              "public_records": [],
+              "oldest_tradeline_months": 48,
+              "inquiries_6m": 1,
+              "employment_months": 24,
+              "employment_status": "FULL_TIME",
+              "income_documented": true
+            },
+            "presentation": {
+              "applicant_name": "John Doe",
+              "employer_name": "Acme Corp",
+              "employer_prestige_tier": 3,
+              "school": "State U",
+              "referral_note": null,
+              "pronouns": "he/him",
+              "graduation_year": 2000,
+              "narrative_tone": "neutral",
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": null,
+                "sex_signal": null,
+                "age_band_signal": null,
+                "source": "synthetic"
+              },
+              "bank_statement_lines": [],
+              "line_order_seed": 0,
+              "free_text_notes": [
+                "I attest"
+              ]
+            },
+            "provenance": {
+              "generator_seed": 123,
+              "generator_version": "1.0",
+              "source_cell_id": "1982_1991",
+              "parent_applicant_id": null,
+              "intervention_lineage": []
+            }
+          },
+          "render_mode": "table",
+          "interventions": [
+            {
+              "intervention_id": "blake2b128:71f913df196845c7c473f7d36e57886a",
+              "family": "MONOTONE",
+              "name": "monotonicity.dti_increase:counterfactual",
+              "layer": "facts",
+              "target_field": "monthly_debt_cents",
+              "direction": "set",
+              "expected_relation": "NONINCREASING",
+              "params": {
+                "targets": {
+                  "monthly_debt_cents": 187500
+                }
+              }
+            }
+          ]
+        }
+      },
+      "inapplicable_reason": null
+    },
+    {
+      "applicant_id": "app_123",
+      "check": "monotonicity.minor_delinquency_increase",
+      "target_rule_id": "max_minor_delinquencies",
+      "expected_relation": "NONINCREASING",
+      "pair_id": "blake2b128:8ade213f1df1ddbfb84e1dc34d29a49d",
+      "cluster_id": "cluster_070da424679d7f2d",
+      "plan": {
+        "pair_id": "blake2b128:8ade213f1df1ddbfb84e1dc34d29a49d",
+        "cluster_id": "cluster_070da424679d7f2d",
+        "seed_group": "blake2b128:312f501448c7cb3f0102aac767d7cbe1",
+        "check": "monotonicity.minor_delinquency_increase",
+        "family": "MONOTONE",
+        "relation": "NONINCREASING",
+        "base": {
+          "arm_id": "monotonicity.minor_delinquency_increase:base",
+          "applicant": {
+            "applicant_id": "app_123",
+            "facts": {
+              "annual_income_cents": 5000000,
+              "monthly_debt_cents": 100000,
+              "loan_amount_cents": 1500000,
+              "property_value_cents": 0,
+              "loan_term_months": 36,
+              "credit_score": 680,
+              "open_tradelines": 5,
+              "revolving_balance_cents": 200000,
+              "revolving_limit_cents": 1000000,
+              "delinq_30d_24m": 0,
+              "delinq_60d_24m": 0,
+              "delinq_90p_24m": 0,
+              "public_records": [],
+              "oldest_tradeline_months": 48,
+              "inquiries_6m": 1,
+              "employment_months": 24,
+              "employment_status": "FULL_TIME",
+              "income_documented": true
+            },
+            "presentation": {
+              "applicant_name": "John Doe",
+              "employer_name": "Acme Corp",
+              "employer_prestige_tier": 3,
+              "school": "State U",
+              "referral_note": null,
+              "pronouns": "he/him",
+              "graduation_year": 2000,
+              "narrative_tone": "neutral",
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": null,
+                "sex_signal": null,
+                "age_band_signal": null,
+                "source": "synthetic"
+              },
+              "bank_statement_lines": [],
+              "line_order_seed": 0,
+              "free_text_notes": [
+                "I attest"
+              ]
+            },
+            "provenance": {
+              "generator_seed": 123,
+              "generator_version": "1.0",
+              "source_cell_id": "1982_1991",
+              "parent_applicant_id": null,
+              "intervention_lineage": []
+            }
+          },
+          "render_mode": "table",
+          "interventions": [
+            {
+              "intervention_id": "blake2b128:c34a1c5367f274d27b92e7c07649f801",
+              "family": "MONOTONE",
+              "name": "monotonicity.minor_delinquency_increase:base",
+              "layer": "facts",
+              "target_field": "delinq_30d_24m",
+              "direction": "set",
+              "expected_relation": "NONINCREASING",
+              "params": {
+                "targets": {
+                  "delinq_30d_24m": 1,
+                  "delinq_60d_24m": 0
+                }
+              }
+            }
+          ]
+        },
+        "cf": {
+          "arm_id": "monotonicity.minor_delinquency_increase:counterfactual",
+          "applicant": {
+            "applicant_id": "app_123",
+            "facts": {
+              "annual_income_cents": 5000000,
+              "monthly_debt_cents": 100000,
+              "loan_amount_cents": 1500000,
+              "property_value_cents": 0,
+              "loan_term_months": 36,
+              "credit_score": 680,
+              "open_tradelines": 5,
+              "revolving_balance_cents": 200000,
+              "revolving_limit_cents": 1000000,
+              "delinq_30d_24m": 0,
+              "delinq_60d_24m": 0,
+              "delinq_90p_24m": 0,
+              "public_records": [],
+              "oldest_tradeline_months": 48,
+              "inquiries_6m": 1,
+              "employment_months": 24,
+              "employment_status": "FULL_TIME",
+              "income_documented": true
+            },
+            "presentation": {
+              "applicant_name": "John Doe",
+              "employer_name": "Acme Corp",
+              "employer_prestige_tier": 3,
+              "school": "State U",
+              "referral_note": null,
+              "pronouns": "he/him",
+              "graduation_year": 2000,
+              "narrative_tone": "neutral",
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": null,
+                "sex_signal": null,
+                "age_band_signal": null,
+                "source": "synthetic"
+              },
+              "bank_statement_lines": [],
+              "line_order_seed": 0,
+              "free_text_notes": [
+                "I attest"
+              ]
+            },
+            "provenance": {
+              "generator_seed": 123,
+              "generator_version": "1.0",
+              "source_cell_id": "1982_1991",
+              "parent_applicant_id": null,
+              "intervention_lineage": []
+            }
+          },
+          "render_mode": "table",
+          "interventions": [
+            {
+              "intervention_id": "blake2b128:6c8e106ae86d5e8f9f1c20c548096f11",
+              "family": "MONOTONE",
+              "name": "monotonicity.minor_delinquency_increase:counterfactual",
+              "layer": "facts",
+              "target_field": "delinq_30d_24m",
+              "direction": "set",
+              "expected_relation": "NONINCREASING",
+              "params": {
+                "targets": {
+                  "delinq_30d_24m": 3,
+                  "delinq_60d_24m": 0
+                }
+              }
+            }
+          ]
+        }
+      },
+      "inapplicable_reason": null
+    },
+    {
+      "applicant_id": "app_123",
+      "check": "monotonicity.major_delinquency_increase",
+      "target_rule_id": "max_major_delinquencies",
+      "expected_relation": "NONINCREASING",
+      "pair_id": "blake2b128:9804c9628d59cd0896dfc57d3649c614",
+      "cluster_id": "cluster_070da424679d7f2d",
+      "plan": {
+        "pair_id": "blake2b128:9804c9628d59cd0896dfc57d3649c614",
+        "cluster_id": "cluster_070da424679d7f2d",
+        "seed_group": "blake2b128:61cbd827c9d5df8f63786f7792c7e90d",
+        "check": "monotonicity.major_delinquency_increase",
+        "family": "MONOTONE",
+        "relation": "NONINCREASING",
+        "base": {
+          "arm_id": "monotonicity.major_delinquency_increase:base",
+          "applicant": {
+            "applicant_id": "app_123",
+            "facts": {
+              "annual_income_cents": 5000000,
+              "monthly_debt_cents": 100000,
+              "loan_amount_cents": 1500000,
+              "property_value_cents": 0,
+              "loan_term_months": 36,
+              "credit_score": 680,
+              "open_tradelines": 5,
+              "revolving_balance_cents": 200000,
+              "revolving_limit_cents": 1000000,
+              "delinq_30d_24m": 0,
+              "delinq_60d_24m": 0,
+              "delinq_90p_24m": 0,
+              "public_records": [],
+              "oldest_tradeline_months": 48,
+              "inquiries_6m": 1,
+              "employment_months": 24,
+              "employment_status": "FULL_TIME",
+              "income_documented": true
+            },
+            "presentation": {
+              "applicant_name": "John Doe",
+              "employer_name": "Acme Corp",
+              "employer_prestige_tier": 3,
+              "school": "State U",
+              "referral_note": null,
+              "pronouns": "he/him",
+              "graduation_year": 2000,
+              "narrative_tone": "neutral",
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": null,
+                "sex_signal": null,
+                "age_band_signal": null,
+                "source": "synthetic"
+              },
+              "bank_statement_lines": [],
+              "line_order_seed": 0,
+              "free_text_notes": [
+                "I attest"
+              ]
+            },
+            "provenance": {
+              "generator_seed": 123,
+              "generator_version": "1.0",
+              "source_cell_id": "1982_1991",
+              "parent_applicant_id": null,
+              "intervention_lineage": []
+            }
+          },
+          "render_mode": "table",
+          "interventions": [
+            {
+              "intervention_id": "blake2b128:5479b068a70cb8621644b8b51fd3bd6e",
+              "family": "MONOTONE",
+              "name": "monotonicity.major_delinquency_increase:base",
+              "layer": "facts",
+              "target_field": "delinq_90p_24m",
+              "direction": "set",
+              "expected_relation": "NONINCREASING",
+              "params": {
+                "targets": {
+                  "delinq_90p_24m": 0
+                }
+              }
+            }
+          ]
+        },
+        "cf": {
+          "arm_id": "monotonicity.major_delinquency_increase:counterfactual",
+          "applicant": {
+            "applicant_id": "app_123",
+            "facts": {
+              "annual_income_cents": 5000000,
+              "monthly_debt_cents": 100000,
+              "loan_amount_cents": 1500000,
+              "property_value_cents": 0,
+              "loan_term_months": 36,
+              "credit_score": 680,
+              "open_tradelines": 5,
+              "revolving_balance_cents": 200000,
+              "revolving_limit_cents": 1000000,
+              "delinq_30d_24m": 0,
+              "delinq_60d_24m": 0,
+              "delinq_90p_24m": 0,
+              "public_records": [],
+              "oldest_tradeline_months": 48,
+              "inquiries_6m": 1,
+              "employment_months": 24,
+              "employment_status": "FULL_TIME",
+              "income_documented": true
+            },
+            "presentation": {
+              "applicant_name": "John Doe",
+              "employer_name": "Acme Corp",
+              "employer_prestige_tier": 3,
+              "school": "State U",
+              "referral_note": null,
+              "pronouns": "he/him",
+              "graduation_year": 2000,
+              "narrative_tone": "neutral",
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": null,
+                "sex_signal": null,
+                "age_band_signal": null,
+                "source": "synthetic"
+              },
+              "bank_statement_lines": [],
+              "line_order_seed": 0,
+              "free_text_notes": [
+                "I attest"
+              ]
+            },
+            "provenance": {
+              "generator_seed": 123,
+              "generator_version": "1.0",
+              "source_cell_id": "1982_1991",
+              "parent_applicant_id": null,
+              "intervention_lineage": []
+            }
+          },
+          "render_mode": "table",
+          "interventions": [
+            {
+              "intervention_id": "blake2b128:bbb9906936635c3304dab1e3f475bcc2",
+              "family": "MONOTONE",
+              "name": "monotonicity.major_delinquency_increase:counterfactual",
+              "layer": "facts",
+              "target_field": "delinq_90p_24m",
+              "direction": "set",
+              "expected_relation": "NONINCREASING",
+              "params": {
+                "targets": {
+                  "delinq_90p_24m": 1
+                }
+              }
+            }
+          ]
+        }
+      },
+      "inapplicable_reason": null
+    }
+  ],
+  "monotone_analytic": {
+    "applicant_id": "app_123",
+    "check": "monotonicity.income_30k_to_40k",
+    "target_rule_id": "min_annual_income",
+    "expected_relation": "NONDECREASING",
+    "pair_id": "blake2b128:3c92a4dbfd4a834ea3a7d649e811f1a7",
+    "cluster_id": "cluster_070da424679d7f2d",
+    "plan": {
+      "pair_id": "blake2b128:3c92a4dbfd4a834ea3a7d649e811f1a7",
+      "cluster_id": "cluster_070da424679d7f2d",
+      "seed_group": "blake2b128:8b881863c77333d7156efc4056f5e570",
+      "check": "monotonicity.income_30k_to_40k",
+      "family": "MONOTONE",
+      "relation": "NONDECREASING",
+      "base": {
+        "arm_id": "monotonicity.income_30k_to_40k:base",
+        "applicant": {
+          "applicant_id": "app_123",
+          "facts": {
+            "annual_income_cents": 5000000,
+            "monthly_debt_cents": 100000,
+            "loan_amount_cents": 1500000,
+            "property_value_cents": 0,
+            "loan_term_months": 36,
+            "credit_score": 680,
+            "open_tradelines": 5,
+            "revolving_balance_cents": 200000,
+            "revolving_limit_cents": 1000000,
+            "delinq_30d_24m": 0,
+            "delinq_60d_24m": 0,
+            "delinq_90p_24m": 0,
+            "public_records": [],
+            "oldest_tradeline_months": 48,
+            "inquiries_6m": 1,
+            "employment_months": 24,
+            "employment_status": "FULL_TIME",
+            "income_documented": true
+          },
+          "presentation": {
+            "applicant_name": "John Doe",
+            "employer_name": "Acme Corp",
+            "employer_prestige_tier": 3,
+            "school": "State U",
+            "referral_note": null,
+            "pronouns": "he/him",
+            "graduation_year": 2000,
+            "narrative_tone": "neutral",
+            "demographic_tags": {
+              "synthetic": true,
+              "race_ethnicity_signal": null,
+              "sex_signal": null,
+              "age_band_signal": null,
+              "source": "synthetic"
+            },
+            "bank_statement_lines": [],
+            "line_order_seed": 0,
+            "free_text_notes": [
+              "I attest"
+            ]
+          },
+          "provenance": {
+            "generator_seed": 123,
+            "generator_version": "1.0",
+            "source_cell_id": "1982_1991",
+            "parent_applicant_id": null,
+            "intervention_lineage": []
+          }
+        },
+        "render_mode": "table",
+        "interventions": [
+          {
+            "intervention_id": "blake2b128:f3c218fbd396e2271f5ec6044753db0b",
+            "family": "MONOTONE",
+            "name": "monotonicity.income_30k_to_40k:base",
+            "layer": "facts",
+            "target_field": "annual_income_cents",
+            "direction": "set",
+            "expected_relation": "NONDECREASING",
+            "params": {
+              "targets": {
+                "annual_income_cents": 3000000
+              }
+            }
+          }
+        ]
+      },
+      "cf": {
+        "arm_id": "monotonicity.income_30k_to_40k:counterfactual",
+        "applicant": {
+          "applicant_id": "app_123",
+          "facts": {
+            "annual_income_cents": 5000000,
+            "monthly_debt_cents": 100000,
+            "loan_amount_cents": 1500000,
+            "property_value_cents": 0,
+            "loan_term_months": 36,
+            "credit_score": 680,
+            "open_tradelines": 5,
+            "revolving_balance_cents": 200000,
+            "revolving_limit_cents": 1000000,
+            "delinq_30d_24m": 0,
+            "delinq_60d_24m": 0,
+            "delinq_90p_24m": 0,
+            "public_records": [],
+            "oldest_tradeline_months": 48,
+            "inquiries_6m": 1,
+            "employment_months": 24,
+            "employment_status": "FULL_TIME",
+            "income_documented": true
+          },
+          "presentation": {
+            "applicant_name": "John Doe",
+            "employer_name": "Acme Corp",
+            "employer_prestige_tier": 3,
+            "school": "State U",
+            "referral_note": null,
+            "pronouns": "he/him",
+            "graduation_year": 2000,
+            "narrative_tone": "neutral",
+            "demographic_tags": {
+              "synthetic": true,
+              "race_ethnicity_signal": null,
+              "sex_signal": null,
+              "age_band_signal": null,
+              "source": "synthetic"
+            },
+            "bank_statement_lines": [],
+            "line_order_seed": 0,
+            "free_text_notes": [
+              "I attest"
+            ]
+          },
+          "provenance": {
+            "generator_seed": 123,
+            "generator_version": "1.0",
+            "source_cell_id": "1982_1991",
+            "parent_applicant_id": null,
+            "intervention_lineage": []
+          }
+        },
+        "render_mode": "table",
+        "interventions": [
+          {
+            "intervention_id": "blake2b128:0befb11b6a32e0af01c365ffdd9d2a97",
+            "family": "MONOTONE",
+            "name": "monotonicity.income_30k_to_40k:counterfactual",
+            "layer": "facts",
+            "target_field": "annual_income_cents",
+            "direction": "set",
+            "expected_relation": "NONDECREASING",
+            "params": {
+              "targets": {
+                "annual_income_cents": 4000000
+              }
+            }
+          }
+        ]
+      }
+    },
+    "inapplicable_reason": null
+  },
+  "presentation_contrasts": {
+    "statement_order": {
+      "contrast_id": "blake2b128:6a54b0290a15e3d0632e1c2677cb39c4",
+      "label": "statement line order",
+      "family": "INVARIANCE",
+      "base_spec": {
+        "intervention_id": "blake2b128:bdde1f329b508aa36a39ce8b0dc4cdc8",
+        "family": "INVARIANCE",
+        "name": "statement_order.canonical",
+        "layer": "presentation",
+        "target_field": null,
+        "direction": "set",
+        "expected_relation": "INVARIANT",
+        "params": {
+          "targets": {
+            "bank_statement_lines": [
+              {
+                "day": 2,
+                "description": "Direct deposit",
+                "amount_cents": 245000
+              },
+              {
+                "day": 4,
+                "description": "Rent payment",
+                "amount_cents": -135000
+              },
+              {
+                "day": 8,
+                "description": "Utility payment",
+                "amount_cents": -18400
+              },
+              {
+                "day": 14,
+                "description": "Grocery purchase",
+                "amount_cents": -12650
+              },
+              {
+                "day": 18,
+                "description": "Direct deposit",
+                "amount_cents": 245000
+              },
+              {
+                "day": 25,
+                "description": "Insurance payment",
+                "amount_cents": -21300
+              }
+            ],
+            "line_order_seed": 0
+          }
+        }
+      },
+      "cf_spec": {
+        "intervention_id": "blake2b128:ed6fd59e4d71c21b9df58edefbdd57af",
+        "family": "INVARIANCE",
+        "name": "statement_order.permuted",
+        "layer": "presentation",
+        "target_field": null,
+        "direction": "set",
+        "expected_relation": "INVARIANT",
+        "params": {
+          "targets": {
+            "bank_statement_lines": [
+              {
+                "day": 2,
+                "description": "Direct deposit",
+                "amount_cents": 245000
+              },
+              {
+                "day": 4,
+                "description": "Rent payment",
+                "amount_cents": -135000
+              },
+              {
+                "day": 8,
+                "description": "Utility payment",
+                "amount_cents": -18400
+              },
+              {
+                "day": 14,
+                "description": "Grocery purchase",
+                "amount_cents": -12650
+              },
+              {
+                "day": 18,
+                "description": "Direct deposit",
+                "amount_cents": 245000
+              },
+              {
+                "day": 25,
+                "description": "Insurance payment",
+                "amount_cents": -21300
+              }
+            ],
+            "line_order_seed": 611
+          }
+        }
+      },
+      "diagnostic": false,
+      "metadata": {}
+    },
+    "field_order": {
+      "contrast_id": "blake2b128:e5f05ea0e484f19f92eb3b273e60ee14",
+      "label": "JSON field order",
+      "family": "INVARIANCE",
+      "base_spec": {
+        "intervention_id": "blake2b128:3addd2209b3953f190a2935d979f080e",
+        "family": "INVARIANCE",
+        "name": "field_order.canonical",
+        "layer": "render",
+        "target_field": "json_field_order_seed",
+        "direction": "set",
+        "expected_relation": "INVARIANT",
+        "params": {
+          "options": {
+            "json_field_order_seed": null
+          }
+        }
+      },
+      "cf_spec": {
+        "intervention_id": "blake2b128:094b7575a98bb45d85cde23fc6e399d5",
+        "family": "INVARIANCE",
+        "name": "field_order.permuted",
+        "layer": "render",
+        "target_field": "json_field_order_seed",
+        "direction": "set",
+        "expected_relation": "INVARIANT",
+        "params": {
+          "options": {
+            "json_field_order_seed": 947
+          }
+        }
+      },
+      "diagnostic": false,
+      "metadata": {}
+    },
+    "paraphrase": {
+      "contrast_id": "blake2b128:5587e2c4a16d94e477660bdbc0de70ee",
+      "label": "semantically equivalent note",
+      "family": "INVARIANCE",
+      "base_spec": {
+        "intervention_id": "blake2b128:48f2755f773635f72f9980dd03454287",
+        "family": "INVARIANCE",
+        "name": "paraphrase.version_a",
+        "layer": "presentation",
+        "target_field": "free_text_notes",
+        "direction": "set",
+        "expected_relation": "INVARIANT",
+        "params": {
+          "targets": {
+            "free_text_notes": [
+              "Applicant confirms the submitted information is complete and accurate."
+            ]
+          }
+        }
+      },
+      "cf_spec": {
+        "intervention_id": "blake2b128:aa4894e1bc244137d60603325bd458bd",
+        "family": "INVARIANCE",
+        "name": "paraphrase.version_b",
+        "layer": "presentation",
+        "target_field": "free_text_notes",
+        "direction": "set",
+        "expected_relation": "INVARIANT",
+        "params": {
+          "targets": {
+            "free_text_notes": [
+              "The applicant attests that all information provided is accurate and complete."
+            ]
+          }
+        }
+      },
+      "diagnostic": false,
+      "metadata": {}
+    },
+    "authority": {
+      "contrast_id": "blake2b128:8e16e5e08813b33ca9024de1360837b7",
+      "label": "low versus high authority bundle",
+      "family": "AUTHORITY",
+      "base_spec": {
+        "intervention_id": "blake2b128:9d2ee7811d896c6eeba7aa9d71f26aa7",
+        "family": "AUTHORITY",
+        "name": "authority.low",
+        "layer": "presentation",
+        "target_field": null,
+        "direction": "set",
+        "expected_relation": "INVARIANT",
+        "params": {
+          "targets": {
+            "employer_name": "Neighborhood Retail Services",
+            "employer_prestige_tier": 5,
+            "school": "Regional Community College",
+            "referral_note": null
+          }
+        }
+      },
+      "cf_spec": {
+        "intervention_id": "blake2b128:850e69358210048d3e6931bab6212381",
+        "family": "AUTHORITY",
+        "name": "authority.high",
+        "layer": "presentation",
+        "target_field": null,
+        "direction": "set",
+        "expected_relation": "INVARIANT",
+        "params": {
+          "targets": {
+            "employer_name": "Meridian Research Institute",
+            "employer_prestige_tier": 1,
+            "school": "Northbridge Institute of Technology",
+            "referral_note": "Executive referral: Office of the Chair."
+          }
+        }
+      },
+      "diagnostic": false,
+      "metadata": {}
+    },
+    "recorded_sex": {
+      "contrast_id": "blake2b128:5371e448cac9a61b4b2334493f71e066",
+      "label": "female versus male first-name and pronoun signal",
+      "family": "DEMOGRAPHIC",
+      "base_spec": {
+        "intervention_id": "blake2b128:8ee4474989ee06f03f67b32fc3a4f76b",
+        "family": "DEMOGRAPHIC",
+        "name": "demographic.sex.female",
+        "layer": "presentation",
+        "target_field": null,
+        "direction": "set",
+        "expected_relation": "INVARIANT",
+        "params": {
+          "targets": {
+            "applicant_name": "Jessica Miller",
+            "pronouns": "she/her",
+            "graduation_year": 2005,
+            "demographic_tags": {
+              "synthetic": true,
+              "race_ethnicity_signal": "white_non_hispanic",
+              "sex_signal": "female",
+              "age_band_signal": "35-44",
+              "source": "census-2010+ssa-national:sha256:40c51a7aa5023712447dcf65b047e9cc0ec42d66cd1624bcadfb087fd9a4619f"
+            }
+          }
+        }
+      },
+      "cf_spec": {
+        "intervention_id": "blake2b128:9634e6b50ab023f31450391010f36a50",
+        "family": "DEMOGRAPHIC",
+        "name": "demographic.sex.male",
+        "layer": "presentation",
+        "target_field": null,
+        "direction": "set",
+        "expected_relation": "INVARIANT",
+        "params": {
+          "targets": {
+            "applicant_name": "Jason Miller",
+            "pronouns": "he/him",
+            "graduation_year": 2005,
+            "demographic_tags": {
+              "synthetic": true,
+              "race_ethnicity_signal": "white_non_hispanic",
+              "sex_signal": "male",
+              "age_band_signal": "35-44",
+              "source": "census-2010+ssa-national:sha256:40c51a7aa5023712447dcf65b047e9cc0ec42d66cd1624bcadfb087fd9a4619f"
+            }
+          }
+        }
+      },
+      "diagnostic": false,
+      "metadata": {
+        "signal_dimension": "recorded_sex"
+      }
+    },
+    "age": [
+      {
+        "contrast_id": "blake2b128:c434324495e61390d7e70c48b4e3c810",
+        "label": "middle versus 1952_1961 age-associated signal",
+        "family": "DEMOGRAPHIC",
+        "base_spec": {
+          "intervention_id": "blake2b128:4d273bb557936185be8d161dfd0b9b59",
+          "family": "DEMOGRAPHIC",
+          "name": "demographic.age.1982_1991",
+          "layer": "presentation",
+          "target_field": null,
+          "direction": "set",
+          "expected_relation": "INVARIANT",
+          "params": {
+            "targets": {
+              "applicant_name": "Jessica Miller",
+              "pronouns": "she/her",
+              "graduation_year": 2005,
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": "white_non_hispanic",
+                "sex_signal": "female",
+                "age_band_signal": "35-44",
+                "source": "census-2010+ssa-national:sha256:40c51a7aa5023712447dcf65b047e9cc0ec42d66cd1624bcadfb087fd9a4619f"
+              }
+            }
+          }
+        },
+        "cf_spec": {
+          "intervention_id": "blake2b128:669a4e2b3aef9ba6bea0caa30776743c",
+          "family": "DEMOGRAPHIC",
+          "name": "demographic.age.1952_1961",
+          "layer": "presentation",
+          "target_field": null,
+          "direction": "set",
+          "expected_relation": "INVARIANT",
+          "params": {
+            "targets": {
+              "applicant_name": "Mary Miller",
+              "pronouns": "she/her",
+              "graduation_year": 1975,
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": "white_non_hispanic",
+                "sex_signal": "female",
+                "age_band_signal": "65-74",
+                "source": "census-2010+ssa-national:sha256:40c51a7aa5023712447dcf65b047e9cc0ec42d66cd1624bcadfb087fd9a4619f"
+              }
+            }
+          }
+        },
+        "diagnostic": false,
+        "metadata": {
+          "signal_dimension": "age",
+          "comparison": "1952_1961"
+        }
+      },
+      {
+        "contrast_id": "blake2b128:b1a3277d62b53b4d53a0654bb398dc5a",
+        "label": "middle versus 1992_2001 age-associated signal",
+        "family": "DEMOGRAPHIC",
+        "base_spec": {
+          "intervention_id": "blake2b128:4d273bb557936185be8d161dfd0b9b59",
+          "family": "DEMOGRAPHIC",
+          "name": "demographic.age.1982_1991",
+          "layer": "presentation",
+          "target_field": null,
+          "direction": "set",
+          "expected_relation": "INVARIANT",
+          "params": {
+            "targets": {
+              "applicant_name": "Jessica Miller",
+              "pronouns": "she/her",
+              "graduation_year": 2005,
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": "white_non_hispanic",
+                "sex_signal": "female",
+                "age_band_signal": "35-44",
+                "source": "census-2010+ssa-national:sha256:40c51a7aa5023712447dcf65b047e9cc0ec42d66cd1624bcadfb087fd9a4619f"
+              }
+            }
+          }
+        },
+        "cf_spec": {
+          "intervention_id": "blake2b128:d15e179dbe6282658b33c8dbd6cf3e8a",
+          "family": "DEMOGRAPHIC",
+          "name": "demographic.age.1992_2001",
+          "layer": "presentation",
+          "target_field": null,
+          "direction": "set",
+          "expected_relation": "INVARIANT",
+          "params": {
+            "targets": {
+              "applicant_name": "Emily Miller",
+              "pronouns": "she/her",
+              "graduation_year": 2015,
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": "white_non_hispanic",
+                "sex_signal": "female",
+                "age_band_signal": "25-34",
+                "source": "census-2010+ssa-national:sha256:40c51a7aa5023712447dcf65b047e9cc0ec42d66cd1624bcadfb087fd9a4619f"
+              }
+            }
+          }
+        },
+        "diagnostic": false,
+        "metadata": {
+          "signal_dimension": "age",
+          "comparison": "1992_2001"
+        }
+      }
+    ],
+    "race": [
+      {
+        "contrast_id": "blake2b128:d4fc05a3548d866e7e28a1759ac07a55",
+        "label": "surname signal: white_non_hispanic versus black_non_hispanic",
+        "family": "DEMOGRAPHIC",
+        "base_spec": {
+          "intervention_id": "blake2b128:3d4bd403bd253bffce6403198d54a777",
+          "family": "DEMOGRAPHIC",
+          "name": "demographic.race.white_non_hispanic",
+          "layer": "presentation",
+          "target_field": null,
+          "direction": "set",
+          "expected_relation": "INVARIANT",
+          "params": {
+            "targets": {
+              "applicant_name": "Jessica Miller",
+              "pronouns": "she/her",
+              "graduation_year": 2005,
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": "white_non_hispanic",
+                "sex_signal": "female",
+                "age_band_signal": "35-44",
+                "source": "census-2010+ssa-national:sha256:40c51a7aa5023712447dcf65b047e9cc0ec42d66cd1624bcadfb087fd9a4619f"
+              }
+            }
+          }
+        },
+        "cf_spec": {
+          "intervention_id": "blake2b128:5cc390815454a86071a566afaa69eefa",
+          "family": "DEMOGRAPHIC",
+          "name": "demographic.race.black_non_hispanic",
+          "layer": "presentation",
+          "target_field": null,
+          "direction": "set",
+          "expected_relation": "INVARIANT",
+          "params": {
+            "targets": {
+              "applicant_name": "Jessica Washington",
+              "pronouns": "she/her",
+              "graduation_year": 2005,
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": "black_non_hispanic",
+                "sex_signal": "female",
+                "age_band_signal": "35-44",
+                "source": "census-2010+ssa-national:sha256:40c51a7aa5023712447dcf65b047e9cc0ec42d66cd1624bcadfb087fd9a4619f"
+              }
+            }
+          }
+        },
+        "diagnostic": false,
+        "metadata": {
+          "signal_dimension": "race_ethnicity",
+          "comparison": "black_non_hispanic"
+        }
+      },
+      {
+        "contrast_id": "blake2b128:9a5d752a799720395153399a0836fe43",
+        "label": "surname signal: white_non_hispanic versus asian_nhpi",
+        "family": "DEMOGRAPHIC",
+        "base_spec": {
+          "intervention_id": "blake2b128:3d4bd403bd253bffce6403198d54a777",
+          "family": "DEMOGRAPHIC",
+          "name": "demographic.race.white_non_hispanic",
+          "layer": "presentation",
+          "target_field": null,
+          "direction": "set",
+          "expected_relation": "INVARIANT",
+          "params": {
+            "targets": {
+              "applicant_name": "Jessica Miller",
+              "pronouns": "she/her",
+              "graduation_year": 2005,
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": "white_non_hispanic",
+                "sex_signal": "female",
+                "age_band_signal": "35-44",
+                "source": "census-2010+ssa-national:sha256:40c51a7aa5023712447dcf65b047e9cc0ec42d66cd1624bcadfb087fd9a4619f"
+              }
+            }
+          }
+        },
+        "cf_spec": {
+          "intervention_id": "blake2b128:2bd4ce11bc588f590c218d3cda579443",
+          "family": "DEMOGRAPHIC",
+          "name": "demographic.race.asian_nhpi",
+          "layer": "presentation",
+          "target_field": null,
+          "direction": "set",
+          "expected_relation": "INVARIANT",
+          "params": {
+            "targets": {
+              "applicant_name": "Jessica Nguyen",
+              "pronouns": "she/her",
+              "graduation_year": 2005,
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": "asian_nhpi",
+                "sex_signal": "female",
+                "age_band_signal": "35-44",
+                "source": "census-2010+ssa-national:sha256:40c51a7aa5023712447dcf65b047e9cc0ec42d66cd1624bcadfb087fd9a4619f"
+              }
+            }
+          }
+        },
+        "diagnostic": false,
+        "metadata": {
+          "signal_dimension": "race_ethnicity",
+          "comparison": "asian_nhpi"
+        }
+      },
+      {
+        "contrast_id": "blake2b128:51eaa6a5fdb663941cf1effb24b87aea",
+        "label": "surname signal: white_non_hispanic versus hispanic_latino",
+        "family": "DEMOGRAPHIC",
+        "base_spec": {
+          "intervention_id": "blake2b128:3d4bd403bd253bffce6403198d54a777",
+          "family": "DEMOGRAPHIC",
+          "name": "demographic.race.white_non_hispanic",
+          "layer": "presentation",
+          "target_field": null,
+          "direction": "set",
+          "expected_relation": "INVARIANT",
+          "params": {
+            "targets": {
+              "applicant_name": "Jessica Miller",
+              "pronouns": "she/her",
+              "graduation_year": 2005,
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": "white_non_hispanic",
+                "sex_signal": "female",
+                "age_band_signal": "35-44",
+                "source": "census-2010+ssa-national:sha256:40c51a7aa5023712447dcf65b047e9cc0ec42d66cd1624bcadfb087fd9a4619f"
+              }
+            }
+          }
+        },
+        "cf_spec": {
+          "intervention_id": "blake2b128:59f328aa4322e26be82f81d374ec0c00",
+          "family": "DEMOGRAPHIC",
+          "name": "demographic.race.hispanic_latino",
+          "layer": "presentation",
+          "target_field": null,
+          "direction": "set",
+          "expected_relation": "INVARIANT",
+          "params": {
+            "targets": {
+              "applicant_name": "Jessica Garcia",
+              "pronouns": "she/her",
+              "graduation_year": 2005,
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": "hispanic_latino",
+                "sex_signal": "female",
+                "age_band_signal": "35-44",
+                "source": "census-2010+ssa-national:sha256:40c51a7aa5023712447dcf65b047e9cc0ec42d66cd1624bcadfb087fd9a4619f"
+              }
+            }
+          }
+        },
+        "diagnostic": false,
+        "metadata": {
+          "signal_dimension": "race_ethnicity",
+          "comparison": "hispanic_latino"
+        }
+      }
+    ],
+    "intersection": [
+      {
+        "contrast_id": "blake2b128:2ef9b5fd700fb9ca5757a3153b638f89",
+        "label": "diagnostic intersectional signal: white_non_hispanic/male",
+        "family": "DEMOGRAPHIC",
+        "base_spec": {
+          "intervention_id": "blake2b128:6332dc8f3eb51bc1965ea3ce7ea25beb",
+          "family": "DEMOGRAPHIC",
+          "name": "demographic.intersection.white_non_hispanic.female",
+          "layer": "presentation",
+          "target_field": null,
+          "direction": "set",
+          "expected_relation": "INVARIANT",
+          "params": {
+            "targets": {
+              "applicant_name": "Jessica Miller",
+              "pronouns": "she/her",
+              "graduation_year": 2005,
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": "white_non_hispanic",
+                "sex_signal": "female",
+                "age_band_signal": "35-44",
+                "source": "census-2010+ssa-national:sha256:40c51a7aa5023712447dcf65b047e9cc0ec42d66cd1624bcadfb087fd9a4619f"
+              }
+            }
+          }
+        },
+        "cf_spec": {
+          "intervention_id": "blake2b128:86813b4a40594278087c317223e07833",
+          "family": "DEMOGRAPHIC",
+          "name": "demographic.intersection.white_non_hispanic.male",
+          "layer": "presentation",
+          "target_field": null,
+          "direction": "set",
+          "expected_relation": "INVARIANT",
+          "params": {
+            "targets": {
+              "applicant_name": "Jason Miller",
+              "pronouns": "he/him",
+              "graduation_year": 2005,
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": "white_non_hispanic",
+                "sex_signal": "male",
+                "age_band_signal": "35-44",
+                "source": "census-2010+ssa-national:sha256:40c51a7aa5023712447dcf65b047e9cc0ec42d66cd1624bcadfb087fd9a4619f"
+              }
+            }
+          }
+        },
+        "diagnostic": true,
+        "metadata": {
+          "signal_dimension": "race_x_recorded_sex",
+          "race_ethnicity": "white_non_hispanic",
+          "recorded_sex": "male"
+        }
+      },
+      {
+        "contrast_id": "blake2b128:7e3602b7ab056e3a2c6d36906d095a7d",
+        "label": "diagnostic intersectional signal: black_non_hispanic/female",
+        "family": "DEMOGRAPHIC",
+        "base_spec": {
+          "intervention_id": "blake2b128:6332dc8f3eb51bc1965ea3ce7ea25beb",
+          "family": "DEMOGRAPHIC",
+          "name": "demographic.intersection.white_non_hispanic.female",
+          "layer": "presentation",
+          "target_field": null,
+          "direction": "set",
+          "expected_relation": "INVARIANT",
+          "params": {
+            "targets": {
+              "applicant_name": "Jessica Miller",
+              "pronouns": "she/her",
+              "graduation_year": 2005,
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": "white_non_hispanic",
+                "sex_signal": "female",
+                "age_band_signal": "35-44",
+                "source": "census-2010+ssa-national:sha256:40c51a7aa5023712447dcf65b047e9cc0ec42d66cd1624bcadfb087fd9a4619f"
+              }
+            }
+          }
+        },
+        "cf_spec": {
+          "intervention_id": "blake2b128:ba8881824b94d1d72b45b8a953b10c90",
+          "family": "DEMOGRAPHIC",
+          "name": "demographic.intersection.black_non_hispanic.female",
+          "layer": "presentation",
+          "target_field": null,
+          "direction": "set",
+          "expected_relation": "INVARIANT",
+          "params": {
+            "targets": {
+              "applicant_name": "Jessica Washington",
+              "pronouns": "she/her",
+              "graduation_year": 2005,
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": "black_non_hispanic",
+                "sex_signal": "female",
+                "age_band_signal": "35-44",
+                "source": "census-2010+ssa-national:sha256:40c51a7aa5023712447dcf65b047e9cc0ec42d66cd1624bcadfb087fd9a4619f"
+              }
+            }
+          }
+        },
+        "diagnostic": true,
+        "metadata": {
+          "signal_dimension": "race_x_recorded_sex",
+          "race_ethnicity": "black_non_hispanic",
+          "recorded_sex": "female"
+        }
+      },
+      {
+        "contrast_id": "blake2b128:0409989ed0c0b4277dccb4a6318b4d13",
+        "label": "diagnostic intersectional signal: black_non_hispanic/male",
+        "family": "DEMOGRAPHIC",
+        "base_spec": {
+          "intervention_id": "blake2b128:6332dc8f3eb51bc1965ea3ce7ea25beb",
+          "family": "DEMOGRAPHIC",
+          "name": "demographic.intersection.white_non_hispanic.female",
+          "layer": "presentation",
+          "target_field": null,
+          "direction": "set",
+          "expected_relation": "INVARIANT",
+          "params": {
+            "targets": {
+              "applicant_name": "Jessica Miller",
+              "pronouns": "she/her",
+              "graduation_year": 2005,
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": "white_non_hispanic",
+                "sex_signal": "female",
+                "age_band_signal": "35-44",
+                "source": "census-2010+ssa-national:sha256:40c51a7aa5023712447dcf65b047e9cc0ec42d66cd1624bcadfb087fd9a4619f"
+              }
+            }
+          }
+        },
+        "cf_spec": {
+          "intervention_id": "blake2b128:46534e3546aaff2fa8524daf212756d6",
+          "family": "DEMOGRAPHIC",
+          "name": "demographic.intersection.black_non_hispanic.male",
+          "layer": "presentation",
+          "target_field": null,
+          "direction": "set",
+          "expected_relation": "INVARIANT",
+          "params": {
+            "targets": {
+              "applicant_name": "Jason Washington",
+              "pronouns": "he/him",
+              "graduation_year": 2005,
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": "black_non_hispanic",
+                "sex_signal": "male",
+                "age_band_signal": "35-44",
+                "source": "census-2010+ssa-national:sha256:40c51a7aa5023712447dcf65b047e9cc0ec42d66cd1624bcadfb087fd9a4619f"
+              }
+            }
+          }
+        },
+        "diagnostic": true,
+        "metadata": {
+          "signal_dimension": "race_x_recorded_sex",
+          "race_ethnicity": "black_non_hispanic",
+          "recorded_sex": "male"
+        }
+      },
+      {
+        "contrast_id": "blake2b128:4926ee15086021dc3ea9fc5b70a6870b",
+        "label": "diagnostic intersectional signal: asian_nhpi/female",
+        "family": "DEMOGRAPHIC",
+        "base_spec": {
+          "intervention_id": "blake2b128:6332dc8f3eb51bc1965ea3ce7ea25beb",
+          "family": "DEMOGRAPHIC",
+          "name": "demographic.intersection.white_non_hispanic.female",
+          "layer": "presentation",
+          "target_field": null,
+          "direction": "set",
+          "expected_relation": "INVARIANT",
+          "params": {
+            "targets": {
+              "applicant_name": "Jessica Miller",
+              "pronouns": "she/her",
+              "graduation_year": 2005,
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": "white_non_hispanic",
+                "sex_signal": "female",
+                "age_band_signal": "35-44",
+                "source": "census-2010+ssa-national:sha256:40c51a7aa5023712447dcf65b047e9cc0ec42d66cd1624bcadfb087fd9a4619f"
+              }
+            }
+          }
+        },
+        "cf_spec": {
+          "intervention_id": "blake2b128:b7b56c191a583f86ab71d6cee2c17f2c",
+          "family": "DEMOGRAPHIC",
+          "name": "demographic.intersection.asian_nhpi.female",
+          "layer": "presentation",
+          "target_field": null,
+          "direction": "set",
+          "expected_relation": "INVARIANT",
+          "params": {
+            "targets": {
+              "applicant_name": "Jessica Nguyen",
+              "pronouns": "she/her",
+              "graduation_year": 2005,
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": "asian_nhpi",
+                "sex_signal": "female",
+                "age_band_signal": "35-44",
+                "source": "census-2010+ssa-national:sha256:40c51a7aa5023712447dcf65b047e9cc0ec42d66cd1624bcadfb087fd9a4619f"
+              }
+            }
+          }
+        },
+        "diagnostic": true,
+        "metadata": {
+          "signal_dimension": "race_x_recorded_sex",
+          "race_ethnicity": "asian_nhpi",
+          "recorded_sex": "female"
+        }
+      },
+      {
+        "contrast_id": "blake2b128:909563a6b8017094481d4fed3f130afb",
+        "label": "diagnostic intersectional signal: asian_nhpi/male",
+        "family": "DEMOGRAPHIC",
+        "base_spec": {
+          "intervention_id": "blake2b128:6332dc8f3eb51bc1965ea3ce7ea25beb",
+          "family": "DEMOGRAPHIC",
+          "name": "demographic.intersection.white_non_hispanic.female",
+          "layer": "presentation",
+          "target_field": null,
+          "direction": "set",
+          "expected_relation": "INVARIANT",
+          "params": {
+            "targets": {
+              "applicant_name": "Jessica Miller",
+              "pronouns": "she/her",
+              "graduation_year": 2005,
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": "white_non_hispanic",
+                "sex_signal": "female",
+                "age_band_signal": "35-44",
+                "source": "census-2010+ssa-national:sha256:40c51a7aa5023712447dcf65b047e9cc0ec42d66cd1624bcadfb087fd9a4619f"
+              }
+            }
+          }
+        },
+        "cf_spec": {
+          "intervention_id": "blake2b128:835b987f706908d91c367f9c3a27f356",
+          "family": "DEMOGRAPHIC",
+          "name": "demographic.intersection.asian_nhpi.male",
+          "layer": "presentation",
+          "target_field": null,
+          "direction": "set",
+          "expected_relation": "INVARIANT",
+          "params": {
+            "targets": {
+              "applicant_name": "Jason Nguyen",
+              "pronouns": "he/him",
+              "graduation_year": 2005,
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": "asian_nhpi",
+                "sex_signal": "male",
+                "age_band_signal": "35-44",
+                "source": "census-2010+ssa-national:sha256:40c51a7aa5023712447dcf65b047e9cc0ec42d66cd1624bcadfb087fd9a4619f"
+              }
+            }
+          }
+        },
+        "diagnostic": true,
+        "metadata": {
+          "signal_dimension": "race_x_recorded_sex",
+          "race_ethnicity": "asian_nhpi",
+          "recorded_sex": "male"
+        }
+      },
+      {
+        "contrast_id": "blake2b128:cec704c26f8b25c205dc09639f95a00f",
+        "label": "diagnostic intersectional signal: hispanic_latino/female",
+        "family": "DEMOGRAPHIC",
+        "base_spec": {
+          "intervention_id": "blake2b128:6332dc8f3eb51bc1965ea3ce7ea25beb",
+          "family": "DEMOGRAPHIC",
+          "name": "demographic.intersection.white_non_hispanic.female",
+          "layer": "presentation",
+          "target_field": null,
+          "direction": "set",
+          "expected_relation": "INVARIANT",
+          "params": {
+            "targets": {
+              "applicant_name": "Jessica Miller",
+              "pronouns": "she/her",
+              "graduation_year": 2005,
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": "white_non_hispanic",
+                "sex_signal": "female",
+                "age_band_signal": "35-44",
+                "source": "census-2010+ssa-national:sha256:40c51a7aa5023712447dcf65b047e9cc0ec42d66cd1624bcadfb087fd9a4619f"
+              }
+            }
+          }
+        },
+        "cf_spec": {
+          "intervention_id": "blake2b128:839c0e0d066a7d825328e4232487aeb2",
+          "family": "DEMOGRAPHIC",
+          "name": "demographic.intersection.hispanic_latino.female",
+          "layer": "presentation",
+          "target_field": null,
+          "direction": "set",
+          "expected_relation": "INVARIANT",
+          "params": {
+            "targets": {
+              "applicant_name": "Jessica Garcia",
+              "pronouns": "she/her",
+              "graduation_year": 2005,
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": "hispanic_latino",
+                "sex_signal": "female",
+                "age_band_signal": "35-44",
+                "source": "census-2010+ssa-national:sha256:40c51a7aa5023712447dcf65b047e9cc0ec42d66cd1624bcadfb087fd9a4619f"
+              }
+            }
+          }
+        },
+        "diagnostic": true,
+        "metadata": {
+          "signal_dimension": "race_x_recorded_sex",
+          "race_ethnicity": "hispanic_latino",
+          "recorded_sex": "female"
+        }
+      },
+      {
+        "contrast_id": "blake2b128:78ba7ea658db254c8d5c3cde179388c1",
+        "label": "diagnostic intersectional signal: hispanic_latino/male",
+        "family": "DEMOGRAPHIC",
+        "base_spec": {
+          "intervention_id": "blake2b128:6332dc8f3eb51bc1965ea3ce7ea25beb",
+          "family": "DEMOGRAPHIC",
+          "name": "demographic.intersection.white_non_hispanic.female",
+          "layer": "presentation",
+          "target_field": null,
+          "direction": "set",
+          "expected_relation": "INVARIANT",
+          "params": {
+            "targets": {
+              "applicant_name": "Jessica Miller",
+              "pronouns": "she/her",
+              "graduation_year": 2005,
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": "white_non_hispanic",
+                "sex_signal": "female",
+                "age_band_signal": "35-44",
+                "source": "census-2010+ssa-national:sha256:40c51a7aa5023712447dcf65b047e9cc0ec42d66cd1624bcadfb087fd9a4619f"
+              }
+            }
+          }
+        },
+        "cf_spec": {
+          "intervention_id": "blake2b128:fde6c7e3c117dc01f2926342bba22d5a",
+          "family": "DEMOGRAPHIC",
+          "name": "demographic.intersection.hispanic_latino.male",
+          "layer": "presentation",
+          "target_field": null,
+          "direction": "set",
+          "expected_relation": "INVARIANT",
+          "params": {
+            "targets": {
+              "applicant_name": "Jason Garcia",
+              "pronouns": "he/him",
+              "graduation_year": 2005,
+              "demographic_tags": {
+                "synthetic": true,
+                "race_ethnicity_signal": "hispanic_latino",
+                "sex_signal": "male",
+                "age_band_signal": "35-44",
+                "source": "census-2010+ssa-national:sha256:40c51a7aa5023712447dcf65b047e9cc0ec42d66cd1624bcadfb087fd9a4619f"
+              }
+            }
+          }
+        },
+        "diagnostic": true,
+        "metadata": {
+          "signal_dimension": "race_x_recorded_sex",
+          "race_ethnicity": "hispanic_latino",
+          "recorded_sex": "male"
+        }
+      }
+    ]
+  }
+}

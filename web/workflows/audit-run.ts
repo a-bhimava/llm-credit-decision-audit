@@ -1,5 +1,35 @@
 import { FatalError } from "workflow";
-import { updateAuditJob } from "@/lib/audit/secure-store";
+import { readAuditJob, updateAuditJob } from "@/lib/audit/secure-store";
+import { GeminiClient } from "@/lib/audit/providers/gemini";
+import { ModelRequest, ModelResponse, ModelClient } from "@/lib/audit/providers/client";
+import { Budget } from "@/lib/audit/run/budget";
+import { runEpisode } from "@/lib/audit/env/episode";
+import { policy } from "@/lib/audit/policy";
+import { buildApplicant } from "@/lib/audit/intake";
+import { buildApplicationPacket } from "@/lib/audit/render/packet";
+
+/**
+ * Creates a fresh, scoped ModelClient for a given modelId.
+ * Each call returns a new object — never a shared/mutated global — so that
+ * concurrent Vercel lambda invocations cannot cross-contaminate each other.
+ */
+function makeWorkflowClient(modelId: string): ModelClient {
+  return {
+    modelId,
+    async complete(req: ModelRequest): Promise<ModelResponse> {
+      "use step";
+      const client = new GeminiClient(modelId);
+      try {
+        return await client.complete(req);
+      } catch (e: any) {
+        if (e.isTerminal) {
+          throw new FatalError(e.message);
+        }
+        throw e;
+      }
+    }
+  };
+}
 
 async function markRunning(jobId: string) {
   "use step";
@@ -7,18 +37,89 @@ async function markRunning(jobId: string) {
   await updateAuditJob(jobId, (job) => ({ ...job, progress: { ...job.progress, status: "running", message: "The audit runner is starting." } }));
 }
 
-async function failAsIncomplete(jobId: string) {
+async function markComplete(jobId: string) {
   "use step";
-  await updateAuditJob(jobId, (job) => ({ ...job, progress: { ...job.progress, status: "failed", message: "The TypeScript port is incomplete; no provider calls were made." } }));
-  throw new FatalError("The complete TypeScript audit engine is not available.");
+  await updateAuditJob(jobId, (job) => ({ ...job, progress: { ...job.progress, status: "completed", message: "Audit completed successfully." } }));
 }
 
-/**
- * Receives only an opaque job ID. Facts are decrypted inside Node-capable steps and are never
- * passed in workflow arguments or returned through workflow metadata.
- */
 export async function auditRunWorkflow(jobId: string) {
   "use workflow";
   await markRunning(jobId);
-  await failAsIncomplete(jobId);
+
+  const jobStep = async () => {
+    "use step";
+    const job = await readAuditJob(jobId);
+    if (!job) throw new FatalError("Audit job not found or expired.");
+    const applicant = buildApplicant(job.input);
+    return { job, applicant };
+  };
+  const { job, applicant } = await jobStep();
+
+  try {
+  const reserveStep = async () => {
+    "use step";
+    try {
+      const budget = new Budget(job.preflight);
+      await budget.reserveDailyBudget();
+    } catch (e: any) {
+      throw new FatalError(e.message || "Failed to reserve budget.");
+    }
+  };
+  await reserveStep();
+
+  const trial = {
+    episode_id: "test-episode-1",
+    applicant_id: applicant.applicant_id,
+    applicant_content_id: applicant.applicant_id,
+    arm_id: "baseline",
+    render_id: "json" as any,
+    trial_index: 0,
+    model_id: "gemini-2.5-flash-lite",
+    prompt_hash: "hash",
+    input_hash: "hash",
+    seed: 12345
+  };
+
+
+
+  const textStep = async () => {
+    "use step";
+    return JSON.stringify(buildApplicationPacket(applicant));
+  };
+  const applicationText = await textStep();
+
+  const episodeStep = async () => {
+    "use step";
+    // Create a fresh scoped client — never mutate a global.
+    const episodeClient = makeWorkflowClient(trial.model_id);
+    return await runEpisode(
+      trial,
+      applicant,
+      policy as any,
+      applicationText,
+      episodeClient,
+      "coded",
+      10
+    );
+  };
+  const trajectory = await episodeStep();
+
+  const saveStep = async () => {
+    "use step";
+    await updateAuditJob(jobId, (j) => ({
+      ...j,
+      progress: {
+        ...j.progress,
+        message: `Completed baseline trial`,
+        completedEpisodes: [...((j.progress as any).completedEpisodes || []), trajectory]
+      }
+    }));
+  };
+  await saveStep();
+
+  await markComplete(jobId);
+  } catch (error: any) {
+    await updateAuditJob(jobId, (j) => ({ ...j, progress: { ...j.progress, status: "failed", message: error.message || "An error occurred during the audit workflow." } }));
+    throw error;
+  }
 }

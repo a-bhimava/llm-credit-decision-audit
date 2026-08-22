@@ -1,9 +1,10 @@
-import { timingSafeEqual } from "node:crypto";
 
 export class RuntimeConfigurationError extends Error {}
 
 export type RuntimeConfiguration = Readonly<{
-  vertexApiKey: string;
+  vertexApiKey?: string;
+  vertexProject?: string;
+  vertexLocation?: string;
   encryptionKey: Buffer;
   redisUrl: string;
   redisToken: string;
@@ -24,8 +25,17 @@ export function getRuntimeConfiguration(): RuntimeConfiguration {
   }
   const key = Buffer.from(required("AUDIT_SESSION_ENCRYPTION_KEY"), "base64");
   if (key.length !== 32) throw new RuntimeConfigurationError("AUDIT_SESSION_ENCRYPTION_KEY must be a base64-encoded 32-byte key.");
+  
+  const vertexApiKey = process.env.VERTEX_API_KEY;
+  const vertexProject = process.env.GOOGLE_CLOUD_PROJECT;
+  if (!vertexApiKey && !vertexProject) {
+    throw new RuntimeConfigurationError("You must provide either VERTEX_API_KEY or GOOGLE_CLOUD_PROJECT for ADC authentication.");
+  }
+
   return {
-    vertexApiKey: required("VERTEX_API_KEY"),
+    vertexApiKey,
+    vertexProject,
+    vertexLocation: process.env.GOOGLE_CLOUD_LOCATION || "us-central1",
     encryptionKey: key,
     redisUrl: required("UPSTASH_REDIS_REST_URL").replace(/\/$/, ""),
     redisToken: required("UPSTASH_REDIS_REST_TOKEN"),
@@ -33,7 +43,10 @@ export function getRuntimeConfiguration(): RuntimeConfiguration {
 }
 
 export function secureEqual(a: string, b: string): boolean {
-  const left = Buffer.from(a);
-  const right = Buffer.from(b);
-  return left.length === right.length && timingSafeEqual(left, right);
+  if (a.length !== b.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < a.length; ++i) {
+    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return mismatch === 0;
 }

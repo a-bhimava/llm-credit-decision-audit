@@ -59,12 +59,12 @@ export type ApplicationPacket = Readonly<{
 }>;
 
 function realizedStatementOrder(applicant: Applicant) {
-  let lines = [...applicant.presentation.bank_statement_lines];
+  let lines = [...(applicant.presentation.bank_statement_lines as any[])];
   if (lines.length < 2 || applicant.presentation.line_order_seed === 0) {
     return lines;
   }
   const original = [...lines];
-  const seed = deriveSeed(applicant.presentation.line_order_seed, applicant.applicant_id, "bank-statement-order");
+  const seed = deriveSeed(applicant.presentation.line_order_seed as number, applicant.applicant_id, "bank-statement-order");
   const rng = new PythonRandom(seed);
   rng.shuffle(lines);
   
@@ -86,12 +86,12 @@ export function buildApplicationPacket(applicant: Applicant): ApplicationPacket 
   return Object.freeze({
     application_reference: applicantReferenceFor(applicant),
     identity: Object.freeze({
-      applicant_name: applicant.presentation.applicant_name,
-      employer_name: applicant.presentation.employer_name,
-      school: applicant.presentation.school,
-      referral_note: applicant.presentation.referral_note,
-      pronouns: applicant.presentation.pronouns,
-      graduation_year: applicant.presentation.graduation_year,
+      applicant_name: applicant.presentation.applicant_name as string,
+      employer_name: applicant.presentation.employer_name as string,
+      school: applicant.presentation.school as string | null,
+      referral_note: applicant.presentation.referral_note as string | null,
+      pronouns: applicant.presentation.pronouns as string | null,
+      graduation_year: applicant.presentation.graduation_year as number | null,
     }),
     loan_request: Object.freeze({
       amount_cents: applicant.facts.loan_amount_cents,
@@ -135,6 +135,6 @@ export function buildApplicationPacket(applicant: Applicant): ApplicationPacket 
       description: t.description,
       amount_cents: t.amount_cents,
     }))),
-    notes: Object.freeze([...applicant.presentation.free_text_notes]),
+    notes: Object.freeze([...(applicant.presentation.free_text_notes as string[])]),
   });
 }
