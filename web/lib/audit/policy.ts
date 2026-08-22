@@ -1012,3 +1012,5 @@ export const policy = {
     }
   ]
 } as const;
+
+export type Policy = typeof policy;

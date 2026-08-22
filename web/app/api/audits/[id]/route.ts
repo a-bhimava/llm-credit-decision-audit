@@ -11,7 +11,7 @@ async function sessionOwnsJob(id: string, request: Request) {
   const job = await readAuditJob(id);
   if (!job) return null;
   const token = request.headers.get("cookie")?.match(new RegExp(`(?:^|;\\s*)audit_session_${id}=([^;]+)`))?.[1];
-  return validSessionToken(id, job.expiresAt, token) ? job : null;
+  return validSessionToken(id, job.expiresAt, token ? decodeURIComponent(token) : undefined) ? job : null;
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {

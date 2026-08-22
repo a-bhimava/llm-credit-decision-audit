@@ -33,6 +33,7 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof IntakeValidationError) return response({ message: error.message }, 400);
     if (error instanceof RuntimeConfigurationError) return response({ message: error.message }, 503);
+    console.error("API Error in POST /api/audits:", error);
     return response({ message: "The private audit service is temporarily unavailable." }, 503);
   }
 }

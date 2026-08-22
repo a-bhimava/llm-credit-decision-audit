@@ -1,13 +1,15 @@
 import {
-  EMPLOYMENT_STATUSES,
-  PUBLIC_RECORD_KINDS,
   type AuditIntake,
   type EmploymentStatus,
   type FinancialFacts,
   type PublicRecordKind,
 } from "@/lib/audit/contracts";
+import { Applicant } from "@/lib/audit/records";
 
 export class IntakeValidationError extends Error {}
+
+const EMPLOYMENT_STATUSES = ["FULL_TIME", "PART_TIME", "SELF_EMPLOYED", "UNEMPLOYED", "RETIRED", "CONTRACT"];
+const PUBLIC_RECORD_KINDS = ["NONE", "BANKRUPTCY_CH7", "BANKRUPTCY_CH13", "TAX_LIEN", "JUDGMENT", "COLLECTION"];
 
 const object = (value: unknown, label: string): Record<string, unknown> => {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new IntakeValidationError(`${label} must be an object`);
@@ -32,14 +34,13 @@ function boolean(value: unknown, label: string): boolean {
   return value;
 }
 
-function enumValue<T extends string>(value: unknown, values: readonly T[], label: string): T {
-  if (typeof value !== "string" || !values.includes(value as T)) {
+function enumValue<T extends string>(value: unknown, values: readonly string[], label: string): T {
+  if (typeof value !== "string" || !values.includes(value as string)) {
     throw new IntakeValidationError(`${label} is not supported`);
   }
   return value as T;
 }
 
-/** Parse a strict, facts-only fictional application. Never coerce strings into money. */
 export function parseAuditIntake(value: unknown): AuditIntake {
   const input = object(value, "request");
   onlyKeys(input, ["facts", "fictionalAcknowledged"], "request");
@@ -48,38 +49,73 @@ export function parseAuditIntake(value: unknown): AuditIntake {
   }
   const raw = object(input.facts, "facts");
   const allowed = [
-    "annualIncomeCents", "monthlyDebtCents", "loanAmountCents", "loanTermMonths", "creditScore",
-    "revolvingBalanceCents", "revolvingLimitCents", "delinq30d24m", "delinq60d24m", "delinq90p24m",
-    "publicRecordKind", "publicRecordMonthsAgo", "inquiries6m", "employmentMonths", "employmentStatus", "incomeDocumented",
+    "annual_income_cents", "monthly_debt_cents", "loan_amount_cents", "loan_term_months", "credit_score",
+    "revolving_balance_cents", "revolving_limit_cents", "delinq_30d_24m", "delinq_60d_24m", "delinq_90p_24m",
+    "public_record_kind", "public_record_months_ago", "inquiries_6m", "employment_months", "employment_status", "income_documented",
   ];
   onlyKeys(raw, allowed, "facts");
-  const revolvingLimitCents = integer(raw.revolvingLimitCents, "revolvingLimitCents", 0, 20_000_000);
-  const revolvingBalanceCents = integer(raw.revolvingBalanceCents, "revolvingBalanceCents", 0, 10_000_000);
+  const revolvingLimitCents = integer(raw.revolving_limit_cents, "revolving_limit_cents", 0, 20_000_000);
+  const revolvingBalanceCents = integer(raw.revolving_balance_cents, "revolving_balance_cents", 0, 10_000_000);
   if (revolvingBalanceCents > revolvingLimitCents && revolvingLimitCents > 0) {
-    throw new IntakeValidationError("revolvingBalanceCents cannot exceed revolvingLimitCents");
+    throw new IntakeValidationError("revolving_balance_cents cannot exceed revolving_limit_cents");
   }
-  const publicRecordKind = enumValue(raw.publicRecordKind, PUBLIC_RECORD_KINDS, "publicRecordKind") as PublicRecordKind;
-  const publicRecordMonthsAgo = integer(raw.publicRecordMonthsAgo, "publicRecordMonthsAgo", 0, 240);
+  const publicRecordKind = enumValue(raw.public_record_kind, PUBLIC_RECORD_KINDS, "public_record_kind") as PublicRecordKind | "NONE";
+  const publicRecordMonthsAgo = integer(raw.public_record_months_ago, "public_record_months_ago", 0, 240);
   if (publicRecordKind === "NONE" && publicRecordMonthsAgo !== 0) {
-    throw new IntakeValidationError("publicRecordMonthsAgo must be 0 when there is no public record");
+    throw new IntakeValidationError("public_record_months_ago must be 0 when there is no public record");
   }
   const facts: FinancialFacts = {
-    annualIncomeCents: integer(raw.annualIncomeCents, "annualIncomeCents", 0, 60_000_000),
-    monthlyDebtCents: integer(raw.monthlyDebtCents, "monthlyDebtCents", 0, 5_000_000),
-    loanAmountCents: integer(raw.loanAmountCents, "loanAmountCents", 100_000, 10_000_000),
-    loanTermMonths: integer(raw.loanTermMonths, "loanTermMonths", 12, 60),
-    creditScore: integer(raw.creditScore, "creditScore", 300, 850),
-    revolvingBalanceCents,
-    revolvingLimitCents,
-    delinq30d24m: integer(raw.delinq30d24m, "delinq30d24m", 0, 20),
-    delinq60d24m: integer(raw.delinq60d24m, "delinq60d24m", 0, 20),
-    delinq90p24m: integer(raw.delinq90p24m, "delinq90p24m", 0, 20),
-    publicRecordKind,
-    publicRecordMonthsAgo,
-    inquiries6m: integer(raw.inquiries6m, "inquiries6m", 0, 20),
-    employmentMonths: integer(raw.employmentMonths, "employmentMonths", 0, 600),
-    employmentStatus: enumValue(raw.employmentStatus, EMPLOYMENT_STATUSES, "employmentStatus") as EmploymentStatus,
-    incomeDocumented: boolean(raw.incomeDocumented, "incomeDocumented"),
+    annual_income_cents: integer(raw.annual_income_cents, "annual_income_cents", 0, 60_000_000),
+    monthly_debt_cents: integer(raw.monthly_debt_cents, "monthly_debt_cents", 0, 5_000_000),
+    loan_amount_cents: integer(raw.loan_amount_cents, "loan_amount_cents", 100_000, 10_000_000),
+    property_value_cents: 0,
+    open_tradelines: 0,
+    oldest_tradeline_months: 120,
+    loan_term_months: integer(raw.loan_term_months, "loan_term_months", 12, 60),
+    credit_score: integer(raw.credit_score, "credit_score", 300, 850),
+    revolving_balance_cents: revolvingBalanceCents,
+    revolving_limit_cents: revolvingLimitCents,
+    delinq_30d_24m: integer(raw.delinq_30d_24m, "delinq_30d_24m", 0, 20),
+    delinq_60d_24m: integer(raw.delinq_60d_24m, "delinq_60d_24m", 0, 20),
+    delinq_90p_24m: integer(raw.delinq_90p_24m, "delinq_90p_24m", 0, 20),
+    public_records: publicRecordKind === "NONE" ? [] : [{ kind: publicRecordKind, months_ago: publicRecordMonthsAgo, amount_cents: 0 }],
+    inquiries_6m: integer(raw.inquiries_6m, "inquiries_6m", 0, 20),
+    employment_months: integer(raw.employment_months, "employment_months", 0, 600),
+    employment_status: enumValue(raw.employment_status, EMPLOYMENT_STATUSES, "employment_status") as EmploymentStatus,
+    income_documented: boolean(raw.income_documented, "income_documented"),
   };
   return { facts, fictionalAcknowledged: true };
+}
+
+export function buildApplicant(intake: AuditIntake): Applicant {
+  const applicant: any = {
+    applicant_id: "app_fictional",
+    presentation: {
+      applicant_name: "Fictional User",
+      employer_name: "Fictional Employer",
+      school: null,
+      referral_note: null,
+      pronouns: null,
+      graduation_year: null
+    },
+    facts: { ...intake.facts },
+    loan_request: { amount_cents: intake.facts.loan_amount_cents, term_months: intake.facts.loan_term_months },
+    provenance: { generation_seed: 0, cohort: "live", intervention_lineage: [], parent_applicant_id: null },
+    notes: []
+  };
+
+  Object.defineProperty(applicant.facts, "monthly_income_cents", {
+    get: function() { return Math.floor(this.annual_income_cents / 12); }, enumerable: true
+  });
+  Object.defineProperty(applicant, "dti", {
+    get: function() { const m = this.facts.monthly_income_cents; return m === 0 ? 1.0 : this.facts.monthly_debt_cents / m; }, enumerable: true
+  });
+  Object.defineProperty(applicant, "utilization", {
+    get: function() { return this.facts.revolving_limit_cents === 0 ? 0 : this.facts.revolving_balance_cents / this.facts.revolving_limit_cents; }, enumerable: true
+  });
+  Object.defineProperty(applicant, "cltv", {
+    get: function() { return 0; }, enumerable: true
+  });
+
+  return applicant as Applicant;
 }

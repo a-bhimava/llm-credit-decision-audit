@@ -1,0 +1,560 @@
+export const demographicSignals = {
+  "schema": "credit-audit/demographic-signals@1",
+  "catalog_version": "2026-08-11",
+  "runtime_network_access": false,
+  "framing": "Synthetic proxy-signal blindness/invariance tests; not proof or measurement of discrimination.",
+  "sources": {
+    "surnames": {
+      "publisher": "United States Census Bureau",
+      "dataset": "Frequently Occurring Surnames from the 2010 Census, File B",
+      "archive_url": "https://www2.census.gov/topics/genealogy/2010surnames/names.zip",
+      "landing_page": "https://www.census.gov/topics/population/genealogy/data/2010_surnames.html",
+      "release_date": "2016-12-15",
+      "verification_payload": "Names_2010Census.csv extracted from the official archive",
+      "verification_payload_sha256": "sha256:b78ee2fc84f67f47bfc2e2895f482ffbfcfedb7d87f265bce04d05642d558fa0",
+      "selection": {
+        "eligible": "target percentage >= 75.0 and target is the largest of pctwhite, pctblack, pctapi, pcthispanic",
+        "ordering": "descending count, ascending Census rank, ascending name",
+        "take": 8
+      }
+    },
+    "first_names": {
+      "publisher": "United States Social Security Administration",
+      "dataset": "National baby names by year of birth",
+      "archive_url": "https://www.ssa.gov/oact/babynames/names.zip",
+      "landing_page": "https://www.ssa.gov/oact/babynames/limits.html",
+      "verification_payload": "name,recorded-sex,count,year concatenation of the official national year files",
+      "verification_payload_sha256": "sha256:7c8ca3c1ef72de0b0222a6c62bff494cc60c1d37e41b0745ede6570250e07f9a",
+      "selection": {
+        "cohorts": [
+          "1952-1961",
+          "1982-1991",
+          "1992-2001"
+        ],
+        "eligible": "recorded-sex share within target cohort >= 0.95 and target-cohort share across the three registered cohorts >= 0.60",
+        "ordering": "descending target-cohort count, ascending name",
+        "take": 8
+      }
+    }
+  },
+  "surnames": {
+    "white_non_hispanic": [
+      {
+        "name": "Miller",
+        "census_rank": 7,
+        "count": 1161437,
+        "target_share_pct": "84.11"
+      },
+      {
+        "name": "Anderson",
+        "census_rank": 15,
+        "count": 784404,
+        "target_share_pct": "75.17"
+      },
+      {
+        "name": "Nelson",
+        "census_rank": 43,
+        "count": 424958,
+        "target_share_pct": "77.66"
+      },
+      {
+        "name": "Baker",
+        "census_rank": 44,
+        "count": 419586,
+        "target_share_pct": "79.83"
+      },
+      {
+        "name": "Roberts",
+        "census_rank": 50,
+        "count": 376774,
+        "target_share_pct": "77.27"
+      },
+      {
+        "name": "Phillips",
+        "census_rank": 52,
+        "count": 360802,
+        "target_share_pct": "76.69"
+      },
+      {
+        "name": "Murphy",
+        "census_rank": 64,
+        "count": 308417,
+        "target_share_pct": "83.11"
+      },
+      {
+        "name": "Cook",
+        "census_rank": 65,
+        "count": 302589,
+        "target_share_pct": "81.8"
+      }
+    ],
+    "black_non_hispanic": [
+      {
+        "name": "Washington",
+        "census_rank": 145,
+        "count": 177386,
+        "target_share_pct": "87.53"
+      },
+      {
+        "name": "Pierre",
+        "census_rank": 1026,
+        "count": 33913,
+        "target_share_pct": "86.74"
+      },
+      {
+        "name": "Alston",
+        "census_rank": 1148,
+        "count": 30693,
+        "target_share_pct": "79.83"
+      },
+      {
+        "name": "Battle",
+        "census_rank": 1332,
+        "count": 26432,
+        "target_share_pct": "77.31"
+      },
+      {
+        "name": "Muhammad",
+        "census_rank": 1884,
+        "count": 19076,
+        "target_share_pct": "82.86"
+      },
+      {
+        "name": "Ruffin",
+        "census_rank": 2231,
+        "count": 16324,
+        "target_share_pct": "80.4"
+      },
+      {
+        "name": "Hairston",
+        "census_rank": 2260,
+        "count": 16090,
+        "target_share_pct": "80.85"
+      },
+      {
+        "name": "Chatman",
+        "census_rank": 2355,
+        "count": 15473,
+        "target_share_pct": "79.18"
+      }
+    ],
+    "asian_nhpi": [
+      {
+        "name": "Nguyen",
+        "census_rank": 38,
+        "count": 437645,
+        "target_share_pct": "96.45"
+      },
+      {
+        "name": "Kim",
+        "census_rank": 77,
+        "count": 262352,
+        "target_share_pct": "94.47"
+      },
+      {
+        "name": "Patel",
+        "census_rank": 95,
+        "count": 229973,
+        "target_share_pct": "94.78"
+      },
+      {
+        "name": "Tran",
+        "census_rank": 132,
+        "count": 188498,
+        "target_share_pct": "96.0"
+      },
+      {
+        "name": "Chen",
+        "census_rank": 150,
+        "count": 169580,
+        "target_share_pct": "96.12"
+      },
+      {
+        "name": "Singh",
+        "census_rank": 260,
+        "count": 116749,
+        "target_share_pct": "82.77"
+      },
+      {
+        "name": "Li",
+        "census_rank": 273,
+        "count": 111786,
+        "target_share_pct": "96.78"
+      },
+      {
+        "name": "Wong",
+        "census_rank": 274,
+        "count": 111371,
+        "target_share_pct": "86.49"
+      }
+    ],
+    "hispanic_latino": [
+      {
+        "name": "Garcia",
+        "census_rank": 6,
+        "count": 1166120,
+        "target_share_pct": "92.03"
+      },
+      {
+        "name": "Rodriguez",
+        "census_rank": 9,
+        "count": 1094924,
+        "target_share_pct": "93.77"
+      },
+      {
+        "name": "Martinez",
+        "census_rank": 10,
+        "count": 1060159,
+        "target_share_pct": "92.91"
+      },
+      {
+        "name": "Hernandez",
+        "census_rank": 11,
+        "count": 1043281,
+        "target_share_pct": "94.89"
+      },
+      {
+        "name": "Lopez",
+        "census_rank": 12,
+        "count": 874523,
+        "target_share_pct": "92.92"
+      },
+      {
+        "name": "Gonzalez",
+        "census_rank": 13,
+        "count": 841025,
+        "target_share_pct": "94.97"
+      },
+      {
+        "name": "Perez",
+        "census_rank": 22,
+        "count": 681645,
+        "target_share_pct": "92.95"
+      },
+      {
+        "name": "Sanchez",
+        "census_rank": 26,
+        "count": 612752,
+        "target_share_pct": "92.99"
+      }
+    ]
+  },
+  "first_names": {
+    "1952_1961": {
+      "female": [
+        {
+          "name": "Mary",
+          "cohort_count": 593546,
+          "recorded_sex_share": "0.997320",
+          "three_cohort_share": "0.786663"
+        },
+        {
+          "name": "Linda",
+          "cohort_count": 482818,
+          "recorded_sex_share": "0.997735",
+          "three_cohort_share": "0.938234"
+        },
+        {
+          "name": "Susan",
+          "cohort_count": 436236,
+          "recorded_sex_share": "0.998254",
+          "three_cohort_share": "0.928085"
+        },
+        {
+          "name": "Patricia",
+          "cohort_count": 416239,
+          "recorded_sex_share": "0.997711",
+          "three_cohort_share": "0.871690"
+        },
+        {
+          "name": "Deborah",
+          "cohort_count": 408774,
+          "recorded_sex_share": "0.998047",
+          "three_cohort_share": "0.954359"
+        },
+        {
+          "name": "Debra",
+          "cohort_count": 366979,
+          "recorded_sex_share": "0.998140",
+          "three_cohort_share": "0.972552"
+        },
+        {
+          "name": "Karen",
+          "cohort_count": 351449,
+          "recorded_sex_share": "0.998171",
+          "three_cohort_share": "0.866374"
+        },
+        {
+          "name": "Barbara",
+          "cohort_count": 310975,
+          "recorded_sex_share": "0.997841",
+          "three_cohort_share": "0.928652"
+        }
+      ],
+      "male": [
+        {
+          "name": "Robert",
+          "cohort_count": 805640,
+          "recorded_sex_share": "0.997093",
+          "three_cohort_share": "0.624287"
+        },
+        {
+          "name": "Richard",
+          "cohort_count": 514466,
+          "recorded_sex_share": "0.997638",
+          "three_cohort_share": "0.692697"
+        },
+        {
+          "name": "Mark",
+          "cohort_count": 461188,
+          "recorded_sex_share": "0.998089",
+          "three_cohort_share": "0.710925"
+        },
+        {
+          "name": "Charles",
+          "cohort_count": 341479,
+          "recorded_sex_share": "0.995992",
+          "three_cohort_share": "0.619495"
+        },
+        {
+          "name": "Gary",
+          "cohort_count": 301809,
+          "recorded_sex_share": "0.997379",
+          "three_cohort_share": "0.853936"
+        },
+        {
+          "name": "Kenneth",
+          "cohort_count": 266900,
+          "recorded_sex_share": "0.997064",
+          "three_cohort_share": "0.661862"
+        },
+        {
+          "name": "Donald",
+          "cohort_count": 262739,
+          "recorded_sex_share": "0.996972",
+          "three_cohort_share": "0.793189"
+        },
+        {
+          "name": "Paul",
+          "cohort_count": 259802,
+          "recorded_sex_share": "0.997447",
+          "three_cohort_share": "0.638579"
+        }
+      ],
+      "graduation_year": 1975,
+      "age_band_2026": "65-74"
+    },
+    "1982_1991": {
+      "female": [
+        {
+          "name": "Jessica",
+          "cohort_count": 482930,
+          "recorded_sex_share": "0.995898",
+          "three_cohort_share": "0.660907"
+        },
+        {
+          "name": "Ashley",
+          "cohort_count": 425055,
+          "recorded_sex_share": "0.990186",
+          "three_cohort_share": "0.631885"
+        },
+        {
+          "name": "Jennifer",
+          "cohort_count": 368361,
+          "recorded_sex_share": "0.996125",
+          "three_cohort_share": "0.675152"
+        },
+        {
+          "name": "Amanda",
+          "cohort_count": 362840,
+          "recorded_sex_share": "0.996915",
+          "three_cohort_share": "0.707453"
+        },
+        {
+          "name": "Nicole",
+          "cohort_count": 204265,
+          "recorded_sex_share": "0.996473",
+          "three_cohort_share": "0.629695"
+        },
+        {
+          "name": "Brittany",
+          "cohort_count": 203363,
+          "recorded_sex_share": "0.996155",
+          "three_cohort_share": "0.604055"
+        },
+        {
+          "name": "Melissa",
+          "cohort_count": 185626,
+          "recorded_sex_share": "0.995912",
+          "three_cohort_share": "0.648040"
+        },
+        {
+          "name": "Heather",
+          "cohort_count": 179864,
+          "recorded_sex_share": "0.996902",
+          "three_cohort_share": "0.757214"
+        }
+      ],
+      "male": [
+        {
+          "name": "Jason",
+          "cohort_count": 222112,
+          "recorded_sex_share": "0.993776",
+          "three_cohort_share": "0.696123"
+        },
+        {
+          "name": "Adam",
+          "cohort_count": 183213,
+          "recorded_sex_share": "0.995117",
+          "three_cohort_share": "0.643530"
+        },
+        {
+          "name": "Jeremy",
+          "cohort_count": 136515,
+          "recorded_sex_share": "0.993827",
+          "three_cohort_share": "0.674481"
+        },
+        {
+          "name": "Travis",
+          "cohort_count": 103657,
+          "recorded_sex_share": "0.993721",
+          "three_cohort_share": "0.644745"
+        },
+        {
+          "name": "Dustin",
+          "cohort_count": 95389,
+          "recorded_sex_share": "0.992529",
+          "three_cohort_share": "0.673180"
+        },
+        {
+          "name": "Derek",
+          "cohort_count": 74166,
+          "recorded_sex_share": "0.994676",
+          "three_cohort_share": "0.601143"
+        },
+        {
+          "name": "Chad",
+          "cohort_count": 58437,
+          "recorded_sex_share": "0.994723",
+          "three_cohort_share": "0.708843"
+        },
+        {
+          "name": "Cory",
+          "cohort_count": 48344,
+          "recorded_sex_share": "0.960388",
+          "three_cohort_share": "0.630325"
+        }
+      ],
+      "graduation_year": 2005,
+      "age_band_2026": "35-44"
+    },
+    "1992_2001": {
+      "female": [
+        {
+          "name": "Emily",
+          "cohort_count": 248578,
+          "recorded_sex_share": "0.998558",
+          "three_cohort_share": "0.602149"
+        },
+        {
+          "name": "Hannah",
+          "cohort_count": 181553,
+          "recorded_sex_share": "0.998878",
+          "three_cohort_share": "0.775635"
+        },
+        {
+          "name": "Kayla",
+          "cohort_count": 145009,
+          "recorded_sex_share": "0.998554",
+          "three_cohort_share": "0.612866"
+        },
+        {
+          "name": "Madison",
+          "cohort_count": 130158,
+          "recorded_sex_share": "0.984211",
+          "three_cohort_share": "0.944392"
+        },
+        {
+          "name": "Alyssa",
+          "cohort_count": 120135,
+          "recorded_sex_share": "0.998911",
+          "three_cohort_share": "0.694390"
+        },
+        {
+          "name": "Brianna",
+          "cohort_count": 111516,
+          "recorded_sex_share": "0.998460",
+          "three_cohort_share": "0.799673"
+        },
+        {
+          "name": "Jasmine",
+          "cohort_count": 100806,
+          "recorded_sex_share": "0.996895",
+          "three_cohort_share": "0.654257"
+        },
+        {
+          "name": "Abigail",
+          "cohort_count": 93146,
+          "recorded_sex_share": "0.998403",
+          "three_cohort_share": "0.777454"
+        }
+      ],
+      "male": [
+        {
+          "name": "Jacob",
+          "cohort_count": 318204,
+          "recorded_sex_share": "0.998215",
+          "three_cohort_share": "0.666766"
+        },
+        {
+          "name": "Tyler",
+          "cohort_count": 257221,
+          "recorded_sex_share": "0.967684",
+          "three_cohort_share": "0.667846"
+        },
+        {
+          "name": "Zachary",
+          "cohort_count": 221495,
+          "recorded_sex_share": "0.998040",
+          "three_cohort_share": "0.617587"
+        },
+        {
+          "name": "Austin",
+          "cohort_count": 204053,
+          "recorded_sex_share": "0.993108",
+          "three_cohort_share": "0.810281"
+        },
+        {
+          "name": "Alexander",
+          "cohort_count": 184094,
+          "recorded_sex_share": "0.993749",
+          "three_cohort_share": "0.604284"
+        },
+        {
+          "name": "Christian",
+          "cohort_count": 141327,
+          "recorded_sex_share": "0.955571",
+          "three_cohort_share": "0.753242"
+        },
+        {
+          "name": "Dylan",
+          "cohort_count": 139785,
+          "recorded_sex_share": "0.987482",
+          "three_cohort_share": "0.838301"
+        },
+        {
+          "name": "Ethan",
+          "cohort_count": 86984,
+          "recorded_sex_share": "0.998416",
+          "three_cohort_share": "0.791764"
+        }
+      ],
+      "graduation_year": 2015,
+      "age_band_2026": "25-34"
+    }
+  },
+  "pronouns": {
+    "female": "she/her",
+    "male": "he/him"
+  }
+} as const;

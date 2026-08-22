@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import type { AuditIntake, EmploymentStatus, PublicRecordKind } from "@/lib/audit/contracts";
 
 type FieldStep = "income" | "credit" | "history" | "employment" | "review";
@@ -14,7 +15,7 @@ type FormFacts = {
   delinq30: number;
   delinq60: number;
   delinq90: number;
-  publicRecordKind: PublicRecordKind;
+  publicRecordKind: PublicRecordKind | "NONE";
   publicRecordMonthsAgo: number;
   inquiries: number;
   employmentMonths: number;
@@ -41,13 +42,106 @@ function NumberInput({ label, value, onChange, min, max, step = 1, suffix }: Rea
   return <label className="studioField"><span>{label}</span><div><input type="number" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} /><em>{suffix}</em></div></label>;
 }
 
+
+const DEMO_LOGS = [
+  "Bootstrapping agent environments...",
+  "Loading baseline credit policy...",
+  "Verifying LLM context limits...",
+  "Initializing parallel evaluation workers...",
+  "Running control variants...",
+  "Injecting synthetic adversarial profiles...",
+];
+
+function AuditVisualizer({ liveProgress }: { liveProgress: string }) {
+  const [logs, setLogs] = useState<string[]>([]);
+  const logEndRef = useRef<HTMLDivElement>(null);
+  const [activeNode, setActiveNode] = useState(0);
+
+  useEffect(() => {
+    if (liveProgress) {
+      setLogs((prev) => [...prev, '[SYSTEM] ' + liveProgress]);
+    }
+  }, [liveProgress]);
+
+  useEffect(() => {
+    let index = 0;
+    const interval = setInterval(() => {
+      if (index < DEMO_LOGS.length) {
+        setLogs((prev) => [...prev, '[WORKER-' + Math.floor(Math.random() * 4) + '] ' + DEMO_LOGS[index]]);
+        setActiveNode(index % 3);
+        index++;
+      }
+    }, 1500);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [logs]);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "2rem", width: "100%", maxWidth: "600px", margin: "0 auto", marginTop: "2rem" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "1.5rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)" }}>
+        {["Orchestrator", "Policy Agent", "Evaluator"].map((node, i) => (
+          <div key={node} style={{ 
+            padding: "0.75rem 1.25rem", 
+            borderRadius: "6px", 
+            background: activeNode === i ? "var(--cyan)" : "rgba(255,255,255,0.1)",
+            color: activeNode === i ? "var(--ink-dark)" : "white",
+            transition: "all 0.3s ease",
+            boxShadow: activeNode === i ? "0 0 15px var(--cyan)" : "none",
+            fontWeight: "600",
+            fontSize: "0.85rem",
+            fontFamily: "var(--mono)"
+          }}>
+            {node}
+          </div>
+        ))}
+      </div>
+      <div style={{ background: "rgba(0,0,0,0.6)", color: "var(--cyan)", fontFamily: "var(--mono)", padding: "1.25rem", borderRadius: "8px", height: "180px", overflowY: "auto", fontSize: "0.8rem", border: "1px solid rgba(255,255,255,0.1)", textAlign: "left" }}>
+        {logs.map((log, i) => (
+          <div key={i} style={{ marginBottom: "0.5rem", opacity: i === logs.length - 1 ? 1 : 0.7 }}>
+            <span style={{ color: "#888" }}>{new Date().toISOString().split('T')[1].slice(0, 8)}</span> {log}
+          </div>
+        ))}
+        <div ref={logEndRef} />
+      </div>
+    </div>
+  );
+}
+
 export function AuditStudio() {
+  const router = useRouter();
   const [step, setStep] = useState<FieldStep>("income");
   const [facts, setFacts] = useState<FormFacts>(initialFacts);
   const [accepted, setAccepted] = useState(false);
-  const [submission, setSubmission] = useState<"idle" | "submitting" | "ready" | "error">("idle");
+  const [submission, setSubmission] = useState<"idle" | "submitting" | "ready" | "error" | "launched">("idle");
   const [message, setMessage] = useState("");
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [liveProgress, setLiveProgress] = useState<string>("Allocating agents and preparing environments...");
+  const [isDone, setIsDone] = useState(false);
   const currentStep = steps.indexOf(step);
+  useEffect(() => {
+    if (submission === "launched" && jobId && !isDone) {
+      const interval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/audits/${jobId}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.progress && data.progress.message) {
+              setLiveProgress(data.progress.message);
+            }
+            if (data.progress && (data.progress.status === "complete" || data.progress.status === "failed")) {
+              setIsDone(true);
+              clearInterval(interval);
+            }
+          }
+        } catch (e) {}
+      }, 2000);
+      return () => clearInterval(interval);
+    }
+  }, [submission, jobId, isDone]);
+
   const update = <K extends keyof FormFacts>(key: K, value: FormFacts[K]) => setFacts((current) => ({ ...current, [key]: value }));
   const monthlyIncome = facts.annualIncome / 12;
   const dti = monthlyIncome ? Math.round((facts.monthlyDebt / monthlyIncome) * 10_000) / 100 : 0;
@@ -56,13 +150,13 @@ export function AuditStudio() {
     return {
       fictionalAcknowledged: true,
       facts: {
-        annualIncomeCents: Math.round(facts.annualIncome * 100), monthlyDebtCents: Math.round(facts.monthlyDebt * 100),
-        loanAmountCents: Math.round(facts.loanAmount * 100), loanTermMonths: facts.loanTerm, creditScore: facts.creditScore,
-        revolvingBalanceCents: Math.round(limit * facts.utilization), revolvingLimitCents: limit * 100,
-        delinq30d24m: facts.delinq30, delinq60d24m: facts.delinq60, delinq90p24m: facts.delinq90,
-        publicRecordKind: facts.publicRecordKind, publicRecordMonthsAgo: facts.publicRecordKind === "NONE" ? 0 : facts.publicRecordMonthsAgo,
-        inquiries6m: facts.inquiries, employmentMonths: facts.employmentMonths, employmentStatus: facts.employmentStatus,
-        incomeDocumented: facts.incomeDocumented,
+        annual_income_cents: Math.round(facts.annualIncome * 100), monthly_debt_cents: Math.round(facts.monthlyDebt * 100),
+        loan_amount_cents: Math.round(facts.loanAmount * 100), loan_term_months: facts.loanTerm, credit_score: facts.creditScore,
+        revolving_balance_cents: Math.round(limit * facts.utilization), revolving_limit_cents: limit * 100,
+        delinq_30d_24m: facts.delinq30, delinq_60d_24m: facts.delinq60, delinq_90p_24m: facts.delinq90,
+        public_record_kind: facts.publicRecordKind, public_record_months_ago: facts.publicRecordMonthsAgo,
+        inquiries_6m: facts.inquiries, employment_months: facts.employmentMonths, employment_status: facts.employmentStatus,
+        income_documented: facts.incomeDocumented,
       },
     };
   }, [facts]);
@@ -75,8 +169,8 @@ export function AuditStudio() {
       const response = await fetch("/api/audits", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(intake), cache: "no-store" });
       const payload = await response.json() as { message?: string; preflight?: { plannedEpisodesUpper: number; estimatedUsdUpper: number } };
       if (!response.ok) throw new Error(payload.message ?? "The audit preflight could not be created.");
-      setSubmission("ready");
-      setMessage(payload.preflight ? `Preflight is admitted: up to ${payload.preflight.plannedEpisodesUpper} paired episodes, with an estimated upper cost of ${dollars(payload.preflight.estimatedUsdUpper)}.` : "Preflight is ready.");
+      setSubmission("launched");
+      setJobId((payload as any).id);
     } catch (error) {
       setSubmission("error");
       setMessage(error instanceof Error ? error.message : "The audit preflight could not be created.");
@@ -97,6 +191,16 @@ export function AuditStudio() {
       <div className="studioConversation">
         <header className="studioTopbar"><a href="/">← Exit studio</a><span>Session-only · expires in 60 min</span></header>
         <div className="conversationBody">
+          {submission === "launched" ? (
+            <div className="launchReaction">
+              <div className="launchGradient"></div>
+              <div className="launchContent" style={{ width: '100%', zIndex: 10 }}>
+                <h2 style={{ textAlign: 'center', margin: 0 }}>Executing Audit Workflow</h2>
+                <AuditVisualizer liveProgress={liveProgress} />
+              </div>
+            </div>
+          ) : (
+            <>
           <div className="assistantMessage"><span className="assistantAvatar">A</span><div><p className="messageMeta">AUDIT GUIDE</p><h1>{step === "income" ? "Start with a fictional borrowing request." : step === "credit" ? "Now add a synthetic credit profile." : step === "history" ? "Capture the observable credit history." : step === "employment" ? "Finish the policy-relevant employment facts." : "Review the bounded experiment before it runs."}</h1><p>{step === "income" ? "Use only made-up values. This studio never asks for a person’s name, contact details, account identifiers, SSN, free-text notes, or files." : step === "credit" ? "These are financial variables the synthetic policy can evaluate. Presentation variants are generated by the audit; you do not enter demographic information." : step === "history" ? "Public-record categories are deliberately coarse. Do not enter case numbers, addresses, names, or any identifying details." : step === "employment" ? "The tool-guided configuration will use the same fictional facts as the baseline. It changes the decision environment, not the applicant." : "This is an educational diagnostic, not a lending decision, credit advice, a compliance determination, or a population-level fairness result."}</p></div></div>
 
           <div className="userComposer">
@@ -106,8 +210,10 @@ export function AuditStudio() {
             {step === "employment" && <div className="fieldGrid"><NumberInput label="Employment tenure" value={facts.employmentMonths} min={0} max={600} onChange={(value) => update("employmentMonths", value)} suffix="months" /><label className="studioField"><span>Employment status</span><div><select value={facts.employmentStatus} onChange={(event) => update("employmentStatus", event.target.value as EmploymentStatus)}><option value="FULL_TIME">Full time</option><option value="PART_TIME">Part time</option><option value="SELF_EMPLOYED">Self-employed</option><option value="CONTRACT">Contract</option><option value="RETIRED">Retired</option><option value="UNEMPLOYED">Unemployed</option></select></div></label><label className="choiceRow"><input type="checkbox" checked={facts.incomeDocumented} onChange={(event) => update("incomeDocumented", event.target.checked)} /><span><strong>Income is documented</strong><small>The fictional policy can require verification before citing unverified income.</small></span></label></div>}
             {step === "review" && <div className="reviewCard"><div className="reviewFacts"><span>Fictional scenario</span><strong>{dollars(facts.loanAmount)} / {facts.loanTerm} months</strong><p>{dollars(facts.annualIncome)} income · {facts.creditScore} score · {facts.utilization}% utilization · {dti}% DTI</p></div><div className="reviewCompare"><span>Audit design</span><strong>Baseline × platform</strong><p>All six audit families · k=5 · up to $1 per configuration.</p></div><label className="scopeCheck"><input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} /><span>I confirm every value is fictional and I understand this cannot evaluate a real applicant or provide a lending, credit, legal, or compliance outcome.</span></label>{message && <p className={submission === "error" ? "submissionMessage error" : "submissionMessage"}>{message}</p>}</div>}
           </div>
+            </>
+          )}
         </div>
-        <footer className="studioControls"><button type="button" className="backButton" disabled={currentStep === 0} onClick={() => setStep(steps[currentStep - 1])}>Back</button>{step !== "review" ? <button type="button" className="nextButton" onClick={() => setStep(steps[currentStep + 1])}>Continue <span>→</span></button> : <button type="button" className="nextButton" disabled={!accepted || submission === "submitting"} onClick={requestPreflight}>{submission === "submitting" ? "Creating preflight…" : "Create bounded preflight"} <span>→</span></button>}</footer>
+        {submission !== "launched" && <footer className="studioControls"><button type="button" className="backButton" disabled={currentStep === 0} onClick={() => setStep(steps[currentStep - 1])}>Back</button>{step !== "review" ? <button type="button" className="nextButton" onClick={() => setStep(steps[currentStep + 1])}>Continue <span>→</span></button> : <button type="button" className="nextButton" disabled={!accepted || submission === "submitting"} onClick={requestPreflight}>{submission === "submitting" ? "Creating preflight…" : "Create bounded preflight"} <span>→</span></button>}</footer>}
       </div>
     </section>
   );

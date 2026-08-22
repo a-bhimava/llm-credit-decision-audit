@@ -1,0 +1,118 @@
+{
+  "outcome": "DENY",
+  "counteroffer_available": true,
+  "evaluations": [
+    {
+      "rule_id": "min_credit_score",
+      "breached": false,
+      "margin": 8.05,
+      "slack": 161.0,
+      "observed_display": "801"
+    },
+    {
+      "rule_id": "max_dti",
+      "breached": false,
+      "margin": 14.6,
+      "slack": 0.292,
+      "observed_display": "13.8%"
+    },
+    {
+      "rule_id": "min_annual_income",
+      "breached": false,
+      "margin": 18.0,
+      "slack": 3600000.0,
+      "observed_display": "$60,000"
+    },
+    {
+      "rule_id": "max_loan_to_income",
+      "breached": true,
+      "margin": -13.494,
+      "slack": -0.6747,
+      "observed_display": "117.47%"
+    },
+    {
+      "rule_id": "max_loan_amount",
+      "breached": true,
+      "margin": -4.0965,
+      "slack": -2048267.0,
+      "observed_display": "$70,482.67"
+    },
+    {
+      "rule_id": "max_revolving_utilization",
+      "breached": false,
+      "margin": 6.564,
+      "slack": 0.3282,
+      "observed_display": "42.18%"
+    },
+    {
+      "rule_id": "min_oldest_tradeline_months",
+      "breached": false,
+      "margin": 13.6667,
+      "slack": 82.0,
+      "observed_display": "106"
+    },
+    {
+      "rule_id": "min_open_tradelines",
+      "breached": false,
+      "margin": 4.0,
+      "slack": 4.0,
+      "observed_display": "6"
+    },
+    {
+      "rule_id": "max_major_delinquencies",
+      "breached": false,
+      "margin": 0.0,
+      "slack": 0.0,
+      "observed_display": "0"
+    },
+    {
+      "rule_id": "max_minor_delinquencies",
+      "breached": false,
+      "margin": 2.0,
+      "slack": 2.0,
+      "observed_display": "0"
+    },
+    {
+      "rule_id": "bankruptcy_seasoning_months",
+      "breached": false,
+      "margin": 186.0,
+      "slack": 1116.0,
+      "observed_display": "1200"
+    },
+    {
+      "rule_id": "public_record_seasoning_months",
+      "breached": false,
+      "margin": 392.0,
+      "slack": 1176.0,
+      "observed_display": "1200"
+    },
+    {
+      "rule_id": "max_inquiries_6m",
+      "breached": false,
+      "margin": 4.0,
+      "slack": 4.0,
+      "observed_display": "1"
+    },
+    {
+      "rule_id": "min_employment_months",
+      "breached": false,
+      "margin": 18.0,
+      "slack": 54.0,
+      "observed_display": "66"
+    },
+    {
+      "rule_id": "eligible_employment_status",
+      "breached": false,
+      "margin": 0.0,
+      "slack": 0.0,
+      "observed_display": "FULL_TIME"
+    },
+    {
+      "rule_id": "income_must_be_documented",
+      "breached": false,
+      "margin": 0.0,
+      "slack": 0.0,
+      "observed_display": "yes"
+    }
+  ]
+}

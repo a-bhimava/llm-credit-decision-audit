@@ -40,16 +40,16 @@ test("Applicant computes derived facts correctly", () => {
       age_band_signal: "1992_2001",
     }
   }, {
-    generator_seed: 123,
+    generation_seed: 123,
     generator_version: "1.0",
     source_cell_id: null,
     parent_applicant_id: null,
     intervention_lineage: []
   });
 
-  assert.strictEqual(app.dti.toNumber(), 0.43);
-  assert.strictEqual(app.utilization.toNumber(), 0.5);
-  assert.strictEqual(app.cltv.toNumber(), 0);
+  assert.strictEqual(app.dti, 0.43);
+  assert.strictEqual(app.utilization, 0.5);
+  assert.strictEqual(app.cltv, 0);
 
   assert.throws(() => {
     // @ts-expect-error Immutability check

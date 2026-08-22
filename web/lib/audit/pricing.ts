@@ -9,12 +9,12 @@ const DAILY_CAP_USD = 25;
 
 function reasonValidityUpper(facts: FinancialFacts): number {
   const breachedSignals = [
-    facts.creditScore < 620,
-    facts.annualIncomeCents === 0 || facts.monthlyDebtCents * 12 > facts.annualIncomeCents * 0.43,
-    facts.delinq90p24m > 0,
-    facts.publicRecordKind !== "NONE",
-    facts.inquiries6m > 4,
-    !facts.incomeDocumented,
+    facts.credit_score < 620,
+    facts.annual_income_cents === 0 || facts.monthly_debt_cents * 12 > facts.annual_income_cents * 0.43,
+    facts.delinq_90p_24m > 0,
+    facts.public_records.length > 0 ? facts.public_records[0].kind : "NONE" !== "NONE",
+    facts.inquiries_6m > 4,
+    !facts.income_documented,
   ].filter(Boolean).length;
   // Discovery (5), then a joint-sufficiency pair plus bounded individual repairs at k=5.
   return 5 + (1 + Math.min(10, 3 + breachedSignals)) * 10;

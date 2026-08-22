@@ -1,0 +1,50 @@
+{
+  "packet": {
+    "application_reference": "MPL-3363C5CDBE",
+    "identity": {
+      "applicant_name": "Applicant APP-A-00005",
+      "employer_name": "Horizon Health Services",
+      "school": null,
+      "referral_note": null,
+      "pronouns": null,
+      "graduation_year": null
+    },
+    "loan_request": {
+      "amount_cents": 7048267,
+      "term_months": 36
+    },
+    "income": {
+      "annual_income_cents": 6000000,
+      "monthly_debt_cents": 69000,
+      "debt_to_income_ratio": "0.1380",
+      "income_documented": true
+    },
+    "credit_file": {
+      "credit_score": 801,
+      "tradelines": {
+        "open_count": 6,
+        "oldest_age_months": 106
+      },
+      "revolving": {
+        "balance_cents": 788808,
+        "limit_cents": 1870000,
+        "utilization": "0.4218"
+      },
+      "delinquencies": {
+        "days_30_59_24mo": 0,
+        "days_60_89_24mo": 0,
+        "days_90_plus_24mo": 0
+      },
+      "inquiries_6m": 1,
+      "public_records": []
+    },
+    "employment": {
+      "status": "FULL_TIME",
+      "months": 66
+    },
+    "statement_lines": [],
+    "notes": []
+  },
+  "json_str_sorted": "{\n  \"applicant\": {\n    \"employer\": \"Horizon Health Services\",\n    \"name\": \"Applicant APP-A-00005\"\n  },\n  \"application_notes\": [],\n  \"application_reference\": \"MPL-3363C5CDBE\",\n  \"bank_statement\": [],\n  \"credit_file\": {\n    \"credit_score\": 801,\n    \"delinquencies\": {\n      \"30_59_days_24mo\": 0,\n      \"60_89_days_24mo\": 0,\n      \"90_plus_days_24mo\": 0\n    },\n    \"inquiries_6m\": 1,\n    \"public_records\": [],\n    \"revolving\": {\n      \"balance_cents\": 788808,\n      \"limit_cents\": 1870000,\n      \"utilization\": \"0.4218\"\n    },\n    \"tradelines\": {\n      \"oldest_age_months\": 106,\n      \"open_count\": 6\n    }\n  },\n  \"employment\": {\n    \"months\": 66,\n    \"status\": \"FULL_TIME\"\n  },\n  \"income\": {\n    \"annual_income_cents\": 6000000,\n    \"debt_to_income_ratio\": \"0.1380\",\n    \"income_documented\": true,\n    \"monthly_debt_cents\": 69000\n  },\n  \"loan_request\": {\n    \"amount_cents\": 7048267,\n    \"term_months\": 36\n  }\n}\n",
+  "json_str_shuffled": "{\n  \"loan_request\": {\n    \"term_months\": 36,\n    \"amount_cents\": 7048267\n  },\n  \"employment\": {\n    \"months\": 66,\n    \"status\": \"FULL_TIME\"\n  },\n  \"applicant\": {\n    \"employer\": \"Horizon Health Services\",\n    \"name\": \"Applicant APP-A-00005\"\n  },\n  \"application_notes\": [],\n  \"bank_statement\": [],\n  \"application_reference\": \"MPL-3363C5CDBE\",\n  \"income\": {\n    \"income_documented\": true,\n    \"annual_income_cents\": 6000000,\n    \"debt_to_income_ratio\": \"0.1380\",\n    \"monthly_debt_cents\": 69000\n  },\n  \"credit_file\": {\n    \"public_records\": [],\n    \"revolving\": {\n      \"utilization\": \"0.4218\",\n      \"limit_cents\": 1870000,\n      \"balance_cents\": 788808\n    },\n    \"delinquencies\": {\n      \"60_89_days_24mo\": 0,\n      \"90_plus_days_24mo\": 0,\n      \"30_59_days_24mo\": 0\n    },\n    \"credit_score\": 801,\n    \"tradelines\": {\n      \"oldest_age_months\": 106,\n      \"open_count\": 6\n    },\n    \"inquiries_6m\": 1\n  }\n}\n"
+}

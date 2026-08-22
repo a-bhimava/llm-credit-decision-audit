@@ -1,0 +1,57 @@
+{
+  "applicant": {
+    "applicant_id": "APP-A-00005",
+    "facts": {
+      "annual_income_cents": 6000000,
+      "monthly_debt_cents": 69000,
+      "loan_amount_cents": 7048267,
+      "property_value_cents": 0,
+      "loan_term_months": 36,
+      "credit_score": 801,
+      "open_tradelines": 6,
+      "revolving_balance_cents": 788808,
+      "revolving_limit_cents": 1870000,
+      "delinq_30d_24m": 0,
+      "delinq_60d_24m": 0,
+      "delinq_90p_24m": 0,
+      "public_records": [],
+      "oldest_tradeline_months": 106,
+      "inquiries_6m": 1,
+      "employment_months": 66,
+      "employment_status": "FULL_TIME",
+      "income_documented": true
+    },
+    "presentation": {
+      "applicant_name": "Applicant APP-A-00005",
+      "employer_name": "Horizon Health Services",
+      "employer_prestige_tier": 5,
+      "school": null,
+      "referral_note": null,
+      "pronouns": null,
+      "graduation_year": null,
+      "narrative_tone": "neutral",
+      "demographic_tags": {
+        "synthetic": true,
+        "race_ethnicity_signal": "White|Not Hispanic or Latino",
+        "sex_signal": "Female",
+        "age_band_signal": "45-54",
+        "source": "hmda_sample"
+      },
+      "bank_statement_lines": [],
+      "line_order_seed": 0,
+      "free_text_notes": []
+    },
+    "provenance": {
+      "generator_seed": 20260810,
+      "generator_version": "phase3-v1",
+      "source_cell_id": "60-70|43-49%|White|Not Hispanic or Latino|Female|45-54",
+      "parent_applicant_id": null,
+      "intervention_lineage": []
+    }
+  },
+  "canonical_facts": "{\"annual_income_cents\":6000000,\"credit_score\":801,\"delinq_30d_24m\":0,\"delinq_60d_24m\":0,\"delinq_90p_24m\":0,\"employment_months\":66,\"employment_status\":\"FULL_TIME\",\"income_documented\":true,\"inquiries_6m\":1,\"loan_amount_cents\":7048267,\"loan_term_months\":36,\"monthly_debt_cents\":69000,\"oldest_tradeline_months\":106,\"open_tradelines\":6,\"property_value_cents\":0,\"public_records\":[],\"revolving_balance_cents\":788808,\"revolving_limit_cents\":1870000}",
+  "canonical_presentation": "{\"applicant_name\":\"Applicant APP-A-00005\",\"bank_statement_lines\":[],\"demographic_tags\":{\"age_band_signal\":\"45-54\",\"race_ethnicity_signal\":\"White|Not Hispanic or Latino\",\"sex_signal\":\"Female\",\"source\":\"hmda_sample\",\"synthetic\":true},\"employer_name\":\"Horizon Health Services\",\"employer_prestige_tier\":5,\"free_text_notes\":[],\"graduation_year\":null,\"line_order_seed\":0,\"narrative_tone\":\"neutral\",\"pronouns\":null,\"referral_note\":null,\"school\":null}",
+  "applicant_content_id": "blake2b128:0886908e6cf8d00e8f722e5118fbb52f",
+  "cluster_id": "cluster_98db276980462c89",
+  "episode_input_hash": "blake2b128:0595fc403d4b6bd2e6c9ae53958e6342"
+}
