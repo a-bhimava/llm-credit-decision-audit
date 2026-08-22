@@ -1,8 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import type { AuditIntake, EmploymentStatus, PublicRecordKind } from "@/lib/audit/contracts";
+
+const AuditGraph = dynamic(
+  () => import("@/components/audit-graph").then((m) => m.AuditGraph),
+  { ssr: false }
+);
 
 type FieldStep = "income" | "credit" | "history" | "employment" | "review";
 type FormFacts = {
@@ -43,72 +49,6 @@ function NumberInput({ label, value, onChange, min, max, step = 1, suffix }: Rea
 }
 
 
-const DEMO_LOGS = [
-  "Bootstrapping agent environments...",
-  "Loading baseline credit policy...",
-  "Verifying LLM context limits...",
-  "Initializing parallel evaluation workers...",
-  "Running control variants...",
-  "Injecting synthetic adversarial profiles...",
-];
-
-function AuditVisualizer({ liveProgress }: { liveProgress: string }) {
-  const [logs, setLogs] = useState<string[]>([]);
-  const logEndRef = useRef<HTMLDivElement>(null);
-  const [activeNode, setActiveNode] = useState(0);
-
-  useEffect(() => {
-    if (liveProgress) {
-      setLogs((prev) => [...prev, '[SYSTEM] ' + liveProgress]);
-    }
-  }, [liveProgress]);
-
-  useEffect(() => {
-    let index = 0;
-    const interval = setInterval(() => {
-      if (index < DEMO_LOGS.length) {
-        setLogs((prev) => [...prev, '[WORKER-' + Math.floor(Math.random() * 4) + '] ' + DEMO_LOGS[index]]);
-        setActiveNode(index % 3);
-        index++;
-      }
-    }, 1500);
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    logEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [logs]);
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "2rem", width: "100%", maxWidth: "600px", margin: "0 auto", marginTop: "2rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "1.5rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)" }}>
-        {["Orchestrator", "Policy Agent", "Evaluator"].map((node, i) => (
-          <div key={node} style={{ 
-            padding: "0.75rem 1.25rem", 
-            borderRadius: "6px", 
-            background: activeNode === i ? "var(--cyan)" : "rgba(255,255,255,0.1)",
-            color: activeNode === i ? "var(--ink-dark)" : "white",
-            transition: "all 0.3s ease",
-            boxShadow: activeNode === i ? "0 0 15px var(--cyan)" : "none",
-            fontWeight: "600",
-            fontSize: "0.85rem",
-            fontFamily: "var(--mono)"
-          }}>
-            {node}
-          </div>
-        ))}
-      </div>
-      <div style={{ background: "rgba(0,0,0,0.6)", color: "var(--cyan)", fontFamily: "var(--mono)", padding: "1.25rem", borderRadius: "8px", height: "180px", overflowY: "auto", fontSize: "0.8rem", border: "1px solid rgba(255,255,255,0.1)", textAlign: "left" }}>
-        {logs.map((log, i) => (
-          <div key={i} style={{ marginBottom: "0.5rem", opacity: i === logs.length - 1 ? 1 : 0.7 }}>
-            <span style={{ color: "#888" }}>{new Date().toISOString().split('T')[1].slice(0, 8)}</span> {log}
-          </div>
-        ))}
-        <div ref={logEndRef} />
-      </div>
-    </div>
-  );
-}
 
 export function AuditStudio() {
   const router = useRouter();
@@ -157,6 +97,11 @@ export function AuditStudio() {
         public_record_kind: facts.publicRecordKind, public_record_months_ago: facts.publicRecordMonthsAgo,
         inquiries_6m: facts.inquiries, employment_months: facts.employmentMonths, employment_status: facts.employmentStatus,
         income_documented: facts.incomeDocumented,
+        // Required fields with fictional defaults
+        property_value_cents: 0,
+        open_tradelines: 5,
+        public_records: [],
+        oldest_tradeline_months: 60,
       },
     };
   }, [facts]);
@@ -194,9 +139,21 @@ export function AuditStudio() {
           {submission === "launched" ? (
             <div className="launchReaction">
               <div className="launchGradient"></div>
-              <div className="launchContent" style={{ width: '100%', zIndex: 10 }}>
-                <h2 style={{ textAlign: 'center', margin: 0 }}>Executing Audit Workflow</h2>
-                <AuditVisualizer liveProgress={liveProgress} />
+              {/* Full-canvas agent graph */}
+              <AuditGraph liveProgress={liveProgress} isDone={isDone} />
+              {/* Gradient header overlay with live status */}
+              <div style={{
+                position: "absolute", top: 0, left: 0, right: 0, zIndex: 20,
+                padding: "1.5rem 2rem",
+                background: "linear-gradient(to bottom, rgba(9,10,23,0.92) 55%, transparent)",
+                pointerEvents: "none",
+              }}>
+                <div style={{ color: "var(--cyan)", fontFamily: "var(--mono)", fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.14em", opacity: 0.75, marginBottom: "0.3rem" }}>
+                  Live Audit Execution
+                </div>
+                <div style={{ color: "var(--dim)", fontFamily: "var(--mono)", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                  {liveProgress}
+                </div>
               </div>
             </div>
           ) : (
