@@ -1,3 +1,4 @@
+
 import { CreditEnvState, stateFingerprint } from "./state";
 import { ReasonMode, toolSpecs, buildSystemPrompt, dispatch } from "./tools";
 import { Policy } from "@/lib/audit/policy";
@@ -167,7 +168,7 @@ export async function runEpisode(
       });
       messages.push({
         role: "tool",
-        content: Buffer.from(canonicalJson({ ok: result.ok, data: result.data, error: result.error || null })).toString("utf8"),
+        content: canonicalJson({ ok: result.ok, data: result.data, error: result.error || null }),
         step: callStep,
         turn_index: turnIndex,
         tool_call_id: call.call_id

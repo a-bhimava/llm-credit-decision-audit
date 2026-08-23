@@ -1,3 +1,4 @@
+
 import { blake2bHex, blake2bInit, blake2bUpdate, blake2bFinal } from "blakejs";
 
 /**
@@ -68,19 +69,19 @@ export function contentId(value: unknown, digestSize = 16): string {
   const jsonStr = canonicalJson(value);
   // Remove spaces since stringify might add some (wait, no it doesn't without indent).
   // But JSON.stringify(floatHex) will add quotes around the hex float, which is what we want because Python canonicalizes floats to string!
-  const hex = blake2bHex(Buffer.from(jsonStr, "utf8"), undefined, digestSize);
+  const hex = blake2bHex(new TextEncoder().encode(jsonStr), undefined, digestSize);
   return `blake2b${digestSize * 8}:${hex}`;
 }
 
 export function deriveSeed(runSeed: number, ...parts: readonly (string | number)[]): bigint {
   const ctx = blake2bInit(8);
-  blake2bUpdate(ctx, Buffer.from(String(runSeed), "utf8"));
+  blake2bUpdate(ctx, new TextEncoder().encode(String(runSeed)));
   for (const part of parts) {
-    blake2bUpdate(ctx, Buffer.from("\u001f", "utf8"));
-    blake2bUpdate(ctx, Buffer.from(String(part), "utf8"));
+    blake2bUpdate(ctx, new TextEncoder().encode("\u001f"));
+    blake2bUpdate(ctx, new TextEncoder().encode(String(part)));
   }
   const digest = blake2bFinal(ctx);
   // Read big endian 8 bytes
-  const buf = Buffer.from(digest);
+  const buf = new Uint8Array(digest);
   return buf.readBigUInt64BE() & ((1n << 63n) - 1n);
 }

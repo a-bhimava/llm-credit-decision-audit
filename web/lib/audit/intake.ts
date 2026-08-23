@@ -96,7 +96,8 @@ export function buildApplicant(intake: AuditIntake): Applicant {
       school: null,
       referral_note: null,
       pronouns: null,
-      graduation_year: null
+      graduation_year: null,
+      bank_statement_lines: []
     },
     facts: { ...intake.facts },
     loan_request: { amount_cents: intake.facts.loan_amount_cents, term_months: intake.facts.loan_term_months },
