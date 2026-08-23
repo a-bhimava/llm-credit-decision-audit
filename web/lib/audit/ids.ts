@@ -1,3 +1,4 @@
+
 import { blake2bHex } from "blakejs";
 import { canonicalJson, contentId, deriveSeed } from "./canonical";
 import { Applicant, Trajectory, RenderMode } from "./records";
@@ -5,7 +6,7 @@ import { Applicant, Trajectory, RenderMode } from "./records";
 export { canonicalJson, contentId, deriveSeed };
 
 export function shortId(obj: unknown, length = 8): string {
-  const hex = blake2bHex(Buffer.from(canonicalJson(obj), "utf8"), undefined, 16);
+  const hex = blake2bHex(new TextEncoder().encode(canonicalJson(obj)), undefined, 16);
   return hex.slice(0, length);
 }
 

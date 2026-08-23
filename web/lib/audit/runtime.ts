@@ -1,11 +1,12 @@
 
+
 export class RuntimeConfigurationError extends Error {}
 
 export type RuntimeConfiguration = Readonly<{
   vertexApiKey?: string;
   vertexProject?: string;
   vertexLocation?: string;
-  encryptionKey: Buffer;
+  encryptionKey: Uint8Array;
   redisUrl: string;
   redisToken: string;
 }>;
@@ -23,7 +24,10 @@ export function getRuntimeConfiguration(): RuntimeConfiguration {
   if (process.env.TYPESCRIPT_AUDIT_ENGINE_ENABLED !== "true") {
     throw new RuntimeConfigurationError("The TypeScript audit engine is not enabled yet. The current deployment will not run a partial audit.");
   }
-  const key = Buffer.from(required("AUDIT_SESSION_ENCRYPTION_KEY"), "base64");
+  const b64 = required("AUDIT_SESSION_ENCRYPTION_KEY");
+  const binary = atob(b64);
+  const key = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) key[i] = binary.charCodeAt(i);
   if (key.length !== 32) throw new RuntimeConfigurationError("AUDIT_SESSION_ENCRYPTION_KEY must be a base64-encoded 32-byte key.");
   
   const vertexApiKey = process.env.VERTEX_API_KEY;

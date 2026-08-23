@@ -1,3 +1,4 @@
+
 // Uses Web Crypto API (crypto.subtle) so this module is safe to import
 // in workflow step functions — no node:crypto at module root.
 
@@ -22,13 +23,21 @@ type StoredJob = Readonly<{
 function key(id: string) { return `${JOB_PREFIX}${id}`; }
 
 function b64uEncode(buf: ArrayBuffer): string {
-  return Buffer.from(buf).toString("base64url");
+  let binary = "";
+  const bytes = new Uint8Array(buf);
+  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
-function b64uDecode(s: string): Buffer {
-  return Buffer.from(s, "base64url");
+function b64uDecode(s: string): Uint8Array {
+  s = s.replace(/-/g, "+").replace(/_/g, "/");
+  while (s.length % 4) s += "=";
+  const binary = atob(s);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
 }
 
-async function getCryptoKey(rawKey: Buffer, usage: "encrypt" | "decrypt"): Promise<CryptoKey> {
+async function getCryptoKey(rawKey: Uint8Array, usage: "encrypt" | "decrypt"): Promise<CryptoKey> {
   return crypto.subtle.importKey("raw", rawKey, { name: "AES-GCM", length: 256 }, false, [usage]);
 }
 
@@ -53,13 +62,15 @@ async function open(value: string): Promise<StoredJob> {
   const tag = b64uDecode(tagPart);
   const ct = b64uDecode(ciphertextPart);
   // Reassemble ciphertext+tag for SubtleCrypto
-  const combined = Buffer.concat([ct, tag]);
+  const combined = new Uint8Array(ct.length + tag.length);
+  combined.set(ct, 0);
+  combined.set(tag, ct.length);
   const ck = await getCryptoKey(encryptionKey, "decrypt");
   const plainBuf = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, ck, combined);
   return JSON.parse(new TextDecoder().decode(plainBuf)) as StoredJob;
 }
 
-async function hmacSign(key: Buffer, payload: string): Promise<string> {
+async function hmacSign(key: Uint8Array, payload: string): Promise<string> {
   const ck = await crypto.subtle.importKey("raw", key, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   const sig = await crypto.subtle.sign("HMAC", ck, new TextEncoder().encode(payload));
   return b64uEncode(sig);
