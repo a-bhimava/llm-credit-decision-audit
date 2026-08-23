@@ -1,4 +1,4 @@
-import { FatalError } from "workflow";
+import { FatalError, fetch as workflowFetch } from "workflow";
 import { readAuditJob, updateAuditJob } from "@/lib/audit/secure-store";
 import { GeminiClient } from "@/lib/audit/providers/gemini";
 import { ModelRequest, ModelResponse, ModelClient } from "@/lib/audit/providers/client";
@@ -34,12 +34,12 @@ function makeWorkflowClient(modelId: string): ModelClient {
 async function markRunning(jobId: string) {
   "use step";
   console.info("audit workflow starting", { jobId });
-  await updateAuditJob(jobId, (job) => ({ ...job, progress: { ...job.progress, status: "running", message: "The audit runner is starting." } }));
+  await updateAuditJob(jobId, (job) => ({ ...job, progress: { ...job.progress, status: "running", message: "The audit runner is starting." } }), workflowFetch);
 }
 
 async function markComplete(jobId: string) {
   "use step";
-  await updateAuditJob(jobId, (job) => ({ ...job, progress: { ...job.progress, status: "completed", message: "Audit completed successfully." } }));
+  await updateAuditJob(jobId, (job) => ({ ...job, progress: { ...job.progress, status: "completed", message: "Audit completed successfully." } }), workflowFetch);
 }
 
 export async function auditRunWorkflow(jobId: string) {
@@ -48,7 +48,7 @@ export async function auditRunWorkflow(jobId: string) {
 
   const jobStep = async () => {
     "use step";
-    const job = await readAuditJob(jobId);
+    const job = await readAuditJob(jobId, workflowFetch);
     if (!job) throw new FatalError("Audit job not found or expired.");
     const applicant = buildApplicant(job.input);
     return { job, applicant };
@@ -56,70 +56,70 @@ export async function auditRunWorkflow(jobId: string) {
   const { job, applicant } = await jobStep();
 
   try {
-  const reserveStep = async () => {
-    "use step";
-    try {
-      const budget = new Budget(job.preflight);
-      await budget.reserveDailyBudget();
-    } catch (e: any) {
-      throw new FatalError(e.message || "Failed to reserve budget.");
-    }
-  };
-  await reserveStep();
-
-  const trial = {
-    episode_id: "test-episode-1",
-    applicant_id: applicant.applicant_id,
-    applicant_content_id: applicant.applicant_id,
-    arm_id: "baseline",
-    render_id: "json" as any,
-    trial_index: 0,
-    model_id: "gemini-2.5-flash-lite",
-    prompt_hash: "hash",
-    input_hash: "hash",
-    seed: 12345
-  };
-
-
-
-  const textStep = async () => {
-    "use step";
-    return JSON.stringify(buildApplicationPacket(applicant));
-  };
-  const applicationText = await textStep();
-
-  const episodeStep = async () => {
-    "use step";
-    // Create a fresh scoped client — never mutate a global.
-    const episodeClient = makeWorkflowClient(trial.model_id);
-    return await runEpisode(
-      trial,
-      applicant,
-      policy as any,
-      applicationText,
-      episodeClient,
-      "coded",
-      10
-    );
-  };
-  const trajectory = await episodeStep();
-
-  const saveStep = async () => {
-    "use step";
-    await updateAuditJob(jobId, (j) => ({
-      ...j,
-      progress: {
-        ...j.progress,
-        message: `Completed baseline trial`,
-        completedEpisodes: [...((j.progress as any).completedEpisodes || []), trajectory]
+    const reserveStep = async () => {
+      "use step";
+      try {
+        const budget = new Budget(job.preflight);
+        await budget.reserveDailyBudget();
+      } catch (e: any) {
+        throw new FatalError(e.message || "Failed to reserve budget.");
       }
-    }));
-  };
-  await saveStep();
+    };
+    await reserveStep();
 
-  await markComplete(jobId);
+    const trial = {
+      episode_id: "test-episode-1",
+      applicant_id: applicant.applicant_id,
+      applicant_content_id: applicant.applicant_id,
+      arm_id: "baseline",
+      render_id: "json" as any,
+      trial_index: 0,
+      model_id: "gemini-2.5-flash-lite",
+      prompt_hash: "hash",
+      input_hash: "hash",
+      seed: 12345
+    };
+
+    const textStep = async () => {
+      "use step";
+      await updateAuditJob(jobId, (j) => ({ ...j, progress: { ...j.progress, message: "Building application packet…" } }), workflowFetch);
+      return JSON.stringify(buildApplicationPacket(applicant));
+    };
+    const applicationText = await textStep();
+
+    const episodeStep = async () => {
+      "use step";
+      await updateAuditJob(jobId, (j) => ({ ...j, progress: { ...j.progress, message: "Running LLM evaluation episode…" } }), workflowFetch);
+      // Create a fresh scoped client — never mutate a global.
+      const episodeClient = makeWorkflowClient(trial.model_id);
+      return await runEpisode(
+        trial,
+        applicant,
+        policy as any,
+        applicationText,
+        episodeClient,
+        "coded",
+        10
+      );
+    };
+    const trajectory = await episodeStep();
+
+    const saveStep = async () => {
+      "use step";
+      await updateAuditJob(jobId, (j) => ({
+        ...j,
+        progress: {
+          ...j.progress,
+          message: `Completed baseline trial`,
+          completedEpisodes: [...((j.progress as any).completedEpisodes || []), trajectory]
+        }
+      }), workflowFetch);
+    };
+    await saveStep();
+
+    await markComplete(jobId);
   } catch (error: any) {
-    await updateAuditJob(jobId, (j) => ({ ...j, progress: { ...j.progress, status: "failed", message: error.message || "An error occurred during the audit workflow." } }));
+    await updateAuditJob(jobId, (j) => ({ ...j, progress: { ...j.progress, status: "failed", message: error.message || "An error occurred during the audit workflow." } }), workflowFetch);
     throw error;
   }
 }
