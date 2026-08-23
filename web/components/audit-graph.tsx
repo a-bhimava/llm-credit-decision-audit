@@ -27,10 +27,10 @@ interface StepNodeData extends Record<string, unknown> {
 
 // ── Status palette ─────────────────────────────────────────────────────────────
 const STATUS = {
-  idle:    { border: 'rgba(255,255,255,0.08)', glow: 'none',                              dot: '#3a3860', iconColor: '#3a3860', bgAccent: 'transparent' },
-  running: { border: 'rgba(130,245,255,0.65)', glow: '0 0 28px rgba(130,245,255,0.22)',   dot: '#82f5ff', iconColor: '#82f5ff', bgAccent: 'rgba(130,245,255,0.04)' },
-  done:    { border: 'rgba(74,222,128,0.55)',  glow: '0 0 20px rgba(74,222,128,0.18)',    dot: '#4ade80', iconColor: '#4ade80', bgAccent: 'rgba(74,222,128,0.04)'  },
-  error:   { border: 'rgba(248,113,113,0.55)', glow: '0 0 20px rgba(248,113,113,0.18)',   dot: '#f87171', iconColor: '#f87171', bgAccent: 'rgba(248,113,113,0.04)' },
+  idle:    { border: 'rgba(255,255,255,0.15)', glow: 'none',                              dot: '#6b6884', iconColor: '#8a88a8', bgAccent: 'rgba(255,255,255,0.04)', bgCard: 'rgba(22, 24, 45, 0.85)' },
+  running: { border: 'rgba(130,245,255,0.7)',  glow: '0 0 35px rgba(130,245,255,0.25)',   dot: '#82f5ff', iconColor: '#82f5ff', bgAccent: 'rgba(130,245,255,0.08)', bgCard: 'rgba(19, 29, 53, 0.95)' },
+  done:    { border: 'rgba(74,222,128,0.6)',   glow: '0 0 25px rgba(74,222,128,0.15)',    dot: '#4ade80', iconColor: '#4ade80', bgAccent: 'rgba(74,222,128,0.08)',  bgCard: 'rgba(19, 36, 33, 0.9)' },
+  error:   { border: 'rgba(248,113,113,0.6)',  glow: '0 0 25px rgba(248,113,113,0.15)',   dot: '#f87171', iconColor: '#f87171', bgAccent: 'rgba(248,113,113,0.08)', bgCard: 'rgba(45, 20, 24, 0.9)' },
 } as const;
 
 // ── Heroicons stroke paths (24×24 viewBox) ─────────────────────────────────────
@@ -51,53 +51,54 @@ function StepNode({ data, id }: NodeProps) {
 
   return (
     <div style={{
-      background: `linear-gradient(145deg, #13142a 0%, #151628 100%)`,
+      background: s.bgCard,
       border: `1px solid ${s.border}`,
-      borderRadius: 12,
-      boxShadow: s.glow !== 'none' ? s.glow : undefined,
-      padding: '14px 16px 12px',
-      width: 216,
+      borderRadius: 14,
+      boxShadow: s.glow !== 'none' ? s.glow : '0 4px 20px rgba(0,0,0,0.15)',
+      padding: '18px 22px 18px',
+      width: 290,
       fontFamily: 'var(--font-inter, Inter, system-ui, sans-serif)',
-      transition: 'border-color 0.5s ease, box-shadow 0.5s ease',
+      transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
       position: 'relative',
       overflow: 'hidden',
     }}>
       {/* Shimmer sweep on running */}
       {d.status === 'running' && (
         <div style={{
-          position: 'absolute', inset: 0, borderRadius: 12, pointerEvents: 'none',
+          position: 'absolute', inset: 0, borderRadius: 14, pointerEvents: 'none',
           background: 'linear-gradient(105deg, transparent 30%, rgba(130,245,255,0.07) 50%, transparent 70%)',
-          animation: 'shimmerSweep 2.6s ease-in-out infinite',
+          animation: 'shimmerSweep 2.2s ease-in-out infinite',
         }}/>
       )}
 
       <Handle type="target" position={Position.Left}
-        style={{ background: s.dot, border: 'none', width: 7, height: 7, opacity: 0.45 }}/>
+        style={{ background: s.dot, border: '2px solid #13142a', width: 12, height: 12, left: -6 }}/>
 
       {/* Icon badge + status indicator */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
         <div style={{
-          width: 30, height: 30, borderRadius: 8, flexShrink: 0,
-          background: d.status === 'idle' ? 'rgba(255,255,255,0.03)' : s.bgAccent,
-          border: `1px solid ${d.status === 'idle' ? 'rgba(255,255,255,0.07)' : s.border}`,
+          width: 44, height: 44, borderRadius: 10, flexShrink: 0,
+          background: s.bgAccent,
+          border: `1px solid ${d.status === 'idle' ? 'rgba(255,255,255,0.08)' : s.border}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: 'inset 0 2px 10px rgba(255,255,255,0.02)',
         }}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
             stroke={s.iconColor} strokeWidth="1.75"
             dangerouslySetInnerHTML={{ __html: iconPath }}/>
         </div>
 
         {/* Status badge */}
         {d.status === 'done' && (
-          <span style={{ color: '#4ade80', fontSize: 12, fontWeight: 700, lineHeight: 1 }}>✓</span>
+          <span style={{ color: '#4ade80', fontSize: 16, fontWeight: 700, lineHeight: 1 }}>✓</span>
         )}
         {d.status === 'error' && (
-          <span style={{ color: '#f87171', fontSize: 12, fontWeight: 700, lineHeight: 1 }}>✗</span>
+          <span style={{ color: '#f87171', fontSize: 16, fontWeight: 700, lineHeight: 1 }}>✗</span>
         )}
         {(d.status === 'idle' || d.status === 'running') && (
           <span style={{
-            width: 6, height: 6, borderRadius: '50%', background: s.dot, display: 'block', flexShrink: 0,
-            boxShadow: d.status === 'running' ? `0 0 5px ${s.dot}` : 'none',
+            width: 8, height: 8, borderRadius: '50%', background: s.dot, display: 'block', flexShrink: 0,
+            boxShadow: d.status === 'running' ? `0 0 8px ${s.dot}` : 'none',
             animation: d.status === 'running' ? 'statusPing 1.6s ease-in-out infinite' : 'none',
           }}/>
         )}
@@ -105,36 +106,36 @@ function StepNode({ data, id }: NodeProps) {
 
       {/* Label */}
       <div style={{
-        color: d.status === 'idle' ? '#5a5880' : '#f0eeff',
-        fontWeight: 600, fontSize: '0.8rem', letterSpacing: '-0.01em', lineHeight: 1.25, marginBottom: 3,
+        color: d.status === 'idle' ? '#b6b4d4' : '#ffffff',
+        fontWeight: 600, fontSize: '1rem', letterSpacing: '-0.02em', lineHeight: 1.25, marginBottom: 4,
       }}>
         {d.label}
       </div>
 
       {/* Subtitle */}
       <div style={{
-        color: d.status === 'idle' ? '#32305a' : '#6b6884',
-        fontSize: '0.66rem', fontWeight: 400, letterSpacing: 0, lineHeight: 1.4, marginBottom: 11,
+        color: d.status === 'idle' ? '#6b6884' : '#9ca3af',
+        fontSize: '0.78rem', fontWeight: 400, letterSpacing: 0, lineHeight: 1.4, marginBottom: 16,
       }}>
-        {d.status === 'running' ? 'Running…' : d.status === 'done' ? 'Completed' : d.sub}
+        {d.status === 'running' ? 'Running task in background…' : d.status === 'done' ? 'Completed successfully' : d.sub}
       </div>
 
       {/* Progress track */}
-      <div style={{ height: 2, background: 'rgba(255,255,255,0.05)', borderRadius: 2, overflow: 'hidden' }}>
+      <div style={{ height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden' }}>
         {d.status === 'running' && (
           <div style={{
-            height: '100%', width: '35%', borderRadius: 2,
-            background: `linear-gradient(90deg, transparent, ${s.dot} 50%, transparent)`,
-            animation: 'trackSlide 1.8s ease-in-out infinite',
+            height: '100%', width: '40%', borderRadius: 4,
+            background: `linear-gradient(90deg, transparent, ${s.dot} 70%, transparent)`,
+            animation: 'trackSlide 1.5s ease-in-out infinite',
           }}/>
         )}
         {d.status === 'done' && (
-          <div style={{ height: '100%', width: '100%', background: '#4ade80', borderRadius: 2 }}/>
+          <div style={{ height: '100%', width: '100%', background: '#4ade80', borderRadius: 4 }}/>
         )}
       </div>
 
       <Handle type="source" position={Position.Right}
-        style={{ background: s.dot, border: 'none', width: 7, height: 7, opacity: 0.45 }}/>
+        style={{ background: s.dot, border: '2px solid #13142a', width: 12, height: 12, right: -6 }}/>
     </div>
   );
 }
@@ -146,37 +147,37 @@ function ParticleEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, 
   return (
     <>
       {/* Glow halo */}
-      {active && <path d={path} fill="none" stroke="rgba(130,245,255,0.07)" strokeWidth={5}/>}
+      {active && <path d={path} fill="none" stroke="rgba(130,245,255,0.1)" strokeWidth={10}/>}
       {/* Base edge */}
       <BaseEdge id={id} path={path} style={{
-        stroke: active ? 'rgba(130,245,255,0.32)' : 'rgba(255,255,255,0.05)',
-        strokeWidth: active ? 1.5 : 1,
+        stroke: active ? 'rgba(130,245,255,0.6)' : 'rgba(255,255,255,0.15)',
+        strokeWidth: active ? 2.5 : 2,
         transition: 'stroke 0.6s ease, stroke-width 0.5s ease',
       }}/>
       {/* Particle 1 — lead */}
       {active && (
-        <circle r="3.5" fill="#82f5ff" style={{ filter: 'drop-shadow(0 0 4px #82f5ff)' }}>
-          <animateMotion dur="2.2s" repeatCount="indefinite" path={path}/>
+        <circle r="4.5" fill="#82f5ff" style={{ filter: 'drop-shadow(0 0 6px #82f5ff)' }}>
+          <animateMotion dur="2s" repeatCount="indefinite" path={path}/>
         </circle>
       )}
       {/* Particle 2 — trail */}
       {active && (
-        <circle r="2" fill="#82f5ff" opacity="0.4">
-          <animateMotion dur="2.2s" begin="-1.1s" repeatCount="indefinite" path={path}/>
+        <circle r="2.5" fill="#82f5ff" opacity="0.5">
+          <animateMotion dur="2s" begin="-1s" repeatCount="indefinite" path={path}/>
         </circle>
       )}
     </>
   );
 }
 
-// ── Graph topology ─────────────────────────────────────────────────────────────
+// ── Graph topology (Tighter, cleaner layout) ──────────────────────────────────
 const STEP_DEFS = [
-  { id: 'init',    label: 'Initialize',        sub: 'Workflow bootstrap',     x: 30,  y: 185 },
-  { id: 'budget',  label: 'Reserve Budget',     sub: 'Daily cap check',        x: 300, y: 70  },
-  { id: 'build',   label: 'Build Application',  sub: 'Packet serialization',   x: 300, y: 300 },
-  { id: 'episode', label: 'Run Episode',         sub: 'Gemini LLM evaluation',  x: 578, y: 185 },
-  { id: 'save',    label: 'Save Results',        sub: 'Trajectory write-back',  x: 858, y: 70  },
-  { id: 'done',    label: 'Complete',            sub: 'Audit finalized',        x: 858, y: 300 },
+  { id: 'init',    label: 'Initialize',        sub: 'Workflow bootstrap',     x: 50,   y: 200 },
+  { id: 'budget',  label: 'Reserve Budget',     sub: 'Daily cap check',        x: 420,  y: 80  },
+  { id: 'build',   label: 'Build Application',  sub: 'Packet serialization',   x: 420,  y: 320 },
+  { id: 'episode', label: 'Run Episode',         sub: 'Gemini LLM evaluation',  x: 790,  y: 200 },
+  { id: 'save',    label: 'Save Results',        sub: 'Trajectory write-back',  x: 1160, y: 200 },
+  { id: 'done',    label: 'Complete',            sub: 'Audit finalized',        x: 1530, y: 200 },
 ];
 
 const EDGE_DEFS = [
@@ -185,7 +186,6 @@ const EDGE_DEFS = [
   { source: 'budget',  target: 'episode' },
   { source: 'build',   target: 'episode' },
   { source: 'episode', target: 'save'    },
-  { source: 'episode', target: 'done'    },
   { source: 'save',    target: 'done'    },
 ];
 
@@ -220,7 +220,7 @@ function buildEdges(nodes: ReturnType<typeof buildNodes>) {
   return EDGE_DEFS.map((e, i) => {
     const src = nodes.find((n) => n.id === e.source);
     const active = src?.data.status === 'done' || src?.data.status === 'running';
-    return { id: `e-${i}`, source: e.source, target: e.target, type: 'particleEdge', data: { active } };
+    return { id: `e-\${i}`, source: e.source, target: e.target, type: 'particleEdge', data: { active } };
   });
 }
 
@@ -242,17 +242,18 @@ export function AuditGraph({ liveProgress, isDone }: { liveProgress: string; isD
   return (
     <div style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}>
       <style>{`
-        @keyframes statusPing   { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.15;transform:scale(2.2)} }
+        @keyframes statusPing   { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.25;transform:scale(2.5)} }
         @keyframes shimmerSweep { 0%{transform:translateX(-120%)} 100%{transform:translateX(120%)} }
-        @keyframes trackSlide   { 0%{transform:translateX(-250%)} 100%{transform:translateX(500%)} }
+        @keyframes trackSlide   { 0%{transform:translateX(-200%)} 100%{transform:translateX(350%)} }
         .react-flow__attribution { display:none !important; }
-        .react-flow__handle { opacity:0 !important; }
+        /* Override default handles to show custom ones clearly */
+        .react-flow__handle { opacity: 1 !important; }
       `}</style>
       <ReactFlow
         nodes={nodes} edges={edges}
         nodeTypes={nodeTypes} edgeTypes={edgeTypes}
         onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
-        fitView fitViewOptions={{ padding: 0.1, minZoom: 0.4, maxZoom: 1 }}
+        fitView fitViewOptions={{ padding: 0.15, minZoom: 0.3, maxZoom: 1.2 }}
         nodesDraggable={true} nodesConnectable={false}
         elementsSelectable={true} panOnDrag={true}
         zoomOnScroll={true} zoomOnPinch={true} zoomOnDoubleClick={true}
@@ -260,7 +261,7 @@ export function AuditGraph({ liveProgress, isDone }: { liveProgress: string; isD
         proOptions={{ hideAttribution: true }}
         style={{ background: 'transparent' }}
       >
-        <Background variant={BackgroundVariant.Dots} gap={30} size={1} color="rgba(130,245,255,0.05)"/>
+        <Background variant={BackgroundVariant.Dots} gap={40} size={1.5} color="rgba(130,245,255,0.08)"/>
       </ReactFlow>
     </div>
   );
