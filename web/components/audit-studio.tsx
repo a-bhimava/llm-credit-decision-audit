@@ -63,20 +63,52 @@ export function AuditStudio() {
   const currentStep = steps.indexOf(step);
   useEffect(() => {
     if (submission === "launched" && jobId && !isDone) {
+      console.group("%c🔍 Audit Poller Started", "color:#82f5ff;font-weight:bold;font-size:14px");
+      console.log("Job ID:", jobId);
+      console.groupEnd();
+
+      let pollCount = 0;
       const interval = setInterval(async () => {
+        pollCount++;
         try {
+          const t0 = performance.now();
           const res = await fetch(`/api/audits/${jobId}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.progress && data.progress.message) {
-              setLiveProgress(data.progress.message);
-            }
-            if (data.progress && (data.progress.status === "complete" || data.progress.status === "failed")) {
-              setIsDone(true);
-              clearInterval(interval);
-            }
+          const latency = Math.round(performance.now() - t0);
+
+          if (!res.ok) {
+            console.warn(`%c⛔ Poll #${pollCount} HTTP ${res.status} (${latency}ms)`, "color:#f87171");
+            return;
           }
-        } catch (e) {}
+
+          const data = await res.json();
+          const status = data?.progress?.status ?? "MISSING";
+          const message = data?.progress?.message ?? "(no message)";
+          const workflowRunId = data?.workflowRunId ?? "(none)";
+
+          const color = status === "running" ? "#82f5ff" : status === "completed" || status === "complete" ? "#4ade80" : status === "failed" ? "#f87171" : "#a0a0b8";
+          console.group(`%c📡 Poll #${pollCount} — status: ${status} (${latency}ms)`, `color:${color};font-weight:600`);
+          console.log("message   :", message);
+          console.log("status    :", status);
+          console.log("workflowId:", workflowRunId);
+          console.log("raw data  :", data);
+          console.groupEnd();
+
+          if (data.progress && data.progress.message) {
+            setLiveProgress(data.progress.message);
+          }
+          // FIX: workflow sets "completed" but old check was "complete" — support both
+          if (data.progress && (
+            data.progress.status === "completed" ||
+            data.progress.status === "complete" ||
+            data.progress.status === "failed"
+          )) {
+            console.log(`%c✅ Workflow terminal state: ${status}`, "color:#4ade80;font-weight:bold;font-size:13px");
+            setIsDone(true);
+            clearInterval(interval);
+          }
+        } catch (e) {
+          console.error(`%c💥 Poll #${pollCount} threw an exception:`, "color:#f87171", e);
+        }
       }, 2000);
       return () => clearInterval(interval);
     }
