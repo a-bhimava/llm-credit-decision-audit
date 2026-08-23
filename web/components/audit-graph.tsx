@@ -252,10 +252,10 @@ export function AuditGraph({ liveProgress, isDone }: { liveProgress: string; isD
         nodes={nodes} edges={edges}
         nodeTypes={nodeTypes} edgeTypes={edgeTypes}
         onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
-        fitView fitViewOptions={{ padding: 0.2 }}
-        nodesDraggable={false} nodesConnectable={false}
-        elementsSelectable={false} panOnDrag={false}
-        zoomOnScroll={false} zoomOnPinch={false} zoomOnDoubleClick={false}
+        fitView fitViewOptions={{ padding: 0.1, minZoom: 0.4, maxZoom: 1 }}
+        nodesDraggable={true} nodesConnectable={false}
+        elementsSelectable={true} panOnDrag={true}
+        zoomOnScroll={true} zoomOnPinch={true} zoomOnDoubleClick={true}
         preventScrolling={false}
         proOptions={{ hideAttribution: true }}
         style={{ background: 'transparent' }}
