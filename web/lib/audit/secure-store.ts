@@ -3,7 +3,7 @@
 // in workflow step functions — no node:crypto at module root.
 
 import type { AuditIntake, AuditJobView, AuditPreflight, AuditProgress } from "@/lib/audit/contracts";
-import { redis } from "@/lib/audit/redis";
+import { createRedis, type FetchFn } from "@/lib/audit/redis";
 import { getRuntimeConfiguration, secureEqual } from "@/lib/audit/runtime";
 
 const TTL_SECONDS = 60 * 60;
@@ -89,27 +89,48 @@ export async function validSessionToken(id: string, expiresAt: string, supplied:
   return secureEqual(expected, supplied);
 }
 
-export async function createAuditJob(input: AuditIntake, preflight: AuditPreflight): Promise<{ job: AuditJobView; sessionToken: string }> {
+/**
+ * All exported store functions accept an optional `fetchFn`.
+ * - API routes omit it → defaults to globalThis.fetch (always available there).
+ * - Workflow step functions pass `import { fetch } from "workflow"` → the
+ *   workflow-safe fetch that is allowed inside "use step" / "use workflow" contexts.
+ */
+
+export async function createAuditJob(
+  input: AuditIntake,
+  preflight: AuditPreflight,
+  fetchFn: FetchFn = globalThis.fetch,
+): Promise<{ job: AuditJobView; sessionToken: string }> {
+  const r = createRedis(fetchFn);
   const id = crypto.randomUUID();
   const createdAt = new Date().toISOString();
   const expiresAt = new Date(Date.now() + TTL_SECONDS * 1_000).toISOString();
   const progress: AuditProgress = { status: "queued", completedEpisodes: 0, plannedEpisodesUpper: preflight.plannedEpisodesUpper, spentUsd: 0, message: "Accepted for planning." };
   const stored: StoredJob = { id, input, preflight, createdAt, expiresAt, progress };
-  await redis.set(key(id), await seal(stored), TTL_SECONDS);
+  await r.set(key(id), await seal(stored), TTL_SECONDS);
   return { job: toView(stored), sessionToken: await token(id, expiresAt) };
 }
 
-export async function readAuditJob(id: string): Promise<StoredJob | null> {
-  const encrypted = await redis.get(key(id));
+export async function readAuditJob(
+  id: string,
+  fetchFn: FetchFn = globalThis.fetch,
+): Promise<StoredJob | null> {
+  const r = createRedis(fetchFn);
+  const encrypted = await r.get(key(id));
   return encrypted ? open(encrypted) : null;
 }
 
-export async function updateAuditJob(id: string, update: (current: StoredJob) => StoredJob): Promise<StoredJob> {
-  const current = await readAuditJob(id);
+export async function updateAuditJob(
+  id: string,
+  update: (current: StoredJob) => StoredJob,
+  fetchFn: FetchFn = globalThis.fetch,
+): Promise<StoredJob> {
+  const r = createRedis(fetchFn);
+  const current = await readAuditJob(id, fetchFn);
   if (!current) throw new Error("Audit session expired.");
   const remaining = Math.max(1, Math.ceil((new Date(current.expiresAt).getTime() - Date.now()) / 1_000));
   const next = update(current);
-  await redis.set(key(id), await seal(next), remaining);
+  await r.set(key(id), await seal(next), remaining);
   return next;
 }
 
@@ -126,11 +147,12 @@ redis.call('INCRBYFLOAT', KEYS[1], amount)
 redis.call('EXPIRE', KEYS[1], ARGV[3])
 return 1`;
 
-/** Atomic daily reservation. Actual settlement/release will be part of the runner port. */
+/** Atomic daily reservation. API-route only — uses globalThis.fetch. */
 export async function reserveDailySpend(upperUsd: number, capUsd: number): Promise<boolean> {
+  const r = createRedis(globalThis.fetch);
   const day = new Date().toISOString().slice(0, 10);
   const now = new Date();
   const tomorrow = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
   const ttl = Math.max(60, Math.ceil((tomorrow - now.getTime()) / 1_000));
-  return (await redis.eval<number>(RESERVE_DAILY_SPEND, [`${DAILY_PREFIX}${day}`], [upperUsd, capUsd, ttl])) === 1;
+  return (await r.eval<number>(RESERVE_DAILY_SPEND, [`${DAILY_PREFIX}${day}`], [upperUsd, capUsd, ttl])) === 1;
 }
