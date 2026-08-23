@@ -221,7 +221,7 @@ td { font-size: 0.86rem; }
 .railLimits strong { display: block; margin: .45rem 0; font: 600 1.2rem var(--sans); letter-spacing: -0.02em; }
 .railLimits p { line-height: 1.5; font-size: 0.72rem; }
 
-.studioConversation { min-height: 100vh; display: grid; grid-template-rows: 60px 1fr 80px; }
+.studioConversation { min-height: 100vh; display: grid; grid-template-rows: 60px 1fr 80px; position: relative; }
 .studioTopbar { border-bottom: 1px solid var(--line-dark); display: flex; padding: 0 clamp(1rem, 4vw, 4rem); align-items: center; justify-content: space-between; color: var(--dim); font: 0.78rem var(--sans); }
 .studioTopbar a { color: var(--ink-light); text-decoration: none; font-weight: 500; }
 .conversationBody { padding: clamp(2.5rem, 6vw, 6rem) clamp(1rem, 8vw, 10rem); max-width: 1200px; width: 100%; }
