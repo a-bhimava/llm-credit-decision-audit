@@ -106,8 +106,8 @@ export function buildApplicationPacket(applicant: Applicant): ApplicationPacket 
     credit_file: Object.freeze({
       credit_score: applicant.facts.credit_score,
       tradelines: Object.freeze({
-        open_count: applicant.facts.open_tradelines,
-        oldest_age_months: applicant.facts.oldest_tradeline_months,
+        open_count: (applicant.facts.open_tradelines ?? 0),
+        oldest_age_months: (applicant.facts.oldest_tradeline_months ?? 120),
       }),
       revolving: Object.freeze({
         balance_cents: applicant.facts.revolving_balance_cents,
@@ -120,7 +120,7 @@ export function buildApplicationPacket(applicant: Applicant): ApplicationPacket 
         days_90_plus_24mo: applicant.facts.delinq_90p_24m,
       }),
       inquiries_6m: applicant.facts.inquiries_6m,
-      public_records: Object.freeze(applicant.facts.public_records.map(r => Object.freeze({
+      public_records: Object.freeze((applicant.facts.public_records ?? []).map(r => Object.freeze({
         kind: r.kind,
         months_ago: r.months_ago,
         amount_cents: r.amount_cents,

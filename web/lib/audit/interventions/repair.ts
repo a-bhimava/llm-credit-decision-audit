@@ -89,7 +89,7 @@ function repairFlagSet(ruleEval: RuleEvaluation): Partial<InternalFinancialFacts
 
 function repairRecordRemove(facts: InternalFinancialFacts, ruleEval: RuleEvaluation): Partial<InternalFinancialFacts> {
   const removeKinds = new Set(ruleEval.repair.params.remove_kinds);
-  const kept = facts.public_records.filter(r => !removeKinds.has(r.kind));
+  const kept = (facts.public_records ?? []).filter(r => !removeKinds.has(r.kind));
   return { public_records: Object.freeze(kept) };
 }
 
@@ -157,7 +157,7 @@ export function repairCode(
 
   if (removeKinds.size > 0) {
     updates["public_records"] = Object.freeze(
-      facts.public_records.filter(r => !removeKinds.has(r.kind))
+      (facts.public_records ?? []).filter(r => !removeKinds.has(r.kind))
     );
   }
 

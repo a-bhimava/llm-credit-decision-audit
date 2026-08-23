@@ -78,15 +78,15 @@ function _fetchCreditReport(state: CreditEnvState, args: any): [ToolResult, Cred
   const facts = state.applicant.facts;
   const data = {
     credit_score: facts.credit_score,
-    open_tradelines: facts.open_tradelines,
+    open_tradelines: facts.open_tradelines ?? 0,
     revolving_balance_cents: facts.revolving_balance_cents,
     revolving_limit_cents: facts.revolving_limit_cents,
     utilization: (facts as any).utilization.toString(),
     delinq_30d_24m: facts.delinq_30d_24m,
     delinq_60d_24m: facts.delinq_60d_24m,
     delinq_90p_24m: facts.delinq_90p_24m,
-    public_records: facts.public_records.map(r => ({ kind: r.kind, months_ago: r.months_ago, amount_cents: r.amount_cents })),
-    oldest_tradeline_months: facts.oldest_tradeline_months,
+    public_records: (facts.public_records ?? []).map(r => ({ kind: r.kind, months_ago: r.months_ago, amount_cents: r.amount_cents })),
+    oldest_tradeline_months: facts.oldest_tradeline_months ?? 120,
     inquiries_6m: facts.inquiries_6m
   };
   return [{ data, ok: true }, { ...state, credit_report_pulled: true }];
