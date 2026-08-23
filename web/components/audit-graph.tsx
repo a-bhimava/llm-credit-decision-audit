@@ -10,10 +10,11 @@ import {
   getBezierPath,
   useNodesState,
   useEdgesState,
+  useReactFlow,
 } from '@xyflow/react';
 import type { EdgeProps, NodeProps } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type NodeStatus = 'idle' | 'running' | 'done' | 'error';
@@ -33,7 +34,7 @@ const STATUS = {
   error:   { border: 'rgba(248,113,113,0.6)',  glow: '0 0 25px rgba(248,113,113,0.15)',   dot: '#f87171', iconColor: '#f87171', bgAccent: 'rgba(248,113,113,0.08)', bgCard: 'rgba(45, 20, 24, 0.9)' },
 } as const;
 
-// ── Heroicons stroke paths (24×24 viewBox) ─────────────────────────────────────
+// ── Heroicons stroke paths ─────────────────────────────────────────────────────
 const SVG_PATHS: Record<string, string> = {
   init:    `<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/>`,
   budget:  `<path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/>`,
@@ -48,6 +49,11 @@ function StepNode({ data, id }: NodeProps) {
   const d = data as StepNodeData;
   const s = STATUS[d.status];
   const iconPath = SVG_PATHS[id as string] ?? SVG_PATHS.done;
+  
+  // Dynamic handles based on layout metadata (default left/right for horizontal)
+  const isVertical = Boolean(d.vertical);
+  const srcPos = isVertical ? Position.Bottom : Position.Right;
+  const tgtPos = isVertical ? Position.Top : Position.Left;
 
   return (
     <div style={{
@@ -62,7 +68,6 @@ function StepNode({ data, id }: NodeProps) {
       position: 'relative',
       overflow: 'hidden',
     }}>
-      {/* Shimmer sweep on running */}
       {d.status === 'running' && (
         <div style={{
           position: 'absolute', inset: 0, borderRadius: 14, pointerEvents: 'none',
@@ -71,10 +76,11 @@ function StepNode({ data, id }: NodeProps) {
         }}/>
       )}
 
-      <Handle type="target" position={Position.Left}
-        style={{ background: s.dot, border: '2px solid #13142a', width: 12, height: 12, left: -6 }}/>
+      {id !== 'init' && (
+        <Handle type="target" position={tgtPos}
+          style={{ background: s.dot, border: '2px solid #13142a', width: 12, height: 12, [isVertical ? 'top' : 'left']: -6 }}/>
+      )}
 
-      {/* Icon badge + status indicator */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
         <div style={{
           width: 44, height: 44, borderRadius: 10, flexShrink: 0,
@@ -88,13 +94,8 @@ function StepNode({ data, id }: NodeProps) {
             dangerouslySetInnerHTML={{ __html: iconPath }}/>
         </div>
 
-        {/* Status badge */}
-        {d.status === 'done' && (
-          <span style={{ color: '#4ade80', fontSize: 16, fontWeight: 700, lineHeight: 1 }}>✓</span>
-        )}
-        {d.status === 'error' && (
-          <span style={{ color: '#f87171', fontSize: 16, fontWeight: 700, lineHeight: 1 }}>✗</span>
-        )}
+        {d.status === 'done' && <span style={{ color: '#4ade80', fontSize: 16, fontWeight: 700, lineHeight: 1 }}>✓</span>}
+        {d.status === 'error' && <span style={{ color: '#f87171', fontSize: 16, fontWeight: 700, lineHeight: 1 }}>✗</span>}
         {(d.status === 'idle' || d.status === 'running') && (
           <span style={{
             width: 8, height: 8, borderRadius: '50%', background: s.dot, display: 'block', flexShrink: 0,
@@ -104,23 +105,14 @@ function StepNode({ data, id }: NodeProps) {
         )}
       </div>
 
-      {/* Label */}
-      <div style={{
-        color: d.status === 'idle' ? '#b6b4d4' : '#ffffff',
-        fontWeight: 600, fontSize: '1rem', letterSpacing: '-0.02em', lineHeight: 1.25, marginBottom: 4,
-      }}>
+      <div style={{ color: d.status === 'idle' ? '#b6b4d4' : '#ffffff', fontWeight: 600, fontSize: '1rem', letterSpacing: '-0.02em', lineHeight: 1.25, marginBottom: 4 }}>
         {d.label}
       </div>
 
-      {/* Subtitle */}
-      <div style={{
-        color: d.status === 'idle' ? '#6b6884' : '#9ca3af',
-        fontSize: '0.78rem', fontWeight: 400, letterSpacing: 0, lineHeight: 1.4, marginBottom: 16,
-      }}>
+      <div style={{ color: d.status === 'idle' ? '#6b6884' : '#9ca3af', fontSize: '0.78rem', fontWeight: 400, letterSpacing: 0, lineHeight: 1.4, marginBottom: 16 }}>
         {d.status === 'running' ? 'Running task in background…' : d.status === 'done' ? 'Completed successfully' : d.sub}
       </div>
 
-      {/* Progress track */}
       <div style={{ height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden' }}>
         {d.status === 'running' && (
           <div style={{
@@ -129,38 +121,39 @@ function StepNode({ data, id }: NodeProps) {
             animation: 'trackSlide 1.5s ease-in-out infinite',
           }}/>
         )}
-        {d.status === 'done' && (
-          <div style={{ height: '100%', width: '100%', background: '#4ade80', borderRadius: 4 }}/>
-        )}
+        {d.status === 'done' && <div style={{ height: '100%', width: '100%', background: '#4ade80', borderRadius: 4 }}/>}
       </div>
 
-      <Handle type="source" position={Position.Right}
-        style={{ background: s.dot, border: '2px solid #13142a', width: 12, height: 12, right: -6 }}/>
+      {id !== 'done' && (
+        <Handle type="source" position={srcPos}
+          style={{ background: s.dot, border: '2px solid #13142a', width: 12, height: 12, [isVertical ? 'bottom' : 'right']: -6 }}/>
+      )}
     </div>
   );
 }
 
 // ── Custom Particle Edge ───────────────────────────────────────────────────────
 function ParticleEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data }: EdgeProps) {
-  const [path] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
+  // CRITICAL FIX: Ensure positions are never undefined so getBezierPath does not crash.
+  const [path] = getBezierPath({
+    sourceX, sourceY, sourcePosition: sourcePosition ?? Position.Right,
+    targetX, targetY, targetPosition: targetPosition ?? Position.Left
+  });
+  
   const active = Boolean((data as Record<string, unknown>)?.active);
   return (
     <>
-      {/* Glow halo */}
       {active && <path d={path} fill="none" stroke="rgba(130,245,255,0.1)" strokeWidth={10}/>}
-      {/* Base edge */}
       <BaseEdge id={id} path={path} style={{
         stroke: active ? 'rgba(130,245,255,0.6)' : 'rgba(255,255,255,0.15)',
         strokeWidth: active ? 2.5 : 2,
         transition: 'stroke 0.6s ease, stroke-width 0.5s ease',
       }}/>
-      {/* Particle 1 — lead */}
       {active && (
         <circle r="4.5" fill="#82f5ff" style={{ filter: 'drop-shadow(0 0 6px #82f5ff)' }}>
           <animateMotion dur="2s" repeatCount="indefinite" path={path}/>
         </circle>
       )}
-      {/* Particle 2 — trail */}
       {active && (
         <circle r="2.5" fill="#82f5ff" opacity="0.5">
           <animateMotion dur="2s" begin="-1s" repeatCount="indefinite" path={path}/>
@@ -170,14 +163,14 @@ function ParticleEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, 
   );
 }
 
-// ── Graph topology (Tighter, cleaner layout) ──────────────────────────────────
-const STEP_DEFS = [
-  { id: 'init',    label: 'Initialize',        sub: 'Workflow bootstrap',     x: 50,   y: 200 },
-  { id: 'budget',  label: 'Reserve Budget',     sub: 'Daily cap check',        x: 420,  y: 80  },
-  { id: 'build',   label: 'Build Application',  sub: 'Packet serialization',   x: 420,  y: 320 },
-  { id: 'episode', label: 'Run Episode',         sub: 'Gemini LLM evaluation',  x: 790,  y: 200 },
-  { id: 'save',    label: 'Save Results',        sub: 'Trajectory write-back',  x: 1160, y: 200 },
-  { id: 'done',    label: 'Complete',            sub: 'Audit finalized',        x: 1530, y: 200 },
+// ── Responsive Layout Logic ───────────────────────────────────────────────────
+const NODES_DATA = [
+  { id: 'init',    label: 'Initialize',        sub: 'Workflow bootstrap'    },
+  { id: 'budget',  label: 'Reserve Budget',     sub: 'Daily cap check'       },
+  { id: 'build',   label: 'Build Application',  sub: 'Packet serialization'  },
+  { id: 'episode', label: 'Run Episode',         sub: 'Gemini LLM evaluation' },
+  { id: 'save',    label: 'Save Results',        sub: 'Trajectory write-back' },
+  { id: 'done',    label: 'Complete',            sub: 'Audit finalized'       },
 ];
 
 const EDGE_DEFS = [
@@ -189,55 +182,93 @@ const EDGE_DEFS = [
   { source: 'save',    target: 'done'    },
 ];
 
-// ── Progress string → active node ─────────────────────────────────────────────
 function progressToActiveId(msg: string): string {
   const m = msg.toLowerCase();
-  if (m.includes('audit completed') || m.includes('completed successfully') || m.includes('success'))  return 'done';
-  if (m.includes('completed baseline') || m.includes('baseline trial') || m.includes('saving'))        return 'save';
-  if (m.includes('episode') || m.includes('trial') || m.includes('evaluat') || m.includes('gemini'))  return 'episode';
-  if (m.includes('packet') || m.includes('build') || m.includes('application'))                        return 'build';
-  if (m.includes('budget') || m.includes('reserv') || m.includes('daily') || m.includes('cap'))       return 'budget';
+  if (m.includes('audit completed') || m.includes('success')) return 'done';
+  if (m.includes('completed baseline') || m.includes('saving')) return 'save';
+  if (m.includes('episode') || m.includes('evaluat') || m.includes('gemini')) return 'episode';
+  if (m.includes('packet') || m.includes('build')) return 'build';
+  if (m.includes('budget') || m.includes('cap')) return 'budget';
   return 'init';
 }
 
-function buildNodes(liveProgress: string, isDone: boolean) {
-  const activeId = progressToActiveId(liveProgress);
-  const activeIdx = STEP_DEFS.findIndex((s) => s.id === activeId);
-  return STEP_DEFS.map((d, idx) => {
+function computeLayout(isVertical: boolean, activeId: string, isDone: boolean) {
+  const activeIdx = NODES_DATA.findIndex(n => n.id === activeId);
+  
+  return NODES_DATA.map((d, idx) => {
     let status: NodeStatus = 'idle';
-    if (isDone)                                 { status = 'done'; }
-    else if (d.id === activeId)                 { status = 'running'; }
-    else if (activeIdx > -1 && idx < activeIdx) { status = 'done'; }
+    if (isDone) status = 'done';
+    else if (d.id === activeId) status = 'running';
+    else if (activeIdx > -1 && idx < activeIdx) status = 'done';
+
+    let x = 0, y = 0;
+    
+    if (isVertical) {
+      // Vertical flow for narrow screens
+      x = d.id === 'budget' ? -160 : d.id === 'build' ? 160 : 0;
+      if (d.id === 'init') y = 50;
+      else if (d.id === 'budget' || d.id === 'build') y = 250;
+      else if (d.id === 'episode') y = 450;
+      else if (d.id === 'save') y = 650;
+      else if (d.id === 'done') y = 850;
+    } else {
+      // Horizontal flow for wide screens
+      y = d.id === 'budget' ? 50 : d.id === 'build' ? 250 : 150;
+      if (d.id === 'init') x = 50;
+      else if (d.id === 'budget' || d.id === 'build') x = 420;
+      else if (d.id === 'episode') x = 790;
+      else if (d.id === 'save') x = 1160;
+      else if (d.id === 'done') x = 1530;
+    }
+
     return {
       id: d.id, type: 'stepNode',
-      position: { x: d.x, y: d.y },
-      data: { label: d.label, sub: d.sub, icon: d.id, status } as StepNodeData,
+      position: { x, y },
+      data: { ...d, status, vertical: isVertical } as StepNodeData,
+      sourcePosition: isVertical ? Position.Bottom : Position.Right,
+      targetPosition: isVertical ? Position.Top : Position.Left,
     };
   });
 }
 
-function buildEdges(nodes: ReturnType<typeof buildNodes>) {
+function computeEdges(nodes: any[]) {
   return EDGE_DEFS.map((e, i) => {
-    const src = nodes.find((n) => n.id === e.source);
+    const src = nodes.find(n => n.id === e.source);
     const active = src?.data.status === 'done' || src?.data.status === 'running';
     return { id: `e-\${i}`, source: e.source, target: e.target, type: 'particleEdge', data: { active } };
   });
 }
 
-// ── Main export ────────────────────────────────────────────────────────────────
+// ── Wrapper to safely use useReactFlow for centering ──────────────────────────
+function FlowResizer({ nodes }: { nodes: any[] }) {
+  const { fitView } = useReactFlow();
+  useEffect(() => {
+    // Slight delay to ensure DOM is painted
+    const t = setTimeout(() => {
+      fitView({ padding: 0.2, minZoom: 0.6, maxZoom: 1, duration: 800 });
+    }, 50);
+    return () => clearTimeout(t);
+  }, [nodes, fitView]);
+  return null;
+}
+
 export function AuditGraph({ liveProgress, isDone }: { liveProgress: string; isDone: boolean }) {
   const nodeTypes = useMemo(() => ({ stepNode: StepNode }), []);
   const edgeTypes = useMemo(() => ({ particleEdge: ParticleEdge }), []);
-
-  const [nodes, setNodes, onNodesChange] = useNodesState(buildNodes(liveProgress, isDone));
-  const [edges, setEdges, onEdgesChange] = useEdgesState(buildEdges(buildNodes(liveProgress, isDone)));
-
+  
+  const [isVertical, setIsVertical] = useState(false);
+  const activeId = progressToActiveId(liveProgress);
+  
+  // Responsive resize listener
   useEffect(() => {
-    const n = buildNodes(liveProgress, isDone);
-    setNodes(n);
-    setEdges(buildEdges(n));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveProgress, isDone]);
+    const handleResize = () => setIsVertical(window.innerWidth < 1100);
+    handleResize(); // Initial check
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const initialNodes = useMemo(() => computeLayout(isVertical, activeId, isDone), [isVertical, activeId, isDone]);
+  const initialEdges = useMemo(() => computeEdges(initialNodes), [initialNodes]);
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}>
@@ -246,14 +277,11 @@ export function AuditGraph({ liveProgress, isDone }: { liveProgress: string; isD
         @keyframes shimmerSweep { 0%{transform:translateX(-120%)} 100%{transform:translateX(120%)} }
         @keyframes trackSlide   { 0%{transform:translateX(-200%)} 100%{transform:translateX(350%)} }
         .react-flow__attribution { display:none !important; }
-        /* Override default handles to show custom ones clearly */
         .react-flow__handle { opacity: 1 !important; }
       `}</style>
       <ReactFlow
-        nodes={nodes} edges={edges}
+        nodes={initialNodes} edges={initialEdges}
         nodeTypes={nodeTypes} edgeTypes={edgeTypes}
-        onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
-        fitView fitViewOptions={{ padding: 0.15, minZoom: 0.3, maxZoom: 1.2 }}
         nodesDraggable={true} nodesConnectable={false}
         elementsSelectable={true} panOnDrag={true}
         zoomOnScroll={true} zoomOnPinch={true} zoomOnDoubleClick={true}
@@ -261,6 +289,7 @@ export function AuditGraph({ liveProgress, isDone }: { liveProgress: string; isD
         proOptions={{ hideAttribution: true }}
         style={{ background: 'transparent' }}
       >
+        <FlowResizer nodes={initialNodes} />
         <Background variant={BackgroundVariant.Dots} gap={40} size={1.5} color="rgba(130,245,255,0.08)"/>
       </ReactFlow>
     </div>
