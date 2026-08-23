@@ -13,22 +13,26 @@ export type FinancialFacts = Readonly<{
   annual_income_cents: number;
   monthly_debt_cents: number;
   loan_amount_cents: number;
-  property_value_cents: number;
+  /** Synthesized by the intake validator — never sent by the frontend. */
+  property_value_cents?: number;
   loan_term_months: number;
-  
+
   credit_score: number;
-  open_tradelines: number;
+  /** Synthesized by the intake validator — never sent by the frontend. */
+  open_tradelines?: number;
   revolving_balance_cents: number;
   revolving_limit_cents: number;
-  
+
   delinq_30d_24m: number;
   delinq_60d_24m: number;
   delinq_90p_24m: number;
-  public_records: readonly PublicRecord[];
-  
-  oldest_tradeline_months: number;
+  /** Synthesized by the intake validator — never sent by the frontend. */
+  public_records?: readonly PublicRecord[];
+
+  /** Synthesized by the intake validator — never sent by the frontend. */
+  oldest_tradeline_months?: number;
   inquiries_6m: number;
-  
+
   employment_months: number;
   employment_status: EmploymentStatus;
   income_documented: boolean;

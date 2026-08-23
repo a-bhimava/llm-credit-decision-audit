@@ -97,11 +97,6 @@ export function AuditStudio() {
         public_record_kind: facts.publicRecordKind, public_record_months_ago: facts.publicRecordMonthsAgo,
         inquiries_6m: facts.inquiries, employment_months: facts.employmentMonths, employment_status: facts.employmentStatus,
         income_documented: facts.incomeDocumented,
-        // Required fields with fictional defaults
-        property_value_cents: 0,
-        open_tradelines: 5,
-        public_records: [],
-        oldest_tradeline_months: 60,
       },
     };
   }, [facts]);

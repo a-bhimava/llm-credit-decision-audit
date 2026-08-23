@@ -48,7 +48,7 @@ function readAccessor(applicant: Applicant, acc: any): any {
     }
     if (acc.name === "delinq_minor_count_24m") return applicant.facts.delinq_30d_24m + applicant.facts.delinq_60d_24m;
     if (acc.name === "months_since_public_record") {
-      const records = applicant.facts.public_records.filter(r => acc.params.kinds.includes(r.kind) && r.amount_cents >= parseInt(acc.params.min_amount_cents, 10));
+      const records = ( applicant.facts.public_records ?? []).filter(r => acc.params.kinds.includes(r.kind) && r.amount_cents >= parseInt(acc.params.min_amount_cents, 10));
       if (records.length === 0) return 1200;
       return Math.min(...records.map(r => r.months_ago));
     }
