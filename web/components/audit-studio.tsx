@@ -207,78 +207,175 @@ export function AuditStudio() {
         )}
         
         {submission === "launched" && isDone && result && (
-          <div style={{ width: "100%", height: "100%", background: "#ffffff", display: "flex", flexDirection: "row", animation: "fadeIn 0.5s ease" }}>
+          <div style={{ width: "100%", height: "100%", background: "#ffffff", display: "flex", flexDirection: "column", animation: "fadeIn 0.5s ease", overflowY: "auto" }}>
             <style>{`
               @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+              .dashboard-header { background: #0F172A; color: #ffffff; padding: 3rem 4rem; display: flex; justify-content: space-between; align-items: flex-end; }
+              .dashboard-content { display: flex; flex: 1; }
+              .main-pane { flex: 0 0 65%; padding: 4rem; border-right: 1px solid #E2E8F0; display: flex; flex-direction: column; gap: 3rem; }
+              .side-pane { flex: 1; padding: 4rem 2.5rem; background: #F8FAFC; display: flex; flex-direction: column; gap: 2.5rem; }
+              .metric-card { background: #ffffff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+              .bar-bg { width: 100%; height: 8px; background: #E2E8F0; border-radius: 4px; overflow: hidden; margin-top: 0.75rem; }
+              .bar-fill { height: 100%; border-radius: 4px; transition: width 1s ease-out; }
             `}</style>
-            {/* Left Pane: Primary Metrics */}
-            <div style={{ flex: "0 0 65%", padding: "4rem", overflowY: "auto", borderRight: "1px solid #E2E8F0" }}>
-              <h2 style={{ margin: "0 0 1rem 0", color: "#0F172A", fontSize: "2.5rem", fontWeight: 700, letterSpacing: "-0.02em" }}>Audit Outcome</h2>
-              <div style={{
-                display: "inline-flex", alignItems: "center", padding: "0.5rem 1rem", borderRadius: "999px",
-                background: result.decision?.action === "approve" ? "#DCFCE7" : "#FEE2E2",
-                color: result.decision?.action === "approve" ? "#166534" : "#991B1B",
-                fontWeight: 700, fontSize: "0.875rem", letterSpacing: "0.05em", textTransform: "uppercase"
-              }}>
-                {result.decision?.action === "approve" ? "✓ Approved" : "✕ Adverse Action"}
-              </div>
-              
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3rem", marginTop: "4rem", paddingTop: "3rem", borderTop: "1px solid #E2E8F0" }}>
-                <div>
-                  <div style={{ color: "#64748B", fontSize: "0.85rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.75rem" }}>Compute Cost</div>
-                  <div style={{ color: "#0F172A", fontSize: "2.5rem", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>${(result.usage?.costUsd || 0).toFixed(4)}</div>
+            
+            {/* Header Banner */}
+            <div className="dashboard-header">
+              <div>
+                <div style={{ color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.1em", fontSize: "0.875rem", fontWeight: 600, marginBottom: "0.5rem" }}>
+                  Automated Decision
                 </div>
-                <div>
-                  <div style={{ color: "#64748B", fontSize: "0.85rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.75rem" }}>Agent Steps</div>
-                  <div style={{ color: "#0F172A", fontSize: "2.5rem", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{result.messages?.length || 0}</div>
+                <h1 style={{ margin: 0, fontSize: "3rem", fontWeight: 700, letterSpacing: "-0.02em", color: result.decision?.outcome === "APPROVE" ? "#4ADE80" : "#F87171" }}>
+                  {result.decision?.outcome === "APPROVE" ? "Approved" : result.decision?.outcome === "DENY" ? "Adverse Action" : result.decision?.outcome || "Unknown"}
+                </h1>
+                <div style={{ marginTop: "1rem", fontSize: "1.125rem", color: "#CBD5E1", maxWidth: "600px", lineHeight: 1.6 }}>
+                  {result.decision?.outcome === "APPROVE" 
+                    ? `The applicant meets all policy requirements for the requested ${dollars(facts.loanAmount)}.` 
+                    : "The applicant does not meet the minimum requirements of the synthetic credit policy."}
                 </div>
               </div>
-              <div style={{ marginTop: "2rem" }}>
-                <div style={{ color: "#64748B", fontSize: "0.85rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.75rem" }}>Token Usage</div>
-                <div style={{ color: "#0F172A", fontSize: "1.25rem", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-                  <span style={{ color: "#3B82F6" }}>{result.usage?.inputTokens || 0}</span> in / <span style={{ color: "#8B5CF6" }}>{result.usage?.outputTokens || 0}</span> out
-                </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ color: "#94A3B8", fontSize: "0.875rem", marginBottom: "0.5rem" }}>Amount Requested</div>
+                <div style={{ fontSize: "2.5rem", fontWeight: 700, color: "#ffffff", fontVariantNumeric: "tabular-nums" }}>{dollars(facts.loanAmount)}</div>
               </div>
             </div>
 
-            {/* Right Pane: Insights / Reasons */}
-            <div style={{ flex: 1, padding: "4rem 2.5rem", background: "#F8FAFC", overflowY: "auto", display: "flex", flexDirection: "column" }}>
-              <h3 style={{ margin: "0 0 2rem 0", color: "#475569", fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>Decision Insights</h3>
-              
-              <div style={{ display: "flex", flexDirection: "column", gap: "1rem", flex: 1 }}>
-                {result.decision?.reasons?.length > 0 ? (
-                  result.decision.reasons.map((reason: string, i: number) => (
-                    <div key={i} style={{
-                      background: "#ffffff", padding: "1.25rem", borderRadius: "8px", border: "1px solid #E2E8F0",
-                      borderLeft: `4px solid ${result.decision?.action === "approve" ? "#22C55E" : "#EF4444"}`,
-                      boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
-                    }}>
-                      <div style={{ color: "#0F172A", fontSize: "0.875rem", fontWeight: 600, marginBottom: "0.5rem" }}>
-                        {result.decision?.action === "approve" ? "Approval Factor" : "Principal Reason"}
+            {/* Content Area */}
+            <div className="dashboard-content">
+              {/* Left Pane: Visuals and Explanation */}
+              <div className="main-pane">
+                
+                {/* Agent Explanation */}
+                <div>
+                  <h2 style={{ margin: "0 0 1.5rem 0", color: "#0F172A", fontSize: "1.5rem", fontWeight: 700 }}>Policy Rationale</h2>
+                  <div style={{ 
+                    background: "#F1F5F9", padding: "2rem", borderRadius: "12px", borderLeft: "4px solid #3B82F6",
+                    color: "#334155", fontSize: "1rem", lineHeight: 1.7, whiteSpace: "pre-wrap"
+                  }}>
+                    {result.decision?.raw_text || "The agent did not provide a detailed textual rationale."}
+                  </div>
+                </div>
+
+                {/* Financial Visualizations */}
+                <div>
+                  <h2 style={{ margin: "0 0 1.5rem 0", color: "#0F172A", fontSize: "1.5rem", fontWeight: 700 }}>Financial Context</h2>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem" }}>
+                    
+                    {/* DTI Visual */}
+                    <div className="metric-card">
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                        <span style={{ color: "#64748B", fontSize: "0.875rem", fontWeight: 600 }}>Debt-to-Income (DTI)</span>
+                        <span style={{ color: "#0F172A", fontSize: "1.25rem", fontWeight: 700 }}>{dti}%</span>
                       </div>
-                      <div style={{ color: "#64748B", fontSize: "0.85rem", lineHeight: 1.6 }}>
-                        {reason}
+                      <div className="bar-bg">
+                        <div className="bar-fill" style={{ 
+                          width: `${Math.min(dti, 100)}%`, 
+                          background: dti > 43 ? "#EF4444" : dti > 35 ? "#F59E0B" : "#10B981" 
+                        }} />
+                      </div>
+                      <div style={{ marginTop: "0.75rem", color: "#94A3B8", fontSize: "0.75rem", display: "flex", justifyContent: "space-between" }}>
+                        <span>0%</span>
+                        <span>Policy Max: 43%</span>
                       </div>
                     </div>
-                  ))
-                ) : (
-                  <div style={{ color: "#64748B", fontSize: "0.875rem", fontStyle: "italic" }}>
-                    No specific reason codes provided by the policy engine.
+
+                    {/* Credit Score Visual */}
+                    <div className="metric-card">
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                        <span style={{ color: "#64748B", fontSize: "0.875rem", fontWeight: 600 }}>Credit Score</span>
+                        <span style={{ color: "#0F172A", fontSize: "1.25rem", fontWeight: 700 }}>{facts.creditScore}</span>
+                      </div>
+                      <div className="bar-bg">
+                        <div className="bar-fill" style={{ 
+                          width: `${Math.max(0, Math.min(((facts.creditScore - 300) / 550) * 100, 100))}%`, 
+                          background: facts.creditScore < 600 ? "#EF4444" : facts.creditScore < 680 ? "#F59E0B" : "#10B981" 
+                        }} />
+                      </div>
+                      <div style={{ marginTop: "0.75rem", color: "#94A3B8", fontSize: "0.75rem", display: "flex", justifyContent: "space-between" }}>
+                        <span>300</span>
+                        <span>850</span>
+                      </div>
+                    </div>
+
                   </div>
-                )}
+                </div>
+
               </div>
-              
-              <button 
-                onClick={() => window.location.reload()}
-                style={{
-                  marginTop: "3rem", width: "100%", background: "#0F172A", color: "#ffffff", border: "none", borderRadius: "8px",
-                  padding: "1rem", fontWeight: 600, fontSize: "1rem", cursor: "pointer", transition: "background 0.2s"
-                }}
-                onMouseOver={(e) => e.currentTarget.style.background = "#1E293B"}
-                onMouseOut={(e) => e.currentTarget.style.background = "#0F172A"}
-              >
-                Start New Audit
-              </button>
+
+              {/* Right Pane: Insights and Metrics */}
+              <div className="side-pane">
+                
+                {/* Specific Reason Codes */}
+                <div>
+                  <h3 style={{ margin: "0 0 1.5rem 0", color: "#475569", fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    Decision Factors
+                  </h3>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                    {result.decision?.stated_reasons?.length > 0 ? (
+                      result.decision.stated_reasons.map((reason: any, i: number) => (
+                        <div key={i} style={{
+                          background: "#ffffff", padding: "1.25rem", borderRadius: "8px", border: "1px solid #E2E8F0",
+                          borderLeft: `4px solid ${result.decision?.outcome === "APPROVE" ? "#22C55E" : "#EF4444"}`,
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
+                        }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.5rem" }}>
+                            <span style={{ color: "#0F172A", fontSize: "0.875rem", fontWeight: 600 }}>
+                              {result.decision?.outcome === "APPROVE" ? "Approval Factor" : "Principal Reason"}
+                            </span>
+                            {reason.provided_code && (
+                              <span style={{ background: "#F1F5F9", color: "#475569", padding: "0.25rem 0.5rem", borderRadius: "4px", fontSize: "0.7rem", fontFamily: "var(--mono)", fontWeight: 600 }}>
+                                {reason.provided_code}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ color: "#64748B", fontSize: "0.85rem", lineHeight: 1.6 }}>
+                            {reason.provided_detail}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ color: "#64748B", fontSize: "0.875rem", fontStyle: "italic", background: "#ffffff", padding: "1.5rem", borderRadius: "8px", border: "1px dashed #CBD5E1", textAlign: "center" }}>
+                        No specific reason codes were extracted.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Audit Execution Metrics */}
+                <div style={{ marginTop: "auto", paddingTop: "2rem", borderTop: "1px solid #E2E8F0" }}>
+                  <h3 style={{ margin: "0 0 1.5rem 0", color: "#475569", fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    Execution Telemetry
+                  </h3>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem" }}>
+                    <div>
+                      <div style={{ color: "#64748B", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", marginBottom: "0.5rem" }}>Compute Cost</div>
+                      <div style={{ color: "#0F172A", fontSize: "1.25rem", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>${(result.usage?.costUsd || 0).toFixed(4)}</div>
+                    </div>
+                    <div>
+                      <div style={{ color: "#64748B", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", marginBottom: "0.5rem" }}>Agent Steps</div>
+                      <div style={{ color: "#0F172A", fontSize: "1.25rem", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{result.messages?.length || 0}</div>
+                    </div>
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <div style={{ color: "#64748B", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", marginBottom: "0.5rem" }}>Token Usage</div>
+                      <div style={{ color: "#0F172A", fontSize: "1rem", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                        <span style={{ color: "#3B82F6" }}>{result.usage?.inputTokens || 0}</span> in / <span style={{ color: "#8B5CF6" }}>{result.usage?.outputTokens || 0}</span> out
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <button 
+                    onClick={() => window.location.reload()}
+                    style={{
+                      marginTop: "2.5rem", width: "100%", background: "#0F172A", color: "#ffffff", border: "none", borderRadius: "8px",
+                      padding: "1rem", fontWeight: 600, fontSize: "1rem", cursor: "pointer", transition: "background 0.2s"
+                    }}
+                    onMouseOver={(e) => e.currentTarget.style.background = "#1E293B"}
+                    onMouseOut={(e) => e.currentTarget.style.background = "#0F172A"}
+                  >
+                    Start New Audit
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
