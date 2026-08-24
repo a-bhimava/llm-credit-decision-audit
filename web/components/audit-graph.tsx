@@ -235,7 +235,7 @@ function computeEdges(nodes: any[]) {
   return EDGE_DEFS.map((e, i) => {
     const src = nodes.find(n => n.id === e.source);
     const active = src?.data.status === 'done' || src?.data.status === 'running';
-    return { id: `e-\${i}`, source: e.source, target: e.target, type: 'particleEdge', data: { active } };
+    return { id: `e-${i}`, source: e.source, target: e.target, type: 'particleEdge', data: { active } };
   });
 }
 

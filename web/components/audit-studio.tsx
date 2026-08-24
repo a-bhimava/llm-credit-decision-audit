@@ -187,23 +187,14 @@ export function AuditStudio() {
 
       <div className="studioConversation">
         <header className="studioTopbar"><a href="/">← Exit studio</a><span>Session-only · expires in 60 min</span></header>
-        {submission === "launched" ? (
+        {submission === "launched" && !isDone && (
           <div className="launchReaction" style={{ position: "relative", width: "100%", height: "100%" }}>
-            {/* Dark background overlay when done to make the white card pop */}
-            <div style={{
-              position: "absolute", inset: 0, zIndex: 15,
-              background: "rgba(13, 14, 32, 0.7)", backdropFilter: "blur(8px)",
-              opacity: isDone ? 1 : 0, transition: "opacity 0.6s ease", pointerEvents: isDone ? "auto" : "none"
-            }} />
-
             <AuditGraph liveProgress={liveProgress} isDone={isDone} />
-            
             <div style={{
               position: "absolute", top: 0, left: 0, right: 0, zIndex: 20,
               padding: "1.5rem 2rem",
               background: "linear-gradient(to bottom, rgba(9,10,23,0.92) 55%, transparent)",
-              pointerEvents: "none",
-              opacity: isDone ? 0 : 1, transition: "opacity 0.4s ease"
+              pointerEvents: "none"
             }}>
               <div style={{ color: "var(--cyan)", fontFamily: "var(--mono)", fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.14em", opacity: 0.75, marginBottom: "0.3rem" }}>
                 Live Audit Execution
@@ -212,91 +203,87 @@ export function AuditStudio() {
                 {liveProgress}
               </div>
             </div>
-
-            {/* Financial Results Overlay */}
-            {isDone && result && (
+          </div>
+        )}
+        
+        {submission === "launched" && isDone && result && (
+          <div style={{ width: "100%", height: "100%", background: "#ffffff", display: "flex", flexDirection: "row", animation: "fadeIn 0.5s ease" }}>
+            <style>{`
+              @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+            `}</style>
+            {/* Left Pane: Primary Metrics */}
+            <div style={{ flex: "0 0 65%", padding: "4rem", overflowY: "auto", borderRight: "1px solid #E2E8F0" }}>
+              <h2 style={{ margin: "0 0 1rem 0", color: "#0F172A", fontSize: "2.5rem", fontWeight: 700, letterSpacing: "-0.02em" }}>Audit Outcome</h2>
               <div style={{
-                position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", zIndex: 50,
-                width: "90%", maxWidth: "800px", display: "flex", overflow: "hidden",
-                background: "#ffffff", borderRadius: "12px", boxShadow: "0 20px 40px -10px rgba(0,0,0,0.5)",
-                fontFamily: "var(--sans)", animation: "fadeScaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1)"
+                display: "inline-flex", alignItems: "center", padding: "0.5rem 1rem", borderRadius: "999px",
+                background: result.decision?.action === "approve" ? "#DCFCE7" : "#FEE2E2",
+                color: result.decision?.action === "approve" ? "#166534" : "#991B1B",
+                fontWeight: 700, fontSize: "0.875rem", letterSpacing: "0.05em", textTransform: "uppercase"
               }}>
-                <style>{`
-                  @keyframes fadeScaleIn { from { opacity: 0; transform: translate(-50%, -45%) scale(0.96); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
-                `}</style>
-                {/* Left Pane: Primary Metrics */}
-                <div style={{ flex: 3, padding: "2.5rem", borderRight: "1px solid #E2E8F0" }}>
-                  <h2 style={{ margin: "0 0 1rem 0", color: "#0F172A", fontSize: "1.75rem", fontWeight: 700, letterSpacing: "-0.02em" }}>Audit Outcome</h2>
-                  <div style={{
-                    display: "inline-flex", alignItems: "center", padding: "0.5rem 1rem", borderRadius: "999px",
-                    background: result.decision?.action === "approve" ? "#DCFCE7" : "#FEE2E2",
-                    color: result.decision?.action === "approve" ? "#166534" : "#991B1B",
-                    fontWeight: 700, fontSize: "0.875rem", letterSpacing: "0.05em", textTransform: "uppercase"
-                  }}>
-                    {result.decision?.action === "approve" ? "✓ Approved" : "✕ Adverse Action"}
-                  </div>
-                  
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem", marginTop: "3rem", paddingTop: "2rem", borderTop: "1px solid #E2E8F0" }}>
-                    <div>
-                      <div style={{ color: "#64748B", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.5rem" }}>Compute Cost</div>
-                      <div style={{ color: "#0F172A", fontSize: "1.5rem", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>${(result.usage?.costUsd || 0).toFixed(4)}</div>
-                    </div>
-                    <div>
-                      <div style={{ color: "#64748B", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.5rem" }}>Agent Steps</div>
-                      <div style={{ color: "#0F172A", fontSize: "1.5rem", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{result.messages?.length || 0}</div>
-                    </div>
-                  </div>
-                  <div style={{ marginTop: "1.5rem" }}>
-                    <div style={{ color: "#64748B", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.5rem" }}>Token Usage</div>
-                    <div style={{ color: "#0F172A", fontSize: "1rem", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-                      <span style={{ color: "#3B82F6" }}>{result.usage?.inputTokens || 0}</span> in / <span style={{ color: "#8B5CF6" }}>{result.usage?.outputTokens || 0}</span> out
-                    </div>
-                  </div>
+                {result.decision?.action === "approve" ? "✓ Approved" : "✕ Adverse Action"}
+              </div>
+              
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3rem", marginTop: "4rem", paddingTop: "3rem", borderTop: "1px solid #E2E8F0" }}>
+                <div>
+                  <div style={{ color: "#64748B", fontSize: "0.85rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.75rem" }}>Compute Cost</div>
+                  <div style={{ color: "#0F172A", fontSize: "2.5rem", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>${(result.usage?.costUsd || 0).toFixed(4)}</div>
                 </div>
-
-                {/* Right Pane: Insights / Reasons */}
-                <div style={{ flex: 2, padding: "2.5rem", background: "#F8FAFC", display: "flex", flexDirection: "column" }}>
-                  <h3 style={{ margin: "0 0 1.5rem 0", color: "#475569", fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>Decision Insights</h3>
-                  
-                  <div style={{ display: "flex", flexDirection: "column", gap: "1rem", flex: 1 }}>
-                    {result.decision?.reasons?.length > 0 ? (
-                      result.decision.reasons.map((reason: string, i: number) => (
-                        <div key={i} style={{
-                          background: "#ffffff", padding: "1rem", borderRadius: "8px", border: "1px solid #E2E8F0",
-                          borderLeft: `4px solid ${result.decision?.action === "approve" ? "#22C55E" : "#EF4444"}`,
-                          boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
-                        }}>
-                          <div style={{ color: "#0F172A", fontSize: "0.875rem", fontWeight: 600, marginBottom: "0.25rem" }}>
-                            {result.decision?.action === "approve" ? "Approval Factor" : "Principal Reason"}
-                          </div>
-                          <div style={{ color: "#64748B", fontSize: "0.8rem", lineHeight: 1.5 }}>
-                            {reason}
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div style={{ color: "#64748B", fontSize: "0.875rem", fontStyle: "italic" }}>
-                        No specific reason codes provided by the policy engine.
-                      </div>
-                    )}
-                  </div>
-                  
-                  <button 
-                    onClick={() => window.location.reload()}
-                    style={{
-                      marginTop: "2rem", width: "100%", background: "#0F172A", color: "#ffffff", border: "none", borderRadius: "6px",
-                      padding: "0.875rem", fontWeight: 600, fontSize: "0.875rem", cursor: "pointer", transition: "background 0.2s"
-                    }}
-                    onMouseOver={(e) => e.currentTarget.style.background = "#1E293B"}
-                    onMouseOut={(e) => e.currentTarget.style.background = "#0F172A"}
-                  >
-                    Start New Audit
-                  </button>
+                <div>
+                  <div style={{ color: "#64748B", fontSize: "0.85rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.75rem" }}>Agent Steps</div>
+                  <div style={{ color: "#0F172A", fontSize: "2.5rem", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{result.messages?.length || 0}</div>
                 </div>
               </div>
-            )}
+              <div style={{ marginTop: "2rem" }}>
+                <div style={{ color: "#64748B", fontSize: "0.85rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.75rem" }}>Token Usage</div>
+                <div style={{ color: "#0F172A", fontSize: "1.25rem", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                  <span style={{ color: "#3B82F6" }}>{result.usage?.inputTokens || 0}</span> in / <span style={{ color: "#8B5CF6" }}>{result.usage?.outputTokens || 0}</span> out
+                </div>
+              </div>
+            </div>
+
+            {/* Right Pane: Insights / Reasons */}
+            <div style={{ flex: 1, padding: "4rem 2.5rem", background: "#F8FAFC", overflowY: "auto", display: "flex", flexDirection: "column" }}>
+              <h3 style={{ margin: "0 0 2rem 0", color: "#475569", fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>Decision Insights</h3>
+              
+              <div style={{ display: "flex", flexDirection: "column", gap: "1rem", flex: 1 }}>
+                {result.decision?.reasons?.length > 0 ? (
+                  result.decision.reasons.map((reason: string, i: number) => (
+                    <div key={i} style={{
+                      background: "#ffffff", padding: "1.25rem", borderRadius: "8px", border: "1px solid #E2E8F0",
+                      borderLeft: `4px solid ${result.decision?.action === "approve" ? "#22C55E" : "#EF4444"}`,
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
+                    }}>
+                      <div style={{ color: "#0F172A", fontSize: "0.875rem", fontWeight: 600, marginBottom: "0.5rem" }}>
+                        {result.decision?.action === "approve" ? "Approval Factor" : "Principal Reason"}
+                      </div>
+                      <div style={{ color: "#64748B", fontSize: "0.85rem", lineHeight: 1.6 }}>
+                        {reason}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ color: "#64748B", fontSize: "0.875rem", fontStyle: "italic" }}>
+                    No specific reason codes provided by the policy engine.
+                  </div>
+                )}
+              </div>
+              
+              <button 
+                onClick={() => window.location.reload()}
+                style={{
+                  marginTop: "3rem", width: "100%", background: "#0F172A", color: "#ffffff", border: "none", borderRadius: "8px",
+                  padding: "1rem", fontWeight: 600, fontSize: "1rem", cursor: "pointer", transition: "background 0.2s"
+                }}
+                onMouseOver={(e) => e.currentTarget.style.background = "#1E293B"}
+                onMouseOut={(e) => e.currentTarget.style.background = "#0F172A"}
+              >
+                Start New Audit
+              </button>
+            </div>
           </div>
-        ) : (
+        )}
+
+        {submission !== "launched" && (
           <div className="conversationBody">
             <div className="assistantMessage"><span className="assistantAvatar">A</span><div><p className="messageMeta">AUDIT GUIDE</p><h1>{step === "income" ? "Start with a fictional borrowing request." : step === "credit" ? "Now add a synthetic credit profile." : step === "history" ? "Capture the observable credit history." : step === "employment" ? "Finish the policy-relevant employment facts." : "Review the bounded experiment before it runs."}</h1><p>{step === "income" ? "Use only made-up values. This studio never asks for a person’s name, contact details, account identifiers, SSN, free-text notes, or files." : step === "credit" ? "These are financial variables the synthetic policy can evaluate. Presentation variants are generated by the audit; you do not enter demographic information." : step === "history" ? "Public-record categories are deliberately coarse. Do not enter case numbers, addresses, names, or any identifying details." : step === "employment" ? "The tool-guided configuration will use the same fictional facts as the baseline. It changes the decision environment, not the applicant." : "This is an educational diagnostic, not a lending decision, credit advice, a compliance determination, or a population-level fairness result."}</p></div></div>
 
