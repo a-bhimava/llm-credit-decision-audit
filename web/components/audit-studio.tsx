@@ -51,9 +51,9 @@ function NumberInput({ label, value, onChange, min, max, step = 1, suffix }: Rea
 
 
 // ── Tune this to change how long the frontend waits for the workflow ──────────
-// Each poll fires every 2 seconds, so MAX_POLLS * 2 = total wait time in seconds.
-// e.g. 20 polls = 40s, 15 polls = 30s, 30 polls = 60s
-const MAX_POLLS = 20;
+// The LLM evaluation step makes multiple calls to the model and can take up to 3-4 minutes
+// for complex applications. We allow 150 polls (300 seconds) before timing out.
+const MAX_POLLS = 150;
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function AuditStudio() {

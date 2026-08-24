@@ -83,6 +83,8 @@ export class GeminiClient implements ModelClient {
       }))
     }] : [];
 
+    console.log(`[LLM] Calling ${this.modelId} with ${req.messages.length} messages...`);
+
     try {
       const response = await this.client.models.generateContent({
         model: this.modelId,
@@ -133,6 +135,11 @@ export class GeminiClient implements ModelClient {
       if (firstCandidate?.finishReason === "MAX_TOKENS") stopReason = "max_tokens";
       else if (firstCandidate?.finishReason === "SAFETY") stopReason = "refusal";
       else if (toolCalls.length > 0) stopReason = "tool_calls";
+
+      console.log(`[LLM] Generated response (${usage.inputTokens} in / ${usage.outputTokens} out). Stop reason: ${stopReason}`);
+      if (toolCalls.length > 0) {
+        console.log(`[LLM] Called tools: ${toolCalls.map(t => t.name).join(", ")}`);
+      }
 
       return {
         content,

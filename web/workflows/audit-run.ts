@@ -108,18 +108,18 @@ export async function auditRunWorkflow(jobId: string) {
     };
     const trajectory = await episodeStep();
 
-    const saveStep = async () => {
+    const saveStep = async (traj: any) => {
       "use step";
       await updateAuditJob(jobId, (j) => ({
         ...j,
         progress: {
           ...j.progress,
           message: `Completed baseline trial`,
-          completedEpisodes: [...((j.progress as any).completedEpisodes || []), trajectory]
+          completedEpisodes: [...((j.progress as any).completedEpisodes || []), traj]
         }
       }), workflowFetch);
     };
-    await saveStep();
+    await saveStep(trajectory);
 
     await markComplete(jobId);
   } catch (error: any) {
