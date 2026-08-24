@@ -50,6 +50,12 @@ function NumberInput({ label, value, onChange, min, max, step = 1, suffix }: Rea
 
 
 
+// ── Tune this to change how long the frontend waits for the workflow ──────────
+// Each poll fires every 2 seconds, so MAX_POLLS * 2 = total wait time in seconds.
+// e.g. 20 polls = 40s, 15 polls = 30s, 30 polls = 60s
+const MAX_POLLS = 20;
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function AuditStudio() {
   const router = useRouter();
   const [step, setStep] = useState<FieldStep>("income");
@@ -65,18 +71,33 @@ export function AuditStudio() {
     if (submission === "launched" && jobId && !isDone) {
       console.group("%c🔍 Audit Poller Started", "color:#82f5ff;font-weight:bold;font-size:14px");
       console.log("Job ID:", jobId);
+      console.log("Max polls:", MAX_POLLS, `(${MAX_POLLS * 2}s timeout)`);
       console.groupEnd();
 
       let pollCount = 0;
       const interval = setInterval(async () => {
         pollCount++;
+
+        // Hard cap — stop polling after MAX_POLLS regardless of backend state
+        if (pollCount > MAX_POLLS) {
+          console.warn(
+            `%c⏱ Audit poller timed out after ${MAX_POLLS} polls (${MAX_POLLS * 2}s). ` +
+            `The workflow may still be running server-side.`,
+            "color:#f59e0b;font-weight:bold"
+          );
+          setLiveProgress("The audit is taking longer than expected. The workflow may still be running in the background.");
+          setIsDone(true);
+          clearInterval(interval);
+          return;
+        }
+
         try {
           const t0 = performance.now();
           const res = await fetch(`/api/audits/${jobId}`);
           const latency = Math.round(performance.now() - t0);
 
           if (!res.ok) {
-            console.warn(`%c⛔ Poll #${pollCount} HTTP ${res.status} (${latency}ms)`, "color:#f87171");
+            console.warn(`%c⛔ Poll #${pollCount}/${MAX_POLLS} HTTP ${res.status} (${latency}ms)`, "color:#f87171");
             return;
           }
 
@@ -86,7 +107,7 @@ export function AuditStudio() {
           const workflowRunId = data?.workflowRunId ?? "(none)";
 
           const color = status === "running" ? "#82f5ff" : status === "completed" || status === "complete" ? "#4ade80" : status === "failed" ? "#f87171" : "#a0a0b8";
-          console.group(`%c📡 Poll #${pollCount} — status: ${status} (${latency}ms)`, `color:${color};font-weight:600`);
+          console.group(`%c📡 Poll #${pollCount}/${MAX_POLLS} — status: ${status} (${latency}ms)`, `color:${color};font-weight:600`);
           console.log("message   :", message);
           console.log("status    :", status);
           console.log("workflowId:", workflowRunId);
@@ -96,7 +117,7 @@ export function AuditStudio() {
           if (data.progress && data.progress.message) {
             setLiveProgress(data.progress.message);
           }
-          // FIX: workflow sets "completed" but old check was "complete" — support both
+          // Support both "completed" and "complete" (belt-and-suspenders)
           if (data.progress && (
             data.progress.status === "completed" ||
             data.progress.status === "complete" ||
@@ -164,7 +185,7 @@ export function AuditStudio() {
         <header className="studioTopbar"><a href="/">← Exit studio</a><span>Session-only · expires in 60 min</span></header>
         {submission === "launched" ? (
           <div className="launchReaction" style={{ position: "relative", width: "100%", height: "100%" }}>
-            <div className="launchGradient"></div>
+
             <AuditGraph liveProgress={liveProgress} isDone={isDone} />
             <div style={{
               position: "absolute", top: 0, left: 0, right: 0, zIndex: 20,
