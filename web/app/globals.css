@@ -275,6 +275,7 @@ td { font-size: 0.86rem; }
   display: grid;
   place-items: center;
   overflow: hidden;
+  background: #0d0e20;
   animation: fadeScaleIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   z-index: 100;
 }
