@@ -3,10 +3,12 @@ import { readAuditJob, updateAuditJob } from "@/lib/audit/secure-store";
 import { GeminiClient } from "@/lib/audit/providers/gemini";
 import { ModelRequest, ModelResponse, ModelClient } from "@/lib/audit/providers/client";
 import { Budget } from "@/lib/audit/run/budget";
-import { runEpisode } from "@/lib/audit/env/episode";
+import { runEpisode, episodePromptHash } from "@/lib/audit/env/episode";
 import { policy } from "@/lib/audit/policy";
 import { buildApplicant } from "@/lib/audit/intake";
 import { buildApplicationPacket } from "@/lib/audit/render/packet";
+import { applicantContentId, episodeInputHash } from "@/lib/audit/ids";
+import { applicantReferenceFor } from "@/lib/audit/canonical";
 
 /**
  * Creates a fresh, scoped ModelClient for a given modelId.
@@ -67,19 +69,6 @@ export async function auditRunWorkflow(jobId: string) {
     };
     await reserveStep();
 
-    const trial = {
-      episode_id: "test-episode-1",
-      applicant_id: applicant.applicant_id,
-      applicant_content_id: applicant.applicant_id,
-      arm_id: "baseline",
-      render_id: "json" as any,
-      trial_index: 0,
-      model_id: "gemini-2.5-flash-lite",
-      prompt_hash: "hash",
-      input_hash: "hash",
-      seed: 12345
-    };
-
     const textStep = async () => {
       "use step";
       await updateAuditJob(jobId, (j) => ({ ...j, progress: { ...j.progress, message: "Building application packet…" } }), workflowFetch);
@@ -91,7 +80,22 @@ export async function auditRunWorkflow(jobId: string) {
       "use step";
       await updateAuditJob(jobId, (j) => ({ ...j, progress: { ...j.progress, message: "Running LLM evaluation episode…" } }), workflowFetch);
       // Create a fresh scoped client — never mutate a global.
-      const episodeClient = makeWorkflowClient(trial.model_id);
+      const episodeModelId = "gemini-2.5-flash-lite";
+      const episodeClient = makeWorkflowClient(episodeModelId);
+      
+      const trial = {
+        episode_id: "test-episode-1",
+        applicant_id: applicant.applicant_id,
+        applicant_content_id: applicantContentId(applicant),
+        arm_id: "baseline",
+        render_id: "json" as any,
+        trial_index: 0,
+        model_id: episodeModelId,
+        prompt_hash: episodePromptHash(policy as any, "coded"),
+        input_hash: episodeInputHash(applicant, applicationText, applicantReferenceFor(applicant), "json"),
+        seed: 12345
+      };
+
       return await runEpisode(
         trial,
         applicant,
