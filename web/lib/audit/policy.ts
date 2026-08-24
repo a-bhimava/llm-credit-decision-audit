@@ -1,3 +1,4 @@
+import { policyDoc } from "./policy-doc";
 export const policy = {
   "schema": "credit-audit/policy-source@1",
   "version": "1.0.0",
@@ -1012,5 +1013,8 @@ export const policy = {
     }
   ]
 } as const;
+
+(policy as any).doc = policyDoc;
+
 
 export type Policy = typeof policy;

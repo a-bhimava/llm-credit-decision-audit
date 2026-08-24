@@ -8,7 +8,7 @@ import { policy } from "@/lib/audit/policy";
 import { buildApplicant } from "@/lib/audit/intake";
 import { buildApplicationPacket } from "@/lib/audit/render/packet";
 import { applicantContentId, episodeInputHash } from "@/lib/audit/ids";
-import { applicantReferenceFor } from "@/lib/audit/canonical";
+import { applicantReferenceFor } from "@/lib/audit/render/reference";
 
 /**
  * Creates a fresh, scoped ModelClient for a given modelId.
