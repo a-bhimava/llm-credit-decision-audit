@@ -140,14 +140,16 @@ export async function runEpisode(
     });
 
     if (resp.stop_reason === "stop" && requested.length === 0 && !resp.content.trim()) {
+      messages.push({ role: "user", content: "You provided no output and called no tools. You must call `submit_decision` to conclude the evaluation.", step: state.step, turn_index: turnIndex + 1 });
       state = { ...state, step: state.step + 1 };
       continue;
     }
 
-    const termMap: Record<string, Termination> = { stop: "STOP", refusal: "REFUSAL", max_tokens: "MAX_TOKENS", error: "ERROR" };
+    const termMap: Record<string, Termination> = { refusal: "REFUSAL", max_tokens: "MAX_TOKENS", error: "ERROR" };
     if (termMap[resp.stop_reason]) return finalize(termMap[resp.stop_reason]);
 
     if (requested.length === 0) {
+      messages.push({ role: "user", content: "Please call the `submit_decision` tool to provide your final decision.", step: state.step, turn_index: turnIndex + 1 });
       state = { ...state, step: state.step + 1 };
       continue;
     }
