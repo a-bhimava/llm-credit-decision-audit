@@ -37,16 +37,21 @@ function b64uDecode(s: string): Uint8Array {
   return bytes;
 }
 
+// Bind SubtleCrypto methods explicitly so the Vercel Workflows VM
+// (which re-executes steps in a fresh context) does not lose the `this`
+// binding when calling crypto.subtle.importKey / encrypt / decrypt / sign.
+const subtle = globalThis.crypto.subtle;
+
 async function getCryptoKey(rawKey: Uint8Array, usage: "encrypt" | "decrypt"): Promise<CryptoKey> {
-  return crypto.subtle.importKey("raw", rawKey, { name: "AES-GCM", length: 256 }, false, [usage]);
+  return subtle.importKey("raw", rawKey, { name: "AES-GCM", length: 256 }, false, [usage]);
 }
 
 async function seal(value: StoredJob): Promise<string> {
   const { encryptionKey } = getRuntimeConfiguration();
-  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const iv = globalThis.crypto.getRandomValues(new Uint8Array(12));
   const ck = await getCryptoKey(encryptionKey, "encrypt");
   const plaintext = new TextEncoder().encode(JSON.stringify(value));
-  const cipherBuf = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, ck, plaintext);
+  const cipherBuf = await subtle.encrypt({ name: "AES-GCM", iv }, ck, plaintext);
   // AES-GCM appends the 16-byte auth tag at the end of cipherBuf
   const cipherBytes = new Uint8Array(cipherBuf);
   const ciphertext = cipherBytes.slice(0, -16);
@@ -66,13 +71,13 @@ async function open(value: string): Promise<StoredJob> {
   combined.set(ct, 0);
   combined.set(tag, ct.length);
   const ck = await getCryptoKey(encryptionKey, "decrypt");
-  const plainBuf = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, ck, combined);
+  const plainBuf = await subtle.decrypt({ name: "AES-GCM", iv }, ck, combined);
   return JSON.parse(new TextDecoder().decode(plainBuf)) as StoredJob;
 }
 
 async function hmacSign(key: Uint8Array, payload: string): Promise<string> {
-  const ck = await crypto.subtle.importKey("raw", key, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const sig = await crypto.subtle.sign("HMAC", ck, new TextEncoder().encode(payload));
+  const ck = await subtle.importKey("raw", key, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const sig = await subtle.sign("HMAC", ck, new TextEncoder().encode(payload));
   return b64uEncode(sig);
 }
 
