@@ -249,10 +249,12 @@ export function AuditStudio() {
                 <div>
                   <h2 style={{ margin: "0 0 1.5rem 0", color: "#0F172A", fontSize: "1.5rem", fontWeight: 700 }}>Policy Rationale</h2>
                   <div style={{ 
-                    background: "#F1F5F9", padding: "2rem", borderRadius: "12px", borderLeft: "4px solid #3B82F6",
-                    color: "#334155", fontSize: "1rem", lineHeight: 1.7, whiteSpace: "pre-wrap"
+                    background: result.termination === "ERROR" ? "#FEE2E2" : "#F1F5F9", padding: "2rem", borderRadius: "12px", borderLeft: `4px solid ${result.termination === "ERROR" ? "#EF4444" : "#3B82F6"}`,
+                    color: result.termination === "ERROR" ? "#991B1B" : "#334155", fontSize: "1rem", lineHeight: 1.7, whiteSpace: "pre-wrap"
                   }}>
-                    {result.decision?.raw_text || "The agent did not provide a detailed textual rationale."}
+                    {result.termination === "ERROR" 
+                      ? ([...(result.messages || [])].reverse().find((m: any) => m.role === "assistant" && m.content.includes("[client error:"))?.content || "The agent crashed due to a system error.")
+                      : (result.decision?.raw_text || "The agent did not provide a detailed textual rationale.")}
                   </div>
                 </div>
 
