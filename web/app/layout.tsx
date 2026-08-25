@@ -1,10 +1,23 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Montserrat, Lora, Courier_Prime } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
+const fontSans = Montserrat({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-sans",
+  display: "swap",
+});
+
+const fontSerif = Lora({
+  subsets: ["latin"],
+  variable: "--font-serif",
+  display: "swap",
+});
+
+const fontMono = Courier_Prime({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-mono",
   display: "swap",
 });
 
@@ -24,9 +37,8 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={`${fontSans.variable} ${fontSerif.variable} ${fontMono.variable} antialiased`}>
       <body>{children}</body>
     </html>
   );
 }
-

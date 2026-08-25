@@ -82,6 +82,6 @@ export function deriveSeed(runSeed: number, ...parts: readonly (string | number)
   }
   const digest = blake2bFinal(ctx);
   // Read big endian 8 bytes
-  const buf = new Uint8Array(digest);
-  return buf.readBigUInt64BE() & ((1n << 63n) - 1n);
+  const view = new DataView(digest.buffer, digest.byteOffset, digest.byteLength);
+  return view.getBigUint64(0, false) & ((1n << 63n) - 1n);
 }
