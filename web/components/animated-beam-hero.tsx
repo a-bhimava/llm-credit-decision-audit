@@ -70,7 +70,7 @@ export function AnimatedBeamHero() {
       </svg>
 
       {/* Nodes */}
-      <Node icon={FileText} title="Fictional Facts" x={15} y={50} delay={0} />
+      <Node icon={FileText} title="Structured Loan Data" x={15} y={50} delay={0} />
       
       <Node icon={Cpu} title="Structured Baseline" x={50} y={25} delay={0.4} color="#b3c5ff" />
       <Node icon={TestTube2} title="Tool-guided Platform" x={50} y={75} delay={0.6} color="var(--pink)" />
