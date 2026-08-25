@@ -207,7 +207,7 @@ export function AuditStudio() {
         )}
         
         {submission === "launched" && isDone && result && (
-          <div style={{ width: "100%", height: "100%", background: "#ffffff", display: "flex", flexDirection: "column", animation: "fadeIn 0.5s ease", overflowY: "auto" }}>
+          <div style={{ width: "100%", height: "100%", background: "var(--card)", display: "flex", flexDirection: "column", animation: "fadeIn 0.5s ease", overflowY: "auto" }}>
             <style>{`
               @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
               .dashboard-header { background: #0F172A; color: #ffffff; padding: 3rem 4rem; display: flex; justify-content: space-between; align-items: flex-end; }
@@ -236,7 +236,7 @@ export function AuditStudio() {
               </div>
               <div style={{ textAlign: "right" }}>
                 <div style={{ color: "#94A3B8", fontSize: "0.875rem", marginBottom: "0.5rem" }}>Amount Requested</div>
-                <div style={{ fontSize: "2.5rem", fontWeight: 700, color: "#ffffff", fontVariantNumeric: "tabular-nums" }}>{dollars(facts.loanAmount)}</div>
+                <div style={{ fontSize: "2.5rem", fontWeight: 700, color: "var(--card-foreground)", fontVariantNumeric: "tabular-nums" }}>{dollars(facts.loanAmount)}</div>
               </div>
             </div>
 
@@ -247,9 +247,9 @@ export function AuditStudio() {
                 
                 {/* Agent Explanation */}
                 <div>
-                  <h2 style={{ margin: "0 0 1.5rem 0", color: "#0F172A", fontSize: "1.5rem", fontWeight: 700 }}>Policy Rationale</h2>
+                  <h2 style={{ margin: "0 0 1.5rem 0", color: "var(--foreground)", fontSize: "1.5rem", fontWeight: 700 }}>Policy Rationale</h2>
                   <div style={{ 
-                    background: result.termination === "ERROR" ? "#FEE2E2" : "#F1F5F9", padding: "2rem", borderRadius: "12px", borderLeft: `4px solid ${result.termination === "ERROR" ? "#EF4444" : "#3B82F6"}`,
+                    background: result.termination === "ERROR" ? "var(--destructive)" : "var(--muted)", padding: "2rem", borderRadius: "12px", borderLeft: `4px solid ${result.termination === "ERROR" ? "var(--destructive)" : "var(--primary)"}`,
                     color: result.termination === "ERROR" ? "#991B1B" : "#334155", fontSize: "1rem", lineHeight: 1.7, whiteSpace: "pre-wrap"
                   }}>
                     {result.termination === "ERROR" 
@@ -260,14 +260,14 @@ export function AuditStudio() {
 
                 {/* Financial Visualizations */}
                 <div>
-                  <h2 style={{ margin: "0 0 1.5rem 0", color: "#0F172A", fontSize: "1.5rem", fontWeight: 700 }}>Financial Context</h2>
+                  <h2 style={{ margin: "0 0 1.5rem 0", color: "var(--foreground)", fontSize: "1.5rem", fontWeight: 700 }}>Financial Context</h2>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem" }}>
                     
                     {/* DTI Visual */}
                     <div className="metric-card">
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                         <span style={{ color: "#64748B", fontSize: "0.875rem", fontWeight: 600 }}>Debt-to-Income (DTI)</span>
-                        <span style={{ color: "#0F172A", fontSize: "1.25rem", fontWeight: 700 }}>{dti}%</span>
+                        <span style={{ color: "var(--foreground)", fontSize: "1.25rem", fontWeight: 700 }}>{dti}%</span>
                       </div>
                       <div className="bar-bg">
                         <div className="bar-fill" style={{ 
@@ -285,7 +285,7 @@ export function AuditStudio() {
                     <div className="metric-card">
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                         <span style={{ color: "#64748B", fontSize: "0.875rem", fontWeight: 600 }}>Credit Score</span>
-                        <span style={{ color: "#0F172A", fontSize: "1.25rem", fontWeight: 700 }}>{facts.creditScore}</span>
+                        <span style={{ color: "var(--foreground)", fontSize: "1.25rem", fontWeight: 700 }}>{facts.creditScore}</span>
                       </div>
                       <div className="bar-bg">
                         <div className="bar-fill" style={{ 
@@ -309,23 +309,23 @@ export function AuditStudio() {
                 
                 {/* Specific Reason Codes */}
                 <div>
-                  <h3 style={{ margin: "0 0 1.5rem 0", color: "#475569", fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  <h3 style={{ margin: "0 0 1.5rem 0", color: "var(--muted-foreground)", fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                     Decision Factors
                   </h3>
                   <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                     {result.decision?.stated_reasons?.length > 0 ? (
                       result.decision.stated_reasons.map((reason: any, i: number) => (
                         <div key={i} style={{
-                          background: "#ffffff", padding: "1.25rem", borderRadius: "8px", border: "1px solid #E2E8F0",
+                          background: "var(--card)", padding: "1.25rem", borderRadius: "8px", border: "1px solid var(--border)",
                           borderLeft: `4px solid ${result.decision?.outcome === "APPROVE" ? "#22C55E" : "#EF4444"}`,
                           boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
                         }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.5rem" }}>
-                            <span style={{ color: "#0F172A", fontSize: "0.875rem", fontWeight: 600 }}>
+                            <span style={{ color: "var(--foreground)", fontSize: "0.875rem", fontWeight: 600 }}>
                               {result.decision?.outcome === "APPROVE" ? "Approval Factor" : "Principal Reason"}
                             </span>
                             {reason.provided_code && (
-                              <span style={{ background: "#F1F5F9", color: "#475569", padding: "0.25rem 0.5rem", borderRadius: "4px", fontSize: "0.7rem", fontFamily: "var(--mono)", fontWeight: 600 }}>
+                              <span style={{ background: "var(--muted)", color: "var(--muted-foreground)", padding: "0.25rem 0.5rem", borderRadius: "4px", fontSize: "0.7rem", fontFamily: "var(--mono)", fontWeight: 600 }}>
                                 {reason.provided_code}
                               </span>
                             )}
@@ -336,7 +336,7 @@ export function AuditStudio() {
                         </div>
                       ))
                     ) : (
-                      <div style={{ color: "#64748B", fontSize: "0.875rem", fontStyle: "italic", background: "#ffffff", padding: "1.5rem", borderRadius: "8px", border: "1px dashed #CBD5E1", textAlign: "center" }}>
+                      <div style={{ color: "#64748B", fontSize: "0.875rem", fontStyle: "italic", background: "var(--card)", padding: "1.5rem", borderRadius: "8px", border: "1px dashed #CBD5E1", textAlign: "center" }}>
                         No specific reason codes were extracted.
                       </div>
                     )}
@@ -344,22 +344,22 @@ export function AuditStudio() {
                 </div>
 
                 {/* Audit Execution Metrics */}
-                <div style={{ marginTop: "auto", paddingTop: "2rem", borderTop: "1px solid #E2E8F0" }}>
-                  <h3 style={{ margin: "0 0 1.5rem 0", color: "#475569", fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                <div style={{ marginTop: "auto", paddingTop: "2rem", borderTop: "1px solid var(--border)" }}>
+                  <h3 style={{ margin: "0 0 1.5rem 0", color: "var(--muted-foreground)", fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                     Execution Telemetry
                   </h3>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem" }}>
                     <div>
                       <div style={{ color: "#64748B", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", marginBottom: "0.5rem" }}>Compute Cost</div>
-                      <div style={{ color: "#0F172A", fontSize: "1.25rem", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>${(result.usage?.costUsd || 0).toFixed(4)}</div>
+                      <div style={{ color: "var(--foreground)", fontSize: "1.25rem", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>${(result.usage?.costUsd || 0).toFixed(4)}</div>
                     </div>
                     <div>
                       <div style={{ color: "#64748B", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", marginBottom: "0.5rem" }}>Agent Steps</div>
-                      <div style={{ color: "#0F172A", fontSize: "1.25rem", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{result.messages?.length || 0}</div>
+                      <div style={{ color: "var(--foreground)", fontSize: "1.25rem", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{result.messages?.length || 0}</div>
                     </div>
                     <div style={{ gridColumn: "1 / -1" }}>
                       <div style={{ color: "#64748B", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", marginBottom: "0.5rem" }}>Token Usage</div>
-                      <div style={{ color: "#0F172A", fontSize: "1rem", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                      <div style={{ color: "var(--foreground)", fontSize: "1rem", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
                         <span style={{ color: "#3B82F6" }}>{result.usage?.inputTokens || 0}</span> in / <span style={{ color: "#8B5CF6" }}>{result.usage?.outputTokens || 0}</span> out
                       </div>
                     </div>
@@ -368,7 +368,7 @@ export function AuditStudio() {
                   <button 
                     onClick={() => window.location.reload()}
                     style={{
-                      marginTop: "2.5rem", width: "100%", background: "#0F172A", color: "#ffffff", border: "none", borderRadius: "8px",
+                      marginTop: "2.5rem", width: "100%", background: "var(--foreground)", color: "var(--card-foreground)", border: "none", borderRadius: "8px",
                       padding: "1rem", fontWeight: 600, fontSize: "1rem", cursor: "pointer", transition: "background 0.2s"
                     }}
                     onMouseOver={(e) => e.currentTarget.style.background = "#1E293B"}

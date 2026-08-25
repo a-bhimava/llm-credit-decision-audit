@@ -27,10 +27,10 @@ interface StepNodeData extends Record<string, unknown> {
 
 // ── Status palette ─────────────────────────────────────────────────────────────
 const STATUS = {
-  idle:    { border: 'rgba(255,255,255,0.15)', glow: 'none',                              dot: '#6b6884', iconColor: '#8a88a8', bgAccent: 'rgba(255,255,255,0.04)', bgCard: 'rgba(22, 24, 45, 0.85)' },
-  running: { border: 'rgba(130,245,255,0.7)',  glow: '0 0 35px rgba(130,245,255,0.25)',   dot: '#82f5ff', iconColor: '#82f5ff', bgAccent: 'rgba(130,245,255,0.08)', bgCard: 'rgba(19, 29, 53, 0.95)' },
-  done:    { border: 'rgba(74,222,128,0.6)',   glow: '0 0 25px rgba(74,222,128,0.15)',    dot: '#4ade80', iconColor: '#4ade80', bgAccent: 'rgba(74,222,128,0.08)',  bgCard: 'rgba(19, 36, 33, 0.9)' },
-  error:   { border: 'rgba(248,113,113,0.6)',  glow: '0 0 25px rgba(248,113,113,0.15)',   dot: '#f87171', iconColor: '#f87171', bgAccent: 'rgba(248,113,113,0.08)', bgCard: 'rgba(45, 20, 24, 0.9)' },
+  idle:    { border: 'rgba(255,255,255,0.15)', glow: 'none',                              dot: 'var(--muted)', iconColor: 'var(--muted-foreground)', bgAccent: 'rgba(255,255,255,0.04)', bgCard: 'var(--card)' },
+  running: { border: 'color-mix(in srgb, var(--primary) 70%, transparent)',  glow: '0 0 35px color-mix(in srgb, var(--primary) 25%, transparent)',   dot: 'var(--primary)', iconColor: 'var(--primary)', bgAccent: 'color-mix(in srgb, var(--primary) 8%, transparent)', bgCard: 'var(--card)' },
+  done:    { border: 'color-mix(in srgb, var(--secondary) 60%, transparent)',   glow: '0 0 25px color-mix(in srgb, var(--secondary) 15%, transparent)',    dot: 'var(--secondary)', iconColor: 'var(--secondary)', bgAccent: 'color-mix(in srgb, var(--secondary) 8%, transparent)',  bgCard: 'var(--card)' },
+  error:   { border: 'color-mix(in srgb, var(--destructive) 60%, transparent)',  glow: '0 0 25px color-mix(in srgb, var(--destructive) 15%, transparent)',   dot: 'var(--destructive)', iconColor: 'var(--destructive)', bgAccent: 'color-mix(in srgb, var(--destructive) 8%, transparent)', bgCard: 'var(--card)' },
 } as const;
 
 // ── Heroicons stroke paths ─────────────────────────────────────────────────────
@@ -77,7 +77,7 @@ function StepNode({ data, id }: NodeProps) {
 
       {id !== 'init' && (
         <Handle type="target" position={tgtPos}
-          style={{ background: s.dot, border: '2px solid #13142a', width: 12, height: 12, [isVertical ? 'top' : 'left']: -6 }}/>
+          style={{ background: s.dot, border: '2px solid var(--background)', width: 12, height: 12, [isVertical ? 'top' : 'left']: -6 }}/>
       )}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
@@ -93,8 +93,8 @@ function StepNode({ data, id }: NodeProps) {
             dangerouslySetInnerHTML={{ __html: iconPath }}/>
         </div>
 
-        {d.status === 'done' && <span style={{ color: '#4ade80', fontSize: 16, fontWeight: 700, lineHeight: 1 }}>✓</span>}
-        {d.status === 'error' && <span style={{ color: '#f87171', fontSize: 16, fontWeight: 700, lineHeight: 1 }}>✗</span>}
+        {d.status === 'done' && <span style={{ color: 'var(--secondary)', fontSize: 16, fontWeight: 700, lineHeight: 1 }}>✓</span>}
+        {d.status === 'error' && <span style={{ color: 'var(--destructive)', fontSize: 16, fontWeight: 700, lineHeight: 1 }}>✗</span>}
         {(d.status === 'idle' || d.status === 'running') && (
           <span style={{
             width: 8, height: 8, borderRadius: '50%', background: s.dot, display: 'block', flexShrink: 0,
@@ -104,11 +104,11 @@ function StepNode({ data, id }: NodeProps) {
         )}
       </div>
 
-      <div style={{ color: d.status === 'idle' ? '#b6b4d4' : '#ffffff', fontWeight: 600, fontSize: '1rem', letterSpacing: '-0.02em', lineHeight: 1.25, marginBottom: 4 }}>
+      <div style={{ color: d.status === 'idle' ? 'var(--foreground)' : 'var(--foreground)', fontWeight: 600, fontSize: '1rem', letterSpacing: '-0.02em', lineHeight: 1.25, marginBottom: 4 }}>
         {d.label}
       </div>
 
-      <div style={{ color: d.status === 'idle' ? '#6b6884' : '#9ca3af', fontSize: '0.78rem', fontWeight: 400, letterSpacing: 0, lineHeight: 1.4, marginBottom: 16 }}>
+      <div style={{ color: d.status === 'idle' ? 'var(--muted)' : 'var(--muted-foreground)', fontSize: '0.78rem', fontWeight: 400, letterSpacing: 0, lineHeight: 1.4, marginBottom: 16 }}>
         {d.status === 'running' ? 'Running task in background…' : d.status === 'done' ? 'Completed successfully' : d.sub}
       </div>
 
@@ -120,12 +120,12 @@ function StepNode({ data, id }: NodeProps) {
             animation: 'trackSlide 1.5s ease-in-out infinite',
           }}/>
         )}
-        {d.status === 'done' && <div style={{ height: '100%', width: '100%', background: '#4ade80', borderRadius: 4 }}/>}
+        {d.status === 'done' && <div style={{ height: '100%', width: '100%', background: 'var(--secondary)', borderRadius: 4 }}/>}
       </div>
 
       {id !== 'done' && (
         <Handle type="source" position={srcPos}
-          style={{ background: s.dot, border: '2px solid #13142a', width: 12, height: 12, [isVertical ? 'bottom' : 'right']: -6 }}/>
+          style={{ background: s.dot, border: '2px solid var(--background)', width: 12, height: 12, [isVertical ? 'bottom' : 'right']: -6 }}/>
       )}
     </div>
   );
@@ -149,12 +149,12 @@ function ParticleEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, 
         transition: 'stroke 0.6s ease, stroke-width 0.5s ease',
       }}/>
       {active && (
-        <circle r="4.5" fill="#82f5ff" style={{ filter: 'drop-shadow(0 0 6px #82f5ff)' }}>
+        <circle r="4.5" fill="var(--primary)" style={{ filter: 'drop-shadow(0 0 6px var(--primary))' }}>
           <animateMotion dur="2s" repeatCount="indefinite" path={path}/>
         </circle>
       )}
       {active && (
-        <circle r="2.5" fill="#82f5ff" opacity="0.5">
+        <circle r="2.5" fill="var(--primary)" opacity="0.5">
           <animateMotion dur="2s" begin="-1s" repeatCount="indefinite" path={path}/>
         </circle>
       )}
@@ -289,7 +289,7 @@ export function AuditGraph({ liveProgress, isDone }: { liveProgress: string; isD
         style={{ background: 'transparent' }}
       >
         <FlowResizer nodes={initialNodes} />
-        <Background variant={BackgroundVariant.Dots} gap={40} size={1.5} color="rgba(130,245,255,0.08)"/>
+        <Background variant={BackgroundVariant.Dots} gap={40} size={1.5} color="color-mix(in srgb, var(--primary) 8%, transparent)"/>
       </ReactFlow>
     </div>
   );
