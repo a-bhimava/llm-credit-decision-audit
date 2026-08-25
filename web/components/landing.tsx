@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { InterventionRibbon } from "@/components/intervention-ribbon";
+import { AnimatedBeamHero } from "@/components/animated-beam-hero";
 import { ProductShell } from "@/components/product-shell";
 
 export function Landing() {
@@ -8,7 +8,6 @@ export function Landing() {
       <main className="productMain landing">
         <section className="landingHero">
           <div className="heroCopy">
-            
             <h1>When an AI gives a credit decision, we make its explanation auditable and testable.</h1>
             <p className="landingLead">
               Credit Decision Audit turns a model’s explanation into a testable claim. It holds fictional financial facts fixed, changes one controlled condition at a time, and preserves the decision traces needed to inspect the result.
@@ -18,18 +17,9 @@ export function Landing() {
               <Link className="textAction" href="/evidence">Read the evidence ledger</Link>
             </div>
           </div>
-          <div className="heroSystem" aria-label="Audit system overview">
-            <div className="signalPanel">
-              <span className="signalKicker">What changes</span>
-              <strong>One causal variable</strong>
-              <p>Financial facts stay fixed unless a defined intervention changes them.</p>
-            </div>
-            <InterventionRibbon />
-            <div className="systemLegend">
-              <span><i className="legendDot cyan" /> facts</span>
-              <span><i className="legendDot violet" /> intervention</span>
-              <span><i className="legendDot pink" /> trace</span>
-            </div>
+          
+          <div className="heroSystem" aria-label="Audit system overview" style={{ background: 'radial-gradient(circle at center, rgba(132, 119, 255, 0.05) 0%, transparent 70%)', borderRadius: '24px', border: '1px solid var(--line-dark)' }}>
+            <AnimatedBeamHero />
           </div>
         </section>
 
