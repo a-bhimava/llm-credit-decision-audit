@@ -55,24 +55,30 @@ export class GeminiClient implements ModelClient {
     const systemInstruction = req.system;
     
     // Map our messages to Gemini SDK contents
-    const contents = req.messages.map(m => {
+    const contents: any[] = [];
+    for (const m of req.messages) {
+      const role = m.role === "assistant" ? "model" : "user";
+      const parts: any[] = [];
+      
       if (m.role === "user" || m.role === "assistant") {
-        const parts: any[] = [];
         if (m.content) parts.push({ text: m.content });
         if (m.tool_calls) {
           for (const tc of m.tool_calls) {
             parts.push({ functionCall: { name: tc.name, args: tc.arguments } });
           }
         }
-        return { role: m.role === "assistant" ? "model" : "user", parts };
       } else if (m.role === "tool") {
-        return {
-          role: "user",
-          parts: [{ functionResponse: { name: m.tool_call_id, response: JSON.parse(m.content) } }]
-        };
+        parts.push({ functionResponse: { name: m.tool_call_id, response: JSON.parse(m.content) } });
+      } else {
+        throw new Error(`Unsupported role ${m.role}`);
       }
-      throw new Error(`Unsupported role ${m.role}`);
-    });
+
+      if (contents.length > 0 && contents[contents.length - 1].role === role) {
+        contents[contents.length - 1].parts.push(...parts);
+      } else {
+        if (parts.length > 0) contents.push({ role, parts });
+      }
+    }
 
     // Map tools
     const geminiTools = req.tools.length > 0 ? [{
