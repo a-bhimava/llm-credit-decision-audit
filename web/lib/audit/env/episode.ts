@@ -175,7 +175,14 @@ export async function runEpisode(
         turn_index: turnIndex,
         tool_call_id: call.call_id
       });
-      if (isTerminal) return finalize("SUBMITTED");
+      if (isTerminal) {
+        if (state.decision) {
+          let lastThought = resp.content;
+          if (!lastThought) lastThought = [...messages].reverse().find(m => m.role === "assistant" && m.content)?.content;
+          state.decision = { ...state.decision, raw_text: lastThought || state.decision.raw_text };
+        }
+        return finalize("SUBMITTED");
+      }
       if (state.step >= effectiveMaxSteps) break;
     }
   }
