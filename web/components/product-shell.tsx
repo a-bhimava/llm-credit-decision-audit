@@ -6,7 +6,7 @@ export function ProductShell({ children }: Readonly<{ children: React.ReactNode 
       <header className="productHeader">
         <Link className="productMark" href="/" aria-label="Credit Decision Audit home">
           <span className="productMarkDot" aria-hidden="true" />
-          <span>credit decision audit</span>
+          <span>causal audit infrastructure</span>
         </Link>
         <nav aria-label="Product navigation">
           <Link href="/audit">Audit studio</Link>

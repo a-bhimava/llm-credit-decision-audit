@@ -177,7 +177,7 @@ export function AuditStudio() {
   return (
     <section className="studio" aria-label="Audit Studio">
       <aside className="studioRail">
-        <a className="studioBrand" href="/">credit decision audit</a>
+        <a className="studioBrand" href="/">causal audit infrastructure</a>
         <div className="studioStatus"><span className="livePulse" /> private preview</div>
         <ol aria-label="Intake steps">
           {steps.map((item, index) => <li key={item} className={item === step ? "active" : index < currentStep ? "complete" : ""}><span>{String(index + 1).padStart(2, "0")}</span>{item === "income" ? "Income & request" : item === "credit" ? "Credit profile" : item === "history" ? "Record & inquiries" : item === "employment" ? "Employment" : "Confirm scope"}</li>)}
