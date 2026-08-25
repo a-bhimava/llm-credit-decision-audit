@@ -177,9 +177,9 @@ export async function runEpisode(
       });
       if (isTerminal) {
         if (state.decision) {
-          let lastThought = resp.content;
+          let lastThought: string | undefined | null = resp.content;
           if (!lastThought) lastThought = [...messages].reverse().find(m => m.role === "assistant" && m.content)?.content;
-          state.decision = { ...state.decision, raw_text: lastThought || state.decision.raw_text };
+          state = { ...state, decision: { ...state.decision, raw_text: lastThought || state.decision.raw_text } };
         }
         return finalize("SUBMITTED");
       }

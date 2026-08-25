@@ -22,7 +22,6 @@ type NodeStatus = 'idle' | 'running' | 'done' | 'error';
 interface StepNodeData extends Record<string, unknown> {
   label: string;
   sub: string;
-  icon: string;
   status: NodeStatus;
 }
 
@@ -63,7 +62,7 @@ function StepNode({ data, id }: NodeProps) {
       boxShadow: s.glow !== 'none' ? s.glow : '0 4px 20px rgba(0,0,0,0.15)',
       padding: '18px 22px 18px',
       width: 290,
-      fontFamily: 'var(--font-inter, Inter, system-ui, sans-serif)',
+      fontFamily: 'var(--sans)',
       transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
       position: 'relative',
       overflow: 'hidden',
