@@ -345,7 +345,7 @@ td { font-size: 0.86rem; }
 .heroCopy, .heroSystem { position: relative; z-index: 1; }
 .productEyebrow { color: var(--cyan); font: 700 .72rem/1.2 var(--mono); text-transform: uppercase; letter-spacing: .12em; display: flex; gap: .55rem; align-items: center; }
 .productEyebrow span { width: .55rem; height: .55rem; border-radius: 50%; background: currentColor; box-shadow: 0 0 12px currentColor; }
-.landing h1 { color: var(--foreground); max-width: 18ch; margin: 1.35rem 0 1.8rem; font-family: var(--sans); font-weight: 700; letter-spacing: -.05em; line-height: 1.05; font-size: clamp(2.8rem, 5vw, 5.2rem); }
+.landing h1 { color: var(--foreground); max-width: 25ch; margin: 0 0 1.8rem; font-family: var(--sans); font-weight: 700; letter-spacing: -.05em; line-height: 1.05; font-size: clamp(2.8rem, 5vw, 5.2rem); text-wrap: balance; }
 .landingLead { color: var(--dim); max-width: 58ch; font-size: clamp(1.04rem, 1.5vw, 1.25rem); line-height: 1.65; }
 .landingActions { margin-top: 2.2rem; display: flex; gap: 1.25rem; align-items: center; flex-wrap: wrap; }
 .primaryAction, .nextButton { border: 0; display: inline-flex; align-items: center; gap: 2.5rem; background: linear-gradient(103deg, var(--cyan), #b3c5ff 58%, var(--pink)); color: var(--primary-foreground); padding: .95rem 1.05rem 1rem 1.25rem; text-decoration: none; font: 800 .76rem var(--mono); letter-spacing: .04em; text-transform: uppercase; cursor: pointer; }
