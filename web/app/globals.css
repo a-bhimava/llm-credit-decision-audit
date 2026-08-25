@@ -339,13 +339,13 @@ td { font-size: 0.86rem; }
 .productHeader nav a:hover { color: var(--cyan); }
 .productMark { display: inline-flex; align-items: center; gap: .6rem; color: var(--ink-light); text-decoration: none; font: 700 .78rem var(--mono); letter-spacing: .045em; text-transform: uppercase; }
 .productMarkDot { width: .7rem; height: .7rem; display: inline-block; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 18px var(--cyan); }
-.productMain { max-width: 1440px; margin: auto; }
-.landingHero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(400px, .9fr); gap: clamp(3rem, 7vw, 9rem); padding: clamp(2rem, 5vh, 5rem) 0 7.5rem; position: relative; }
+.productMain { max-width: 1800px; margin: auto; }
+.landingHero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(400px, .9fr); gap: clamp(3rem, 7vw, 9rem); padding: clamp(1rem, 2vh, 2rem) 0 7.5rem; position: relative; }
 .landingHero::before { content: ""; position: absolute; z-index: 0; inset: 12% -12% auto auto; width: 44vw; height: 44vw; max-width: 680px; max-height: 680px; border-radius: 50%; background: radial-gradient(circle, rgba(121, 86, 255, .17), transparent 68%); pointer-events: none; }
 .heroCopy, .heroSystem { position: relative; z-index: 1; }
 .productEyebrow { color: var(--cyan); font: 700 .72rem/1.2 var(--mono); text-transform: uppercase; letter-spacing: .12em; display: flex; gap: .55rem; align-items: center; }
 .productEyebrow span { width: .55rem; height: .55rem; border-radius: 50%; background: currentColor; box-shadow: 0 0 12px currentColor; }
-.landing h1 { color: var(--foreground); max-width: 25ch; margin: 0 0 1.8rem; font-family: var(--sans); font-weight: 700; letter-spacing: -.05em; line-height: 1.05; font-size: clamp(2.8rem, 5vw, 5.2rem); text-wrap: balance; }
+.landing h1 { color: var(--foreground); max-width: 25ch; margin: 0 0 1.8rem; font-family: var(--sans); font-weight: 700; letter-spacing: -.05em; line-height: 1.05; font-size: clamp(1.68rem, 3vw, 3.12rem); text-wrap: balance; }
 .landingLead { color: var(--dim); max-width: 58ch; font-size: clamp(1.04rem, 1.5vw, 1.25rem); line-height: 1.65; }
 .landingActions { margin-top: 2.2rem; display: flex; gap: 1.25rem; align-items: center; flex-wrap: wrap; }
 .primaryAction, .nextButton { border: 0; display: inline-flex; align-items: center; gap: 2.5rem; background: linear-gradient(103deg, var(--cyan), #b3c5ff 58%, var(--pink)); color: var(--primary-foreground); padding: .95rem 1.05rem 1rem 1.25rem; text-decoration: none; font: 800 .76rem var(--mono); letter-spacing: .04em; text-transform: uppercase; cursor: pointer; }
@@ -436,14 +436,14 @@ td { font-size: 0.86rem; }
 .backButton:hover { color: var(--ink-light); }
 .backButton:disabled { opacity: .3; cursor: not-allowed; }
 /* nextButton and primaryAction: keep gradient but fix typography */
-.primaryAction, .nextButton { border: 0; display: inline-flex; align-items: center; gap: 1.5rem; background: linear-gradient(103deg, var(--cyan), #b3c5ff 58%, var(--pink)); color: var(--primary-foreground); padding: .8rem 1rem .85rem 1.35rem; text-decoration: none; font: 700 0.78rem var(--sans); letter-spacing: -0.01em; cursor: pointer; border-radius: 8px; }
+.primaryAction, .nextButton { border: 0; display: inline-flex; align-items: center; gap: 2rem; background: linear-gradient(103deg, var(--cyan), #b3c5ff 58%, var(--pink)); color: var(--primary-foreground); padding: 1.2rem 1.6rem 1.25rem 2rem; text-decoration: none; font: 700 1.1rem var(--sans); letter-spacing: -0.01em; cursor: pointer; border-radius: 12px; }
 .primaryAction:hover, .nextButton:hover:not(:disabled) { color: var(--primary-foreground); transform: translateY(-1px); box-shadow: 0 8px 28px rgba(130, 200, 255, .28); }
 .primaryAction span, .nextButton span { font-size: 1.1rem; line-height: 0; }
 .nextButton { min-width: 200px; justify-content: space-between; }
 .nextButton:disabled { opacity: .4; cursor: not-allowed; }
 
 @media (max-width: 900px) { .landingHero, .problemBand, .comparisonSection { grid-template-columns: 1fr; }.landingHero { padding-top: 4rem; }.heroSystem { max-width: 680px; }.comparisonCards { max-width: 700px; }.studio { grid-template-columns: 1fr; }.studioRail { min-height: auto; border-right: 0; border-bottom: 1px solid var(--line-dark); padding: 1.1rem; }.studioStatus, .railLimits { display: none; }.studioRail ol { display: flex; overflow-x: auto; gap: 1.1rem; margin-top: 1rem; }.studioRail li { white-space: nowrap; }.studioConversation { min-height: calc(100vh - 120px); }.conversationBody { padding-top: 3rem; } }
-@media (max-width: 620px) { .productShell { padding: 0 1rem; }.productHeader { min-height: 66px; }.productHeader nav { gap: .85rem; font-size: .62rem; }.productMark { font-size: .64rem; }.landing h1 { font-size: clamp(2.2rem, 10vw, 3.2rem); }.methodGrid, .comparisonCards, .fieldGrid { grid-template-columns: 1fr; }.methodGrid article { border-right: 1px solid var(--line-dark); border-bottom: 1px solid var(--line-dark); }.methodGrid article:last-child { border-bottom: 0; }.comparisonCards article { min-height: 220px; }.productFooter { align-items: flex-start; flex-direction: column; justify-content: center; gap: .5rem; }.studioConversation { grid-template-rows: 60px 1fr 76px; }.studioTopbar { font-size: .6rem; }.assistantMessage { grid-template-columns: 1fr; }.assistantAvatar { width: 30px; height: 30px; }.assistantMessage h1 { font-size: 2.2rem; }.userComposer { margin-left: 0; }.studioControls { padding: 0 1rem; }.nextButton { min-width: 190px; } }
+@media (max-width: 620px) { .productShell { padding: 0 1rem; }.productHeader { min-height: 66px; }.productHeader nav { gap: .85rem; font-size: .62rem; }.productMark { font-size: .64rem; }.landing h1 { font-size: clamp(1.3rem, 6vw, 1.9rem); }.methodGrid, .comparisonCards, .fieldGrid { grid-template-columns: 1fr; }.methodGrid article { border-right: 1px solid var(--line-dark); border-bottom: 1px solid var(--line-dark); }.methodGrid article:last-child { border-bottom: 0; }.comparisonCards article { min-height: 220px; }.productFooter { align-items: flex-start; flex-direction: column; justify-content: center; gap: .5rem; }.studioConversation { grid-template-rows: 60px 1fr 76px; }.studioTopbar { font-size: .6rem; }.assistantMessage { grid-template-columns: 1fr; }.assistantAvatar { width: 30px; height: 30px; }.assistantMessage h1 { font-size: 2.2rem; }.userComposer { margin-left: 0; }.studioControls { padding: 0 1rem; }.nextButton { min-width: 190px; } }
 
 .launchReaction {
   width: 100%;
