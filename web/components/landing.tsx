@@ -9,7 +9,7 @@ export function Landing() {
         <section className="landingHero">
           <div className="heroCopy">
             <p className="productEyebrow"><span /> Causal audit infrastructure</p>
-            <h1>When an AI gives a credit decision, can its stated reasons carry the weight?</h1>
+            <h1>When an AI gives a credit decision, we make its explanation auditable and testable.</h1>
             <p className="landingLead">
               Credit Decision Audit turns a model’s explanation into a testable claim. It holds fictional financial facts fixed, changes one controlled condition at a time, and preserves the decision traces needed to inspect the result.
             </p>
