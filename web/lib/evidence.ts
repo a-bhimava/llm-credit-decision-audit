@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { readdir, readFile } from "node:fs/promises";
+import { access, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { notFound } from "next/navigation";
 
@@ -94,7 +94,18 @@ export const loadRunIndex = cache(async (): Promise<RunIndex> => {
       },
     } satisfies RunIndexEntry;
   });
-  return { default_run_id: string(payload.default_run_id, "default_run_id"), runs };
+  // The index can advertise a run whose bundle has not been published in this
+  // checkout. Never pre-render a partial or absent evidence route as a finding.
+  const available = (await Promise.all(runs.map(async run => {
+    try { await access(path.join(evidenceRoot, run.run_id, "manifest.json")); return run; }
+    catch { return null; }
+  }))).filter((run): run is RunIndexEntry => run !== null);
+  const requestedDefault = string(payload.default_run_id, "default_run_id");
+  const default_run_id = available.some(run => run.run_id === requestedDefault)
+    ? requestedDefault
+    : available.find(run => run.kind === "scripted")?.run_id ?? available[0]?.run_id;
+  if (!default_run_id) throw new Error("No complete evidence bundle is available");
+  return { default_run_id, runs: available };
 });
 
 export const getRun = cache(async (runId: string): Promise<RunIndexEntry> => {
