@@ -1,0 +1,29 @@
+/* React Bits Glare Hover, softened for a primary app action. */
+.rt-glare-hover {
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+}
+
+.rt-glare-hover::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(-45deg, transparent 58%, var(--rt-glare-color) 70%, transparent 82%);
+  background-size: 220% 220%;
+  background-position: -100% -100%;
+  transition: background-position 520ms ease;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.rt-glare-hover:hover::before,
+.rt-glare-hover:focus-within::before {
+  background-position: 100% 100%;
+}
+
+.rt-glare-hover:has(button:disabled)::before { display: none; }
+
+@media (prefers-reduced-motion: reduce), (hover: none) {
+  .rt-glare-hover::before { display: none; }
+}
