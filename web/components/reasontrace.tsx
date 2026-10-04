@@ -6,6 +6,8 @@ import {
   type CaseReview, type DocumentId, type FieldId,
 } from "@/lib/reasontrace/demo";
 import { caseDefinitions, getCaseDefinition } from "@/lib/reasontrace/cases";
+import { SpotlightCard } from "@/components/react-bits/spotlight-card";
+import { GlareHover } from "@/components/react-bits/glare-hover";
 
 type Check = {
   check: string; status: string; pair_id: string; effect: number | null;
@@ -266,12 +268,13 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
     <nav className="rt-case-picker" aria-label="Select a synthetic interview case">
       {caseDefinitions.map((item, index) => {
         const match = availableCases.find(entry => entry.label === item.label);
-        return <button type="button" key={item.label} disabled={!match || busy !== null}
-          className={item.label === caseLabel ? "is-active" : ""}
-          aria-current={item.label === caseLabel ? "page" : undefined}
-          onClick={() => { if (match) void switchCase(match.id); }}>
-          <span>CASE {index + 1} / {item.label}</span><strong>{item.title}</strong><small>{item.summary}</small>
-        </button>;
+        return <SpotlightCard key={item.label} className={`rt-case-tile${item.label === caseLabel ? " is-active" : ""}`}>
+          <button type="button" disabled={!match || busy !== null}
+            aria-current={item.label === caseLabel ? "page" : undefined}
+            onClick={() => { if (match) void switchCase(match.id); }}>
+            <span>CASE {index + 1} / {item.label}</span><strong>{item.title}</strong><small>{item.summary}</small>
+          </button>
+        </SpotlightCard>;
       })}
     </nav>
 
@@ -346,7 +349,9 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
             <option value="faithful">Faithful policy control</option>
           </select>
         </label>
-        <button className="rt-run" type="button" disabled={problems.length > 0 || busy !== null} onClick={runAudit}>{busy === "audit" ? "Running paired tests…" : "Run reason-validity audit →"}</button>
+        <GlareHover className="rt-run-glare">
+          <button className="rt-run" type="button" disabled={problems.length > 0 || busy !== null} onClick={runAudit}>{busy === "audit" ? "Running paired tests…" : "Run reason-validity audit →"}</button>
+        </GlareHover>
         {auditResult && <div className="rt-results" aria-live="polite">
           <div className="rt-result-summary"><span>Scripted result</span><h3>{auditResult.decision.outcome}</h3><p>Agent stated: <strong>{auditResult.decision.reasons.map(pretty).join(", ") || "no adverse reason"}</strong></p><p>Policy oracle: <strong>{auditResult.oracle.breached_codes.map(pretty).join(", ") || "no breached rule"}</strong></p></div>
           <h3 className="rt-check-title">Paired evidence</h3>
