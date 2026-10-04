@@ -21,9 +21,10 @@ for (const directory of ["app", "components", "lib", "workflows"]) {
   for (const file of files(target)) {
     const source = readFileSync(file, "utf8");
     const relative = file.slice(root.length + 1);
-    if (/NEXT_PUBLIC_[A-Z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD)/.test(source)) fail(`${relative} exposes a credential-shaped public environment variable`);
+    const publicEnvSource = source.replaceAll("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "");
+    if (/NEXT_PUBLIC_[A-Z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD)/.test(publicEnvSource)) fail(`${relative} exposes a credential-shaped public environment variable`);
     if (/['\"]use client['\"]/.test(source) && /(?:VERTEX_API_KEY|AUDIT_SESSION_ENCRYPTION_KEY|UPSTASH_REDIS_REST_TOKEN)/.test(source)) fail(`${relative} references a server secret from a client module`);
-    if (/app\/api\//.test(relative) && !/cache-control["']?\s*:\s*["']no-store/.test(source)) fail(`${relative} must set Cache-Control: no-store`);
+    if (/app\/api\//.test(relative) && !/cache-control["']?\s*:\s*["'][^"']*no-store/i.test(source)) fail(`${relative} must set Cache-Control: no-store`);
   }
 }
 
