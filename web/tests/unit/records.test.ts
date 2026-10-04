@@ -41,8 +41,7 @@ test("Applicant computes derived facts correctly", () => {
     }
   }, {
     generation_seed: 123,
-    generator_version: "1.0",
-    source_cell_id: null,
+    cohort: "synthetic-test",
     parent_applicant_id: null,
     intervention_lineage: []
   });
