@@ -12,6 +12,13 @@
 .rt-name-review label{font-size:11px;color:var(--rt-muted);font-weight:700}
 .rt-name-review input{min-width:150px;flex:1;border:1px solid var(--rt-line);border-radius:7px;padding:7px 9px;background:#fff;color:var(--rt-ink);font-size:12px}
 .rt-name-review button{border:0;border-radius:7px;padding:8px 10px;background:#e5eeed;color:#075b56;font-size:11px;font-weight:700}
+.rt-doc-tabs button[role="tab"]{display:grid;gap:4px;min-width:max-content;text-align:left}
+.rt-doc-tab-status{display:flex;align-items:center;gap:5px;color:#697d88;font-size:9px;font-weight:600;line-height:1.2}
+.rt-doc-tab-status::before{content:"";width:6px;height:6px;border-radius:50%;background:#aab9bd}
+.rt-doc-tab-status.reviewed{color:#16715d}
+.rt-doc-tab-status.reviewed::before{background:#37a479}
+.rt-doc-tab-status.missing{color:#9c6231}
+.rt-doc-tab-status.missing::before{background:#c9904f}
 .rt-case-picker{max-width:1540px;margin:0 auto 18px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
 .rt-case-tile{border:1px solid var(--rt-line);border-radius:12px;background:#fff;box-shadow:0 5px 18px #24405209;transition:border-color .2s ease,box-shadow .2s ease,transform .2s ease}
 .rt-case-tile:hover{border-color:#8bbab0;box-shadow:0 12px 26px #2440521c;transform:translateY(-2px)}

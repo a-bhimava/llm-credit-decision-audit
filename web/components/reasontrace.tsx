@@ -11,6 +11,7 @@ import { SpotlightCard } from "@/components/react-bits/spotlight-card";
 import { GlareHover } from "@/components/react-bits/glare-hover";
 import { WorkflowStepper } from "@/components/react-bits/workflow-stepper";
 import { AnimatedContent } from "@/components/react-bits/animated-content";
+import { documentTabId, ReasonTraceDocumentTabs } from "@/components/reasontrace-document-tabs";
 
 type Check = {
   check: string; status: string; pair_id: string; effect: number | null;
@@ -62,11 +63,21 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
   const problems = useMemo(() => validateReview(review, definition.applicantName, definition.creditScore).problems,
     [review, definition.applicantName, definition.creditScore]);
   const selected = documents.find(doc => doc.id === activeDoc)!;
+  const documentTabs = documents.map(doc => ({
+    id: doc.id, title: doc.title,
+    status: !review.documents[doc.id].included ? "missing" as const
+      : review.documents[doc.id].reviewed ? "reviewed" as const : "to-review" as const,
+  }));
   const reviewedDocuments = documents.filter(doc => review.documents[doc.id].included && review.documents[doc.id].reviewed).length;
   const confirmedFields = fieldIds.filter(id => {
     const field = review.fields[id];
     return field.confirmed && review.documents[field.documentId].included && review.documents[field.documentId].reviewed;
   }).length;
+
+  function showSourceDocument(id: DocumentId) {
+    setActiveDoc(id);
+    requestAnimationFrame(() => document.getElementById(documentTabId(id))?.focus());
+  }
 
   function applyLocalCase(label: string) {
     const item = getCaseDefinition(label);
@@ -298,24 +309,24 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
     <div className="rt-workspace">
       <section className="rt-panel rt-doc-panel" aria-labelledby="rt-doc-heading">
         <div className="rt-panel-heading"><span>01 / SOURCE</span><h2 id="rt-doc-heading" tabIndex={-1}>Document packet</h2><p>Select a page to compare its text with extracted values.</p></div>
-        <div className="rt-doc-tabs" role="group" aria-label="Synthetic documents">
-          {documents.map(doc => <button type="button" key={doc.id} onClick={() => setActiveDoc(doc.id)} className={doc.id === activeDoc ? "is-active" : ""} aria-pressed={doc.id === activeDoc}>{doc.title}</button>)}
-        </div>
-        <div className="rt-doc-frame"><img src={documentUrls[selected.id]} alt={`${selected.title}, a visibly synthetic one-page document for ${definition.applicantName}`} /></div>
-        <div className="rt-doc-footer">
-          <div><strong>{selected.title}</strong><span>{selected.type} · page 1 of 1</span></div>
-          <label><input type="checkbox" checked={review.documents[selected.id].included} disabled={busy !== null} onChange={e => { void saveReview({ kind: "document", documentId: selected.id, included: e.target.checked, reviewed: false }); }} /> Included{definition.initialExcludedDocument === selected.id ? " (simulated missing page)" : ""}</label>
-          <button type="button" disabled={!review.documents[selected.id].included || busy !== null} onClick={() => { void saveReview({ kind: "document", documentId: selected.id, reviewed: !review.documents[selected.id].reviewed }); }}>{review.documents[selected.id].reviewed ? "Reviewed ✓" : "Mark reviewed"}</button>
-        </div>
-        <div className="rt-name-review">
-          <label htmlFor="rt-applicant-name">Extracted applicant name</label>
-          <input id="rt-applicant-name" value={review.documents[selected.id].applicantName}
-            onChange={event => updateReview({ ...review, documents: { ...review.documents,
-              [selected.id]: { ...review.documents[selected.id], applicantName: event.target.value } } })} />
-          {savedReview?.documents[selected.id].applicantName !== review.documents[selected.id].applicantName &&
-            <button type="button" disabled={!review.documents[selected.id].reviewed || busy !== null}
-              onClick={() => { void saveReview({ kind: "applicant_name", documentId: selected.id,
-                value: review.documents[selected.id].applicantName }); }}>Save name correction</button>}
+        <ReasonTraceDocumentTabs items={documentTabs} selectedId={activeDoc} onSelect={setActiveDoc} />
+        <div id="rt-document-panel" role="tabpanel" aria-labelledby={documentTabId(activeDoc)} tabIndex={0}>
+          <div className="rt-doc-frame"><img src={documentUrls[selected.id]} alt={`${selected.title}, a visibly synthetic one-page document for ${definition.applicantName}`} /></div>
+          <div className="rt-doc-footer">
+            <div><strong>{selected.title}</strong><span>{selected.type} · page 1 of 1</span></div>
+            <label><input type="checkbox" checked={review.documents[selected.id].included} disabled={busy !== null} onChange={e => { void saveReview({ kind: "document", documentId: selected.id, included: e.target.checked, reviewed: false }); }} /> Included{definition.initialExcludedDocument === selected.id ? " (simulated missing page)" : ""}</label>
+            <button type="button" disabled={!review.documents[selected.id].included || busy !== null} onClick={() => { void saveReview({ kind: "document", documentId: selected.id, reviewed: !review.documents[selected.id].reviewed }); }}>{review.documents[selected.id].reviewed ? "Reviewed ✓" : "Mark reviewed"}</button>
+          </div>
+          <div className="rt-name-review">
+            <label htmlFor="rt-applicant-name">Extracted applicant name</label>
+            <input id="rt-applicant-name" value={review.documents[selected.id].applicantName}
+              onChange={event => updateReview({ ...review, documents: { ...review.documents,
+                [selected.id]: { ...review.documents[selected.id], applicantName: event.target.value } } })} />
+            {savedReview?.documents[selected.id].applicantName !== review.documents[selected.id].applicantName &&
+              <button type="button" disabled={!review.documents[selected.id].reviewed || busy !== null}
+                onClick={() => { void saveReview({ kind: "applicant_name", documentId: selected.id,
+                  value: review.documents[selected.id].applicantName }); }}>Save name correction</button>}
+          </div>
         </div>
       </section>
 
@@ -331,7 +342,7 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
             <div className="rt-field-top"><h3>{definition.label}</h3><span className={field.confirmed ? "rt-status confirmed" : "rt-status"}>{field.confirmed ? "Confirmed" : "Needs confirmation"}</span></div>
             <div className="rt-field-input"><label htmlFor={`rt-${id}`}>Reviewed value</label><input id={`rt-${id}`} type="number" min="0" step={definition.unit === "money" ? ".01" : "1"} value={definition.unit === "money" ? field.value / 100 : field.value} onChange={e => updateField(id, { value: definition.unit === "money" ? Math.round(Number(e.target.value) * 100) : Number(e.target.value), confirmed: false })} /><span>{definition.unit === "money" ? "USD" : "score"}</span></div>
             {field.value !== field.originalValue && <p className="rt-original">Original extraction: {displayValue(id, field.originalValue)}</p>}
-            <button className="rt-source-link" type="button" onClick={() => setActiveDoc(field.documentId)}>↗ {documents.find(doc => doc.id === field.documentId)?.title}, p. 1 · “{field.quote}”</button>
+            <button className="rt-source-link" type="button" onClick={() => showSourceDocument(field.documentId)}>↗ {documents.find(doc => doc.id === field.documentId)?.title}, p. 1 · “{field.quote}”</button>
             {savedReview?.fields[id].value !== field.value && <button type="button" className="rt-confirm" disabled={busy !== null} onClick={() => { void saveReview({ kind: "field", fieldId: id, value: field.value }); }}>Save correction</button>}
             <button type="button" className="rt-confirm" disabled={!review.documents[field.documentId].included || !review.documents[field.documentId].reviewed || !Number.isSafeInteger(field.value) || busy !== null} onClick={() => { void saveReview({ kind: "field", fieldId: id, value: field.value, confirmed: !field.confirmed }); }}>{field.confirmed ? "Undo confirmation" : "Confirm against page"}</button>
           </article>;
