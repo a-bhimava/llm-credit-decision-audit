@@ -11,11 +11,12 @@ import { applyLocalReviewChange } from "@/lib/reasontrace/local-review";
 import { GlareHover } from "@/components/react-bits/glare-hover";
 import { WorkflowStepper } from "@/components/react-bits/workflow-stepper";
 import { AnimatedContent } from "@/components/react-bits/animated-content";
-import { documentTabId, ReasonTraceDocumentTabs } from "@/components/reasontrace-document-tabs";
+import { documentTabId } from "@/components/reasontrace-document-tabs";
 import { ReasonTraceAuditChecks, type AuditCheck } from "@/components/reasontrace-audit-checks";
 import { ReasonTraceCasePicker } from "@/components/reasontrace-case-picker";
 import { ReasonTraceReviewHistory, type ReviewEvent } from "@/components/reasontrace-review-history";
 import { ReasonTraceFieldReview } from "@/components/reasontrace-field-review";
+import { ReasonTraceDocumentReview } from "@/components/reasontrace-document-review";
 
 type AuditResult = {
   mode: string; policy: string; agent: string;
@@ -53,12 +54,6 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
   const definition = getCaseDefinition(caseLabel) ?? caseDefinitions[0];
   const problems = useMemo(() => validateReview(review, definition.applicantName, definition.creditScore).problems,
     [review, definition.applicantName, definition.creditScore]);
-  const selected = documents.find(doc => doc.id === activeDoc)!;
-  const documentTabs = documents.map(doc => ({
-    id: doc.id, title: doc.title,
-    status: !review.documents[doc.id].included ? "missing" as const
-      : review.documents[doc.id].reviewed ? "reviewed" as const : "to-review" as const,
-  }));
   const reviewedDocuments = documents.filter(doc => review.documents[doc.id].included && review.documents[doc.id].reviewed).length;
   const confirmedFields = fieldIds.filter(id => {
     const field = review.fields[id];
@@ -70,7 +65,7 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
     requestAnimationFrame(() => document.getElementById(documentTabId(id))?.focus());
   }
 
-  function applyLocalCase(label: string) {
+  function applyLocalCase(label: string, selectedDocument: DocumentId = "credit-report") {
     const item = getCaseDefinition(label);
     if (!item) throw new Error("Unknown synthetic case.");
     let saved: { review?: CaseReview; reviewEvents?: ReviewEvent[]; auditResult?: AuditResult; agent?: "faithful" | "laundering" } = {};
@@ -85,7 +80,7 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
     setReviewEvents(Array.isArray(saved.reviewEvents) ? saved.reviewEvents : []);
     setAuditResult(saved.auditResult ?? null);
     setAgent(saved.agent === "faithful" || saved.agent === "laundering" ? saved.agent : item.agent);
-    setActiveDoc("credit-report");
+    setActiveDoc(selectedDocument);
     setDocumentUrls(Object.fromEntries(documents.map(doc => [doc.id,
       `/api/reasontrace/local/document?case=${encodeURIComponent(label)}&document=${encodeURIComponent(doc.id)}`,
     ])) as Record<DocumentId, string>);
@@ -100,7 +95,7 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
     } catch { setMessage("Browser storage is unavailable; this review will last only until the page closes."); }
   }
 
-  function applyDetail(id: string, detail: CaseDetail) {
+  function applyDetail(id: string, detail: CaseDetail, selectedDocument: DocumentId = "credit-report") {
     const item = getCaseDefinition(detail.case.case_label);
     if (!item) throw new Error("Unknown synthetic case returned by the server.");
     const kinds: Record<string, DocumentId> = {
@@ -124,7 +119,7 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
         : key === "applicant_name" ? "Applicant name"
           : docId ? documents.find(doc => doc.id === docId)?.title : undefined };
     }));
-    setActiveDoc("credit-report");
+    setActiveDoc(selectedDocument);
     setAgent(detail.currentRun?.agent_kind === "faithful" || detail.currentRun?.agent_kind === "laundering"
       ? detail.currentRun.agent_kind : item.agent);
     setAuditResult(detail.currentRun?.status === "completed" ? detail.currentRun.result : null);
@@ -178,9 +173,9 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
   }
   async function reloadSavedCase() {
     if (!caseId) return;
-    if (localFixtures) { applyLocalCase(caseLabel); return; }
+    if (localFixtures) { applyLocalCase(caseLabel, activeDoc); return; }
     const detail = await fetchCase(caseId);
-    applyDetail(caseId, detail);
+    applyDetail(caseId, detail, activeDoc);
   }
   async function switchCase(id: string) {
     if (busy || id === caseId) return;
@@ -284,28 +279,22 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
     {message && <p className="rt-message" role="status">{message}</p>}
 
     <div className="rt-workspace">
-      <section className="rt-panel rt-doc-panel" aria-labelledby="rt-doc-heading">
-        <div className="rt-panel-heading"><span>01 / SOURCE</span><h2 id="rt-doc-heading" tabIndex={-1}>Document packet</h2><p>Select a page to compare its text with extracted values.</p></div>
-        <ReasonTraceDocumentTabs items={documentTabs} selectedId={activeDoc} onSelect={setActiveDoc} />
-        <div id="rt-document-panel" role="tabpanel" aria-labelledby={documentTabId(activeDoc)} tabIndex={0}>
-          <div className="rt-doc-frame"><img src={documentUrls[selected.id]} alt={`${selected.title}, a visibly synthetic one-page document for ${definition.applicantName}`} /></div>
-          <div className="rt-doc-footer">
-            <div><strong>{selected.title}</strong><span>{selected.type} · page 1 of 1</span></div>
-            <label><input type="checkbox" checked={review.documents[selected.id].included} disabled={busy !== null} onChange={e => { void saveReview({ kind: "document", documentId: selected.id, included: e.target.checked, reviewed: false }); }} /> Included{definition.initialExcludedDocument === selected.id ? " (simulated missing page)" : ""}</label>
-            <button type="button" disabled={!review.documents[selected.id].included || busy !== null} onClick={() => { void saveReview({ kind: "document", documentId: selected.id, reviewed: !review.documents[selected.id].reviewed }); }}>{review.documents[selected.id].reviewed ? "Reviewed ✓" : "Mark reviewed"}</button>
-          </div>
-          <div className="rt-name-review">
-            <label htmlFor="rt-applicant-name">Extracted applicant name</label>
-            <input id="rt-applicant-name" value={review.documents[selected.id].applicantName}
-              onChange={event => updateReview({ ...review, documents: { ...review.documents,
-                [selected.id]: { ...review.documents[selected.id], applicantName: event.target.value } } })} />
-            {savedReview?.documents[selected.id].applicantName !== review.documents[selected.id].applicantName &&
-              <button type="button" disabled={!review.documents[selected.id].reviewed || busy !== null}
-                onClick={() => { void saveReview({ kind: "applicant_name", documentId: selected.id,
-                  value: review.documents[selected.id].applicantName }); }}>Save name correction</button>}
-          </div>
-        </div>
-      </section>
+      <ReasonTraceDocumentReview activeDoc={activeDoc} onSelectDocument={setActiveDoc}
+        documentUrls={documentUrls} review={review} savedReview={savedReview}
+        applicantName={definition.applicantName} initialExcludedDocument={definition.initialExcludedDocument}
+        busy={busy !== null}
+        onToggleIncluded={(id, included) => {
+          void saveReview({ kind: "document", documentId: id, included, reviewed: false });
+        }}
+        onToggleReviewed={(id, reviewed) => {
+          void saveReview({ kind: "document", documentId: id, reviewed });
+        }}
+        onApplicantNameChange={(id, value) => updateReview({ ...review, documents: { ...review.documents,
+          [id]: { ...review.documents[id], applicantName: value } } })}
+        onSaveApplicantName={(id, value) => {
+          void saveReview({ kind: "applicant_name", documentId: id, value });
+        }}
+        onRefreshPreview={reloadSavedCase} />
 
       <section className="rt-panel rt-fact-panel" aria-labelledby="rt-fact-heading">
         <div className="rt-panel-heading"><span>02 / REVIEW</span><h2 id="rt-fact-heading" tabIndex={-1}>Confirm the facts</h2><p>Corrections preserve the original extraction. No value enters the audit unconfirmed.</p></div>
