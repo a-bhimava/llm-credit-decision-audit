@@ -4,8 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import type { AuditIntake, EmploymentStatus, PublicRecordKind } from "@/lib/audit/contracts";
+import type { Trajectory } from "@/lib/audit/records";
 import { AnimatedContent } from "@/components/react-bits/animated-content";
 import { AuditIntakeStepper } from "@/components/react-bits/audit-intake-stepper";
+import { AuditResultDashboard, AuditResultUnavailable } from "@/components/audit-result-dashboard";
 
 const AuditGraph = dynamic(
   () => import("@/components/audit-graph").then((m) => m.AuditGraph),
@@ -68,7 +70,7 @@ export function AuditStudio() {
   const [jobId, setJobId] = useState<string | null>(null);
   const [liveProgress, setLiveProgress] = useState<string>("Allocating agents and preparing environments...");
   const [isDone, setIsDone] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<Trajectory | null>(null);
   const currentStep = steps.indexOf(step);
   const previousStep = useRef(step);
   useEffect(() => {
@@ -133,7 +135,7 @@ export function AuditStudio() {
             data.progress.status === "failed"
           )) {
             if (data.progress.completedEpisodes?.length > 0) {
-              setResult(data.progress.completedEpisodes[0]);
+              setResult(data.progress.completedEpisodes[0] as Trajectory);
             }
             console.log(`%c✅ Workflow terminal state: ${status}`, "color:#4ade80;font-weight:bold;font-size:13px");
             setIsDone(true);
@@ -191,7 +193,7 @@ export function AuditStudio() {
         <div className="railLimits"><span>Bounded run</span><strong>$2.00 maximum</strong><p>Two configurations, five trials, one fictional scenario.</p></div>
       </aside>
 
-      <div className="studioConversation">
+      <div className={`studioConversation${submission === "launched" ? " is-launched" : ""}`}>
         <header className="studioTopbar"><a href="/">← Exit studio</a><span>Session-only · expires in 60 min</span></header>
         {submission === "launched" && !isDone && (
           <div className="launchReaction" style={{ position: "relative", width: "100%", height: "100%" }}>
@@ -212,181 +214,11 @@ export function AuditStudio() {
           </div>
         )}
         
-        {submission === "launched" && isDone && result && (
-          <div style={{ width: "100%", height: "100%", background: "var(--card)", display: "flex", flexDirection: "column", animation: "fadeIn 0.5s ease", overflowY: "auto" }}>
-            <style>{`
-              @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-              .dashboard-header { background: #0F172A; color: #ffffff; padding: 3rem 4rem; display: flex; justify-content: space-between; align-items: flex-end; }
-              .dashboard-content { display: flex; flex: 1; }
-              .main-pane { flex: 0 0 65%; padding: 4rem; border-right: 1px solid #E2E8F0; display: flex; flex-direction: column; gap: 3rem; }
-              .side-pane { flex: 1; padding: 4rem 2.5rem; background: #F8FAFC; display: flex; flex-direction: column; gap: 2.5rem; }
-              .metric-card { background: #ffffff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-              .bar-bg { width: 100%; height: 8px; background: #E2E8F0; border-radius: 4px; overflow: hidden; margin-top: 0.75rem; }
-              .bar-fill { height: 100%; border-radius: 4px; transition: width 1s ease-out; }
-            `}</style>
-            
-            {/* Header Banner */}
-            <div className="dashboard-header">
-              <div>
-                <div style={{ color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.1em", fontSize: "0.875rem", fontWeight: 600, marginBottom: "0.5rem" }}>
-                  Automated Decision
-                </div>
-                <h1 style={{ margin: 0, fontSize: "3rem", fontWeight: 700, letterSpacing: "-0.02em", color: result.decision?.outcome === "APPROVE" ? "#4ADE80" : "#F87171" }}>
-                  {result.decision?.outcome === "APPROVE" ? "Approved" : result.decision?.outcome === "DENY" ? "Adverse Action" : result.decision?.outcome || "Unknown"}
-                </h1>
-                <div style={{ marginTop: "1rem", fontSize: "1.125rem", color: "#CBD5E1", maxWidth: "600px", lineHeight: 1.6 }}>
-                  {result.decision?.outcome === "APPROVE" 
-                    ? `The applicant meets all policy requirements for the requested ${dollars(facts.loanAmount)}.` 
-                    : "The applicant does not meet the minimum requirements of the synthetic credit policy."}
-                </div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ color: "#94A3B8", fontSize: "0.875rem", marginBottom: "0.5rem" }}>Amount Requested</div>
-                <div style={{ fontSize: "2.5rem", fontWeight: 700, color: "var(--card-foreground)", fontVariantNumeric: "tabular-nums" }}>{dollars(facts.loanAmount)}</div>
-              </div>
-            </div>
-
-            {/* Content Area */}
-            <div className="dashboard-content">
-              {/* Left Pane: Visuals and Explanation */}
-              <div className="main-pane">
-                
-                {/* Agent Explanation */}
-                <div>
-                  <h2 style={{ margin: "0 0 1.5rem 0", color: "var(--foreground)", fontSize: "1.5rem", fontWeight: 700 }}>Policy Rationale</h2>
-                  <div style={{ 
-                    background: result.termination === "ERROR" ? "var(--destructive)" : "var(--muted)", padding: "2rem", borderRadius: "12px", borderLeft: `4px solid ${result.termination === "ERROR" ? "var(--destructive)" : "var(--primary)"}`,
-                    color: result.termination === "ERROR" ? "#991B1B" : "#334155", fontSize: "1rem", lineHeight: 1.7, whiteSpace: "pre-wrap"
-                  }}>
-                    {result.termination === "ERROR" 
-                      ? ([...(result.messages || [])].reverse().find((m: any) => m.role === "assistant" && m.content.includes("[client error:"))?.content || "The agent crashed due to a system error.")
-                      : (result.decision?.raw_text || "The agent did not provide a detailed textual rationale.")}
-                  </div>
-                </div>
-
-                {/* Financial Visualizations */}
-                <div>
-                  <h2 style={{ margin: "0 0 1.5rem 0", color: "var(--foreground)", fontSize: "1.5rem", fontWeight: 700 }}>Financial Context</h2>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem" }}>
-                    
-                    {/* DTI Visual */}
-                    <div className="metric-card">
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                        <span style={{ color: "#64748B", fontSize: "0.875rem", fontWeight: 600 }}>Debt-to-Income (DTI)</span>
-                        <span style={{ color: "var(--foreground)", fontSize: "1.25rem", fontWeight: 700 }}>{dti}%</span>
-                      </div>
-                      <div className="bar-bg">
-                        <div className="bar-fill" style={{ 
-                          width: `${Math.min(dti, 100)}%`, 
-                          background: dti > 43 ? "#EF4444" : dti > 35 ? "#F59E0B" : "#10B981" 
-                        }} />
-                      </div>
-                      <div style={{ marginTop: "0.75rem", color: "#94A3B8", fontSize: "0.75rem", display: "flex", justifyContent: "space-between" }}>
-                        <span>0%</span>
-                        <span>Policy Max: 43%</span>
-                      </div>
-                    </div>
-
-                    {/* Credit Score Visual */}
-                    <div className="metric-card">
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                        <span style={{ color: "#64748B", fontSize: "0.875rem", fontWeight: 600 }}>Credit Score</span>
-                        <span style={{ color: "var(--foreground)", fontSize: "1.25rem", fontWeight: 700 }}>{facts.creditScore}</span>
-                      </div>
-                      <div className="bar-bg">
-                        <div className="bar-fill" style={{ 
-                          width: `${Math.max(0, Math.min(((facts.creditScore - 300) / 550) * 100, 100))}%`, 
-                          background: facts.creditScore < 600 ? "#EF4444" : facts.creditScore < 680 ? "#F59E0B" : "#10B981" 
-                        }} />
-                      </div>
-                      <div style={{ marginTop: "0.75rem", color: "#94A3B8", fontSize: "0.75rem", display: "flex", justifyContent: "space-between" }}>
-                        <span>300</span>
-                        <span>850</span>
-                      </div>
-                    </div>
-
-                  </div>
-                </div>
-
-              </div>
-
-              {/* Right Pane: Insights and Metrics */}
-              <div className="side-pane">
-                
-                {/* Specific Reason Codes */}
-                <div>
-                  <h3 style={{ margin: "0 0 1.5rem 0", color: "var(--muted-foreground)", fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                    Decision Factors
-                  </h3>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                    {result.decision?.stated_reasons?.length > 0 ? (
-                      result.decision.stated_reasons.map((reason: any, i: number) => (
-                        <div key={i} style={{
-                          background: "var(--card)", padding: "1.25rem", borderRadius: "8px", border: "1px solid var(--border)",
-                          borderLeft: `4px solid ${result.decision?.outcome === "APPROVE" ? "#22C55E" : "#EF4444"}`,
-                          boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
-                        }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.5rem" }}>
-                            <span style={{ color: "var(--foreground)", fontSize: "0.875rem", fontWeight: 600 }}>
-                              {result.decision?.outcome === "APPROVE" ? "Approval Factor" : "Principal Reason"}
-                            </span>
-                            {reason.provided_code && (
-                              <span style={{ background: "var(--muted)", color: "var(--muted-foreground)", padding: "0.25rem 0.5rem", borderRadius: "4px", fontSize: "0.7rem", fontFamily: "var(--mono)", fontWeight: 600 }}>
-                                {reason.provided_code}
-                              </span>
-                            )}
-                          </div>
-                          <div style={{ color: "#64748B", fontSize: "0.85rem", lineHeight: 1.6 }}>
-                            {reason.provided_detail}
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div style={{ color: "#64748B", fontSize: "0.875rem", fontStyle: "italic", background: "var(--card)", padding: "1.5rem", borderRadius: "8px", border: "1px dashed #CBD5E1", textAlign: "center" }}>
-                        No specific reason codes were extracted.
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Audit Execution Metrics */}
-                <div style={{ marginTop: "auto", paddingTop: "2rem", borderTop: "1px solid var(--border)" }}>
-                  <h3 style={{ margin: "0 0 1.5rem 0", color: "var(--muted-foreground)", fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                    Execution Telemetry
-                  </h3>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem" }}>
-                    <div>
-                      <div style={{ color: "#64748B", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", marginBottom: "0.5rem" }}>Compute Cost</div>
-                      <div style={{ color: "var(--foreground)", fontSize: "1.25rem", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>${(result.usage?.costUsd || 0).toFixed(4)}</div>
-                    </div>
-                    <div>
-                      <div style={{ color: "#64748B", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", marginBottom: "0.5rem" }}>Agent Steps</div>
-                      <div style={{ color: "var(--foreground)", fontSize: "1.25rem", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{result.messages?.length || 0}</div>
-                    </div>
-                    <div style={{ gridColumn: "1 / -1" }}>
-                      <div style={{ color: "#64748B", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", marginBottom: "0.5rem" }}>Token Usage</div>
-                      <div style={{ color: "var(--foreground)", fontSize: "1rem", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-                        <span style={{ color: "#3B82F6" }}>{result.usage?.inputTokens || 0}</span> in / <span style={{ color: "#8B5CF6" }}>{result.usage?.outputTokens || 0}</span> out
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <button 
-                    onClick={() => window.location.reload()}
-                    style={{
-                      marginTop: "2.5rem", width: "100%", background: "var(--foreground)", color: "var(--card-foreground)", border: "none", borderRadius: "8px",
-                      padding: "1rem", fontWeight: 600, fontSize: "1rem", cursor: "pointer", transition: "background 0.2s"
-                    }}
-                    onMouseOver={(e) => e.currentTarget.style.background = "#1E293B"}
-                    onMouseOut={(e) => e.currentTarget.style.background = "#0F172A"}
-                  >
-                    Start New Audit
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        {submission === "launched" && isDone && result && <AuditResultDashboard
+          result={result} requestedAmount={facts.loanAmount} creditScore={facts.creditScore} dti={dti}
+          onRestart={() => window.location.reload()} />}
+        {submission === "launched" && isDone && !result && <AuditResultUnavailable
+          message={liveProgress} onRestart={() => window.location.reload()} />}
 
         {submission !== "launched" && (
           <AnimatedContent key={step} className="conversationBody">
