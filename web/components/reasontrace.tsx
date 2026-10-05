@@ -12,18 +12,13 @@ import { GlareHover } from "@/components/react-bits/glare-hover";
 import { WorkflowStepper } from "@/components/react-bits/workflow-stepper";
 import { AnimatedContent } from "@/components/react-bits/animated-content";
 import { documentTabId, ReasonTraceDocumentTabs } from "@/components/reasontrace-document-tabs";
+import { ReasonTraceAuditChecks, type AuditCheck } from "@/components/reasontrace-audit-checks";
 
-type Check = {
-  check: string; status: string; pair_id: string; effect: number | null;
-  observed: Record<string, unknown>; expected: string; notes: string;
-  changes: { field: string; before: string; after: string }[];
-  base_trajectory_ids: string[]; cf_trajectory_ids: string[];
-};
 type AuditResult = {
   mode: string; policy: string; agent: string;
   decision: { outcome: string; reasons: string[]; trajectory_id: string };
   oracle: { outcome: string; breached_codes: string[] };
-  supplied_synthetic_facts: Record<string, unknown>; checks: Check[];
+  supplied_synthetic_facts: Record<string, unknown>; checks: AuditCheck[];
 };
 type ReviewEvent = { id: string; observation_id: string | null; action: string; before_value: unknown; after_value: unknown; created_at: string };
 type CaseDetail = { case: { case_label: string }; review: CaseReview; documents: { kind: string; previewUrl: string | null }[]; reviewEvents: ReviewEvent[];
@@ -37,13 +32,6 @@ async function fetchCase(id: string): Promise<CaseDetail> {
 }
 
 const pretty = (code: string) => code.replaceAll("_", " ").toLowerCase();
-const names: Record<string, string> = {
-  "reason_validity.fabrication": "Unsupported stated reason",
-  "reason_validity.joint_sufficiency": "Do the cited reasons jointly explain denial?",
-  "reason_validity.necessity_loo": "Is a cited reason independently binding?",
-  "reason_validity.omission_scan": "Was a binding reason omitted?",
-  "reason_validity.base_inapplicable": "Decision was not adverse",
-};
 
 export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean }) {
   const [caseId, setCaseId] = useState<string | null>(null);
@@ -371,14 +359,7 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
         <AnimatePresence mode="wait">
         {auditResult && <AnimatedContent key={`${caseLabel}-${auditResult.decision.trajectory_id}`} className="rt-results" ariaLive="polite">
           <div className="rt-result-summary"><span>Scripted result</span><h3>{auditResult.decision.outcome}</h3><p>Agent stated: <strong>{auditResult.decision.reasons.map(pretty).join(", ") || "no adverse reason"}</strong></p><p>Policy oracle: <strong>{auditResult.oracle.breached_codes.map(pretty).join(", ") || "no breached rule"}</strong></p></div>
-          <h3 className="rt-check-title">Paired evidence</h3>
-          {auditResult.checks.map(check => <article className="rt-check" key={check.pair_id}>
-            <div><span className={`rt-check-status ${check.status}`}>{check.status}</span><h4>{names[check.check] || check.check}</h4></div>
-            <p>{check.notes || check.expected}</p>
-            {check.changes.length > 0 && <ul>{check.changes.map(change => <li key={change.field}>{change.field.replaceAll("_", " ")}: {change.before} → {change.after}</li>)}</ul>}
-            {typeof check.observed.base_approve_rate === "number" && <p className="rt-pair">Base approved {Math.round(check.observed.base_approve_rate * 100)}% → repaired approved {Math.round(Number(check.observed.cf_approve_rate) * 100)}% · {String(check.observed.matched_trials)} matched trials</p>}
-            <details><summary>Inspect trace IDs</summary><code>Pair {check.pair_id}<br />Original {check.base_trajectory_ids[0]}<br />Repaired {check.cf_trajectory_ids[0] || "not applicable"}</code></details>
-          </article>)}
+          <ReasonTraceAuditChecks checks={auditResult.checks} />
           <p className="rt-result-note">These controls test the audit machinery against known behavior. They do not establish a provider or lender violation.</p>
         </AnimatedContent>}
         </AnimatePresence>
