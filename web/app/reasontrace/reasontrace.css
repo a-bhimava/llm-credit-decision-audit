@@ -41,6 +41,11 @@
 .rt-review-history li span{color:#5b7080;overflow-wrap:anywhere}
 .rt-review-history time{color:#82929a;font-size:10px}
 .rt-review-history button{margin-top:10px;padding:7px 9px;border:1px solid #bfd5d4;border-radius:7px;background:#fff;color:#17675f;font-size:11px;font-weight:700}
+.rt-status.edited{color:#764a2c;background:#fff0d9}
+.rt-draft-note{margin:5px 0;color:#775524;font-size:11px}
+.rt-field-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.rt-field-actions .rt-confirm{margin-top:0}
+.rt-field-hint{margin:9px 0 0;color:#7c6650;font-size:11px;line-height:1.45}
 .rt-case-picker-wrap{max-width:1540px;margin:0 auto 18px}
 .rt-case-picker-meta{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;margin:0 0 9px;color:#526d78;font-size:11px}
 .rt-case-picker-meta strong{color:#244354;font-size:11px}

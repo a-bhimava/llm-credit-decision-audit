@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import {
-  documents, displayValue, fieldDefinitions, fieldIds, fixtureReview, validateReview,
+  documents, fieldDefinitions, fieldIds, fixtureReview, validateReview,
   type CaseReview, type DocumentId, type FieldId,
 } from "@/lib/reasontrace/demo";
 import { caseDefinitions, getCaseDefinition } from "@/lib/reasontrace/cases";
+import { applyLocalReviewChange } from "@/lib/reasontrace/local-review";
 import { GlareHover } from "@/components/react-bits/glare-hover";
 import { WorkflowStepper } from "@/components/react-bits/workflow-stepper";
 import { AnimatedContent } from "@/components/react-bits/animated-content";
@@ -14,6 +15,7 @@ import { documentTabId, ReasonTraceDocumentTabs } from "@/components/reasontrace
 import { ReasonTraceAuditChecks, type AuditCheck } from "@/components/reasontrace-audit-checks";
 import { ReasonTraceCasePicker } from "@/components/reasontrace-case-picker";
 import { ReasonTraceReviewHistory, type ReviewEvent } from "@/components/reasontrace-review-history";
+import { ReasonTraceFieldReview } from "@/components/reasontrace-field-review";
 
 type AuditResult = {
   mode: string; policy: string; agent: string;
@@ -202,37 +204,13 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
   async function saveReview(change: Record<string, unknown>) {
     if (!caseId) return;
     if (localFixtures) {
-      let next = review;
-      const previous = savedReview ?? review;
-      let beforeValue: Record<string, unknown> = {};
-      let afterValue: Record<string, unknown> = { ...change };
-      if (change.kind === "document" && typeof change.documentId === "string" && change.documentId in review.documents) {
-        const id = change.documentId as DocumentId;
-        const included = typeof change.included === "boolean" ? change.included : review.documents[id].included;
-        const reviewed = included && (typeof change.reviewed === "boolean" ? change.reviewed : review.documents[id].reviewed);
-        next = { ...review, documents: { ...review.documents, [id]: { ...review.documents[id], included, reviewed } } };
-        beforeValue = { ...previous.documents[id] };
-        afterValue = { documentId: id, ...next.documents[id] };
-      } else if (change.kind === "field" && typeof change.fieldId === "string" && change.fieldId in review.fields) {
-        const id = change.fieldId as FieldId;
-        const value = typeof change.value === "number" ? change.value : review.fields[id].value;
-        next = { ...review, fields: { ...review.fields, [id]: {
-          ...review.fields[id], value,
-          confirmed: change.confirmed === true,
-        } } };
-        beforeValue = { confirmed_value: previous.fields[id].value, confirmed: previous.fields[id].confirmed };
-        afterValue = { fieldId: id, confirmed_value: next.fields[id].value, confirmed: next.fields[id].confirmed };
-      } else if (change.kind === "applicant_name" && typeof change.documentId === "string" &&
-        change.documentId in review.documents && change.value === definition.applicantName) {
-        const id = change.documentId as DocumentId;
-        next = { ...review, documents: { ...review.documents, [id]: { ...review.documents[id], applicantName: definition.applicantName } } };
-        beforeValue = { applicant_name: previous.documents[id].applicantName };
-        afterValue = { documentId: id, applicant_name: definition.applicantName };
-      } else { setMessage("This local fixture action is unavailable."); return; }
+      const changed = applyLocalReviewChange(review, savedReview ?? review, change, definition.applicantName);
+      if (!changed) { setMessage("This local fixture action is unavailable."); return; }
       const events = [...reviewEvents, { id: `${Date.now()}-${reviewEvents.length}`, observation_id: null,
-        action: String(change.kind), before_value: beforeValue, after_value: afterValue, created_at: new Date().toISOString() }];
-      setReview(next); setSavedReview(next); setReviewEvents(events); setAuditResult(null); setMessage("");
-      persistLocal(next, events, null);
+        action: String(change.kind), before_value: changed.beforeValue, after_value: changed.afterValue,
+        created_at: new Date().toISOString() }];
+      setReview(changed.visible); setSavedReview(changed.persisted); setReviewEvents(events); setAuditResult(null); setMessage("");
+      persistLocal(changed.persisted, events, null);
       return;
     }
     setBusy("review"); setMessage("");
@@ -334,18 +312,17 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
         <div className="rt-source-tag">Candidate source: {review.extractionSource === "fixture" ? "saved synthetic extraction" : "live Interfaze response"}</div>
         {definition.fixtureCreditScore !== definition.creditScore && review.extractionSource === "fixture" &&
           <p className="rt-injected-note">This saved fixture deliberately injects an extraction error. Compare the credit score with its page before confirming it.</p>}
-        {fieldIds.map(id => {
-          const field = review.fields[id];
-          const definition = fieldDefinitions[id];
-          return <article className="rt-field" key={id}>
-            <div className="rt-field-top"><h3>{definition.label}</h3><span className={field.confirmed ? "rt-status confirmed" : "rt-status"}>{field.confirmed ? "Confirmed" : "Needs confirmation"}</span></div>
-            <div className="rt-field-input"><label htmlFor={`rt-${id}`}>Reviewed value</label><input id={`rt-${id}`} type="number" min="0" step={definition.unit === "money" ? ".01" : "1"} value={definition.unit === "money" ? field.value / 100 : field.value} onChange={e => updateField(id, { value: definition.unit === "money" ? Math.round(Number(e.target.value) * 100) : Number(e.target.value), confirmed: false })} /><span>{definition.unit === "money" ? "USD" : "score"}</span></div>
-            {field.value !== field.originalValue && <p className="rt-original">Original extraction: {displayValue(id, field.originalValue)}</p>}
-            <button className="rt-source-link" type="button" onClick={() => showSourceDocument(field.documentId)}>↗ {documents.find(doc => doc.id === field.documentId)?.title}, p. 1 · “{field.quote}”</button>
-            {savedReview?.fields[id].value !== field.value && <button type="button" className="rt-confirm" disabled={busy !== null} onClick={() => { void saveReview({ kind: "field", fieldId: id, value: field.value }); }}>Save correction</button>}
-            <button type="button" className="rt-confirm" disabled={!review.documents[field.documentId].included || !review.documents[field.documentId].reviewed || !Number.isSafeInteger(field.value) || busy !== null} onClick={() => { void saveReview({ kind: "field", fieldId: id, value: field.value, confirmed: !field.confirmed }); }}>{field.confirmed ? "Undo confirmation" : "Confirm against page"}</button>
-          </article>;
-        })}
+        {fieldIds.map(id => <ReasonTraceFieldReview key={id} id={id} field={review.fields[id]}
+          savedValue={savedReview?.fields[id].value}
+          sourceReady={review.documents[review.fields[id].documentId].included &&
+            review.documents[review.fields[id].documentId].reviewed}
+          busy={busy !== null}
+          onValueChange={value => updateField(id, { value, confirmed: false })}
+          onSaveCorrection={value => { void saveReview({ kind: "field", fieldId: id, value }); }}
+          onToggleConfirmation={(value, confirmed) => {
+            void saveReview({ kind: "field", fieldId: id, value, confirmed });
+          }}
+          onShowSource={showSourceDocument} />)}
         <div className="rt-supplied"><strong>Other policy inputs</strong><p>Loan amount, term, credit history, employment and other fields are supplied synthetic facts in the existing test policy. They are <em>not</em> attributed to these three documents.</p></div>
         <ReasonTraceReviewHistory key={caseLabel} events={reviewEvents} />
       </section>

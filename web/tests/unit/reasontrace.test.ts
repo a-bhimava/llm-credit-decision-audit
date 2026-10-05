@@ -3,6 +3,7 @@ import { documents, fieldIds, fixtureReview, validateReview } from "../../lib/re
 import { prepareSnapshot } from "../../lib/reasontrace/readiness";
 import { caseDefinitions, fixtureObservationsFor } from "../../lib/reasontrace/cases";
 import { localFixturesEnabled } from "../../lib/reasontrace/local-mode";
+import { applyLocalReviewChange } from "../../lib/reasontrace/local-review";
 
 describe("five synthetic case packets", () => {
   it("has five distinct eight-observation fixtures with matching source quotes", () => {
@@ -58,6 +59,28 @@ describe("local fixture isolation", () => {
       if (beforeVercel === undefined) delete process.env.VERCEL;
       else process.env.VERCEL = beforeVercel;
     }
+  });
+
+  it("keeps a draft correction unsaved when a different review action is saved", () => {
+    const fixture = caseDefinitions[3];
+    const saved = fixtureReview(fixture);
+    const draft = structuredClone(saved);
+    draft.fields.credit_score.value = fixture.creditScore;
+    draft.fields.credit_score.confirmed = false;
+
+    const reviewed = applyLocalReviewChange(draft, saved,
+      { kind: "document", documentId: "credit-report", reviewed: true }, fixture.applicantName);
+    expect(reviewed?.visible.fields.credit_score.value).toBe(fixture.creditScore);
+    expect(reviewed?.persisted.fields.credit_score.value).toBe(fixture.fixtureCreditScore);
+    expect(reviewed?.persisted.documents["credit-report"].reviewed).toBe(true);
+
+    const confirmed = applyLocalReviewChange(reviewed!.visible, reviewed!.persisted,
+      { kind: "field", fieldId: "credit_score", value: fixture.creditScore, confirmed: true }, fixture.applicantName);
+    expect(confirmed?.persisted.fields.credit_score).toMatchObject({
+      value: fixture.creditScore, originalValue: fixture.fixtureCreditScore, confirmed: true,
+    });
+    expect(confirmed?.beforeValue).toMatchObject({ confirmed_value: fixture.fixtureCreditScore });
+    expect(confirmed?.afterValue).toMatchObject({ confirmed_value: fixture.creditScore });
   });
 });
 
