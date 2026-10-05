@@ -29,7 +29,10 @@
 .rt-check-summary{margin:10px 0 0}
 .rt-check-details{margin-top:12px;padding-top:10px;border-top:1px solid #e4ecee}
 @media(prefers-reduced-motion:reduce){.rt-check-chevron{transition:none}}
-.rt-case-picker{max-width:1540px;margin:0 auto 18px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.rt-case-picker-wrap{max-width:1540px;margin:0 auto 18px}
+.rt-case-picker-meta{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;margin:0 0 9px;color:#526d78;font-size:11px}
+.rt-case-picker-meta strong{color:#244354;font-size:11px}
+.rt-case-picker{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
 .rt-case-tile{border:1px solid var(--rt-line);border-radius:12px;background:#fff;box-shadow:0 5px 18px #24405209;transition:border-color .2s ease,box-shadow .2s ease,transform .2s ease}
 .rt-case-tile:hover{border-color:#8bbab0;box-shadow:0 12px 26px #2440521c;transform:translateY(-2px)}
 .rt-case-tile.is-active{border-color:#177f78;box-shadow:0 0 0 2px #177f7830,0 9px 23px #24405212;background:#f2faf7}

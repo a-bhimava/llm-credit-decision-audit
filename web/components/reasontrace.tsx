@@ -7,12 +7,12 @@ import {
   type CaseReview, type DocumentId, type FieldId,
 } from "@/lib/reasontrace/demo";
 import { caseDefinitions, getCaseDefinition } from "@/lib/reasontrace/cases";
-import { SpotlightCard } from "@/components/react-bits/spotlight-card";
 import { GlareHover } from "@/components/react-bits/glare-hover";
 import { WorkflowStepper } from "@/components/react-bits/workflow-stepper";
 import { AnimatedContent } from "@/components/react-bits/animated-content";
 import { documentTabId, ReasonTraceDocumentTabs } from "@/components/reasontrace-document-tabs";
 import { ReasonTraceAuditChecks, type AuditCheck } from "@/components/reasontrace-audit-checks";
+import { ReasonTraceCasePicker } from "@/components/reasontrace-case-picker";
 
 type AuditResult = {
   mode: string; policy: string; agent: string;
@@ -269,18 +269,8 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
         ready={problems.length === 0} audited={auditResult !== null} />
     </section>
 
-    <nav className="rt-case-picker" aria-label="Select a synthetic interview case">
-      {caseDefinitions.map((item, index) => {
-        const match = availableCases.find(entry => entry.label === item.label);
-        return <SpotlightCard key={item.label} className={`rt-case-tile${item.label === caseLabel ? " is-active" : ""}`}>
-          <button type="button" disabled={!match || busy !== null}
-            aria-current={item.label === caseLabel ? "page" : undefined}
-            onClick={() => { if (match) void switchCase(match.id); }}>
-            <span>CASE {index + 1} / {item.label}</span><strong>{item.title}</strong><small>{item.summary}</small>
-          </button>
-        </SpotlightCard>;
-      })}
-    </nav>
+    <ReasonTraceCasePicker currentLabel={caseLabel} availableCases={availableCases}
+      busy={busy !== null} onSelect={id => { void switchCase(id); }} />
 
     <div className="rt-toolbar">
       <div><strong>Extraction mode</strong><span>{localFixtures ? "Saved synthetic extraction; review progress stays in this browser." : "Fixed fixture is reproducible. Live mode calls Interfaze from the server."}</span></div>
