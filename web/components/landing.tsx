@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AnimatedBeamHero } from "@/components/animated-beam-hero";
 import { ProductShell } from "@/components/product-shell";
+import { SpotlightCard } from "@/components/react-bits/spotlight-card";
 
 export function Landing() {
   return (
@@ -22,6 +23,17 @@ export function Landing() {
             <AnimatedBeamHero />
           </div>
         </section>
+
+        <SpotlightCard className="reasontraceCallout" spotlightColor="rgba(142, 169, 255, 0.2)">
+          <section aria-labelledby="reasontrace-callout-heading">
+            <div>
+              <p className="reasontraceCalloutEyebrow">Interview demo / five synthetic cases</p>
+              <h2 id="reasontrace-callout-heading">Follow a document fact to a tested decision reason.</h2>
+              <p>Review fictional source pages, confirm the facts, then inspect paired reason-validity checks in ReasonTrace.</p>
+            </div>
+            <Link className="reasontraceCalloutLink" href="/reasontrace">Open ReasonTrace <span aria-hidden="true">↗</span></Link>
+          </section>
+        </SpotlightCard>
 
         <section className="problemBand">
           <p className="productEyebrow"><span /> The problem</p>
