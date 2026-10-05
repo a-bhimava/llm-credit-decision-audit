@@ -1,0 +1,65 @@
+.rt-workflow-stepper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 920px;
+  margin-top: 27px;
+  padding: 13px 16px;
+  border: 1px solid #d8e2e1;
+  border-radius: 14px;
+  background: #ffffffc9;
+  box-shadow: 0 8px 26px #2440520d;
+}
+
+.rt-step-group { display: flex; align-items: center; flex: 1 1 0; min-width: 0; gap: 12px; }
+.rt-step-connector { display: block; flex: 0 0 30px; height: 2px; border-radius: 2px; background: #d5e0e0; overflow: hidden; }
+.rt-step-connector span { display: block; width: 100%; height: 100%; background: #178477; transform: scaleX(0); transform-origin: left; transition: transform 260ms ease; }
+.rt-step-connector.is-complete span { transform: scaleX(1); }
+.rt-workflow-stepper .rt-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 5px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+  color: #526d78;
+}
+.rt-step:hover { background: #edf5f3; }
+.rt-step-indicator {
+  display: grid;
+  place-items: center;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #b6c9cc;
+  border-radius: 50%;
+  background: #f5f9f8;
+  color: #526d78;
+  font-size: 12px;
+  font-weight: 800;
+  transition: background-color 220ms ease, border-color 220ms ease, color 220ms ease;
+}
+.rt-step.is-current .rt-step-indicator { border-color: #167f75; background: #167f75; color: #fff; }
+.rt-step.is-complete .rt-step-indicator { border-color: #c5e6d7; background: #e1f4e9; color: #17654c; }
+.rt-step-copy { display: grid; gap: 3px; min-width: 0; }
+.rt-step-copy strong { color: #244354; font-size: 11px; line-height: 1.2; }
+.rt-step-copy small { color: #64808a; font-size: 10px; line-height: 1.2; }
+.rt-step.is-current .rt-step-copy strong { color: #0b6760; }
+
+@media (max-width: 720px) {
+  .rt-workflow-stepper { display: grid; gap: 0; padding: 11px 12px; }
+  .rt-step-group { display: grid; gap: 0; width: 100%; }
+  .rt-step-connector { width: 2px; height: 10px; margin-left: 19px; flex: none; }
+  .rt-step-connector span { transform: scaleY(0); transform-origin: top; }
+  .rt-step-connector.is-complete span { transform: scaleY(1); }
+  .rt-workflow-stepper .rt-step { gap: 10px; padding: 5px 6px; }
+  .rt-step-copy strong { font-size: 11px; }
+  .rt-step-copy small { font-size: 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rt-step-connector span, .rt-step-indicator { transition: none; }
+}
