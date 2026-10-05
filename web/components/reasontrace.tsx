@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { AnimatePresence } from "framer-motion";
 import {
   documents, displayValue, fieldDefinitions, fieldIds, fixtureReview, validateReview,
   type CaseReview, type DocumentId, type FieldId,
@@ -8,6 +9,8 @@ import {
 import { caseDefinitions, getCaseDefinition } from "@/lib/reasontrace/cases";
 import { SpotlightCard } from "@/components/react-bits/spotlight-card";
 import { GlareHover } from "@/components/react-bits/glare-hover";
+import { WorkflowStepper } from "@/components/react-bits/workflow-stepper";
+import { AnimatedContent } from "@/components/react-bits/animated-content";
 
 type Check = {
   check: string; status: string; pair_id: string; effect: number | null;
@@ -59,6 +62,11 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
   const problems = useMemo(() => validateReview(review, definition.applicantName, definition.creditScore).problems,
     [review, definition.applicantName, definition.creditScore]);
   const selected = documents.find(doc => doc.id === activeDoc)!;
+  const reviewedDocuments = documents.filter(doc => review.documents[doc.id].included && review.documents[doc.id].reviewed).length;
+  const confirmedFields = fieldIds.filter(id => {
+    const field = review.fields[id];
+    return field.confirmed && review.documents[field.documentId].included && review.documents[field.documentId].reviewed;
+  }).length;
 
   function applyLocalCase(label: string) {
     const item = getCaseDefinition(label);
@@ -258,11 +266,8 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
       <h1>Can we trust the reason<br />behind this credit decision?</h1>
       <p>Trace three reviewed values from fictional documents into a real paired reason-validity test. The audit engine uses the repository’s unchanged <strong>Meridian Personal Loan</strong> policy.</p>
       {localFixtures && <p className="rt-local-notice">Local saved-fixture mode · no Supabase sign-in or Interfaze request</p>}
-      <div className="rt-flow" aria-label="Case workflow">
-        <span>01 &nbsp; Source documents</span><span aria-hidden="true">→</span>
-        <span>02 &nbsp; Confirm facts</span><span aria-hidden="true">→</span>
-        <span>03 &nbsp; Test stated reasons</span>
-      </div>
+      <WorkflowStepper reviewedDocuments={reviewedDocuments} confirmedFields={confirmedFields}
+        ready={problems.length === 0} audited={auditResult !== null} />
     </section>
 
     <nav className="rt-case-picker" aria-label="Select a synthetic interview case">
@@ -292,7 +297,7 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
 
     <div className="rt-workspace">
       <section className="rt-panel rt-doc-panel" aria-labelledby="rt-doc-heading">
-        <div className="rt-panel-heading"><span>01 / SOURCE</span><h2 id="rt-doc-heading">Document packet</h2><p>Select a page to compare its text with extracted values.</p></div>
+        <div className="rt-panel-heading"><span>01 / SOURCE</span><h2 id="rt-doc-heading" tabIndex={-1}>Document packet</h2><p>Select a page to compare its text with extracted values.</p></div>
         <div className="rt-doc-tabs" role="group" aria-label="Synthetic documents">
           {documents.map(doc => <button type="button" key={doc.id} onClick={() => setActiveDoc(doc.id)} className={doc.id === activeDoc ? "is-active" : ""} aria-pressed={doc.id === activeDoc}>{doc.title}</button>)}
         </div>
@@ -315,7 +320,7 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
       </section>
 
       <section className="rt-panel rt-fact-panel" aria-labelledby="rt-fact-heading">
-        <div className="rt-panel-heading"><span>02 / REVIEW</span><h2 id="rt-fact-heading">Confirm the facts</h2><p>Corrections preserve the original extraction. No value enters the audit unconfirmed.</p></div>
+        <div className="rt-panel-heading"><span>02 / REVIEW</span><h2 id="rt-fact-heading" tabIndex={-1}>Confirm the facts</h2><p>Corrections preserve the original extraction. No value enters the audit unconfirmed.</p></div>
         <div className="rt-source-tag">Candidate source: {review.extractionSource === "fixture" ? "saved synthetic extraction" : "live Interfaze response"}</div>
         {definition.fixtureCreditScore !== definition.creditScore && review.extractionSource === "fixture" &&
           <p className="rt-injected-note">This saved fixture deliberately injects an extraction error. Compare the credit score with its page before confirming it.</p>}
@@ -338,7 +343,7 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
       </section>
 
       <section className="rt-panel rt-audit-panel" aria-labelledby="rt-audit-heading">
-        <div className="rt-panel-heading"><span>03 / TEST</span><h2 id="rt-audit-heading">Audit the explanation</h2><p>The Python harness runs matched counterfactuals. This is a known-answer scripted control, not a finding about a live model.</p></div>
+        <div className="rt-panel-heading"><span>03 / TEST</span><h2 id="rt-audit-heading" tabIndex={-1}>Audit the explanation</h2><p>The Python harness runs matched counterfactuals. This is a known-answer scripted control, not a finding about a live model.</p></div>
         <div className={problems.length ? "rt-readiness blocked" : "rt-readiness ready"}>
           <strong>{problems.length ? "Needs review" : "Ready for audit"}</strong>
           {problems.length ? <ul>{problems.map(problem => <li key={problem}>{problem}</li>)}</ul> : <p>All three documents and decision-relevant extracted values are confirmed.</p>}
@@ -352,7 +357,8 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
         <GlareHover className="rt-run-glare">
           <button className="rt-run" type="button" disabled={problems.length > 0 || busy !== null} onClick={runAudit}>{busy === "audit" ? "Running paired tests…" : "Run reason-validity audit →"}</button>
         </GlareHover>
-        {auditResult && <div className="rt-results" aria-live="polite">
+        <AnimatePresence mode="wait">
+        {auditResult && <AnimatedContent key={`${caseLabel}-${auditResult.decision.trajectory_id}`} className="rt-results" ariaLive="polite">
           <div className="rt-result-summary"><span>Scripted result</span><h3>{auditResult.decision.outcome}</h3><p>Agent stated: <strong>{auditResult.decision.reasons.map(pretty).join(", ") || "no adverse reason"}</strong></p><p>Policy oracle: <strong>{auditResult.oracle.breached_codes.map(pretty).join(", ") || "no breached rule"}</strong></p></div>
           <h3 className="rt-check-title">Paired evidence</h3>
           {auditResult.checks.map(check => <article className="rt-check" key={check.pair_id}>
@@ -363,7 +369,8 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
             <details><summary>Inspect trace IDs</summary><code>Pair {check.pair_id}<br />Original {check.base_trajectory_ids[0]}<br />Repaired {check.cf_trajectory_ids[0] || "not applicable"}</code></details>
           </article>)}
           <p className="rt-result-note">These controls test the audit machinery against known behavior. They do not establish a provider or lender violation.</p>
-        </div>}
+        </AnimatedContent>}
+        </AnimatePresence>
       </section>
     </div>
     <aside className="rt-boundary"><strong>Product boundary</strong><p>Packet readiness and reason validity are separate decisions. This synthetic evaluation never approves a loan, issues an adverse-action notice, or certifies compliance.</p></aside>
