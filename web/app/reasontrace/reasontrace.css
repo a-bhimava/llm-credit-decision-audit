@@ -91,5 +91,6 @@
 .rt-run-glare{margin:0 20px 22px;background:#133e4b;box-shadow:0 8px 18px #143d4b27}
 .rt-run-glare .rt-run{position:relative;z-index:2;width:100%;margin:0;background:transparent}
 .rt-run-glare:has(.rt-run:disabled){box-shadow:none;opacity:.6}
+.rt-audit-error{margin:0 20px 20px;padding:12px 14px;border:1px solid #e5b9aa;border-radius:9px;background:#fff2ed;color:#823f2d;font-size:12px;line-height:1.5;overflow-wrap:anywhere}
 @media(prefers-reduced-motion:reduce){.rt-case-tile{transition:none}.rt-case-tile:hover{transform:none}}
 @media(hover:none){.rt-case-tile:hover{transform:none}}

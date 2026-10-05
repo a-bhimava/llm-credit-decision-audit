@@ -1,31 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AnimatePresence } from "framer-motion";
 import {
   documents, fieldDefinitions, fieldIds, fixtureReview, validateReview,
   type CaseReview, type DocumentId, type FieldId, type ReviewIssue,
 } from "@/lib/reasontrace/demo";
 import { caseDefinitions, getCaseDefinition } from "@/lib/reasontrace/cases";
 import { applyLocalReviewChange } from "@/lib/reasontrace/local-review";
-import { GlareHover } from "@/components/react-bits/glare-hover";
 import { WorkflowStepper } from "@/components/react-bits/workflow-stepper";
-import { AnimatedContent } from "@/components/react-bits/animated-content";
 import { documentTabId } from "@/components/reasontrace-document-tabs";
-import { ReasonTraceAuditChecks, type AuditCheck } from "@/components/reasontrace-audit-checks";
 import { ReasonTraceCasePicker } from "@/components/reasontrace-case-picker";
 import { ReasonTraceReviewHistory, type ReviewEvent } from "@/components/reasontrace-review-history";
 import { ReasonTraceFieldReview } from "@/components/reasontrace-field-review";
 import { ReasonTraceDocumentReview } from "@/components/reasontrace-document-review";
-import { ReasonTraceReadiness } from "@/components/reasontrace-readiness";
-import { ReasonTraceReasonComparison } from "@/components/reasontrace-reason-comparison";
+import { ReasonTraceAuditPanel, type AuditResult, type ScriptedAgent } from "@/components/reasontrace-audit-panel";
 
-type AuditResult = {
-  mode: string; policy: string; agent: string;
-  decision: { outcome: string; reasons: string[]; trajectory_id: string };
-  oracle: { outcome: string; breached_codes: string[] };
-  supplied_synthetic_facts: Record<string, unknown>; checks: AuditCheck[];
-};
 type CaseDetail = { case: { case_label: string }; review: CaseReview; documents: { id: string; kind: string; previewUrl: string | null }[];
   observations: { id: string; field_key: string }[]; reviewEvents: ReviewEvent[];
   currentRun?: { id: string; status: string; agent_kind: string; result: AuditResult | null } | null };
@@ -47,8 +36,9 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
   const [savedReview, setSavedReview] = useState<CaseReview | null>(null);
   const [reviewEvents, setReviewEvents] = useState<ReviewEvent[]>([]);
   const [activeDoc, setActiveDoc] = useState<DocumentId>("credit-report");
-  const [agent, setAgent] = useState<"faithful" | "laundering">("laundering");
+  const [agent, setAgent] = useState<ScriptedAgent>("laundering");
   const [auditResult, setAuditResult] = useState<AuditResult | null>(null);
+  const [auditError, setAuditError] = useState("");
   const [busy, setBusy] = useState<"extract" | "audit" | "review" | "case" | null>(null);
   const [message, setMessage] = useState("");
   const definition = getCaseDefinition(caseLabel) ?? caseDefinitions[0];
@@ -85,7 +75,7 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
   function applyLocalCase(label: string, selectedDocument: DocumentId = "credit-report") {
     const item = getCaseDefinition(label);
     if (!item) throw new Error("Unknown synthetic case.");
-    let saved: { review?: CaseReview; reviewEvents?: ReviewEvent[]; auditResult?: AuditResult; agent?: "faithful" | "laundering" } = {};
+    let saved: { review?: CaseReview; reviewEvents?: ReviewEvent[]; auditResult?: AuditResult; agent?: ScriptedAgent } = {};
     try { saved = JSON.parse(window.localStorage.getItem(`reasontrace-local-${label}`) || "{}"); }
     catch { saved = {}; }
     const candidate = saved.review;
@@ -96,6 +86,7 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
     setReview(current); setSavedReview(current);
     setReviewEvents(Array.isArray(saved.reviewEvents) ? saved.reviewEvents : []);
     setAuditResult(saved.auditResult ?? null);
+    setAuditError("");
     setAgent(saved.agent === "faithful" || saved.agent === "laundering" ? saved.agent : item.agent);
     setActiveDoc(selectedDocument);
     setDocumentUrls(Object.fromEntries(documents.map(doc => [doc.id,
@@ -104,7 +95,7 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
   }
 
   function persistLocal(current: CaseReview, events: ReviewEvent[], result: AuditResult | null,
-    selectedAgent: "faithful" | "laundering" = agent) {
+    selectedAgent: ScriptedAgent = agent) {
     try {
       window.localStorage.setItem(`reasontrace-local-${caseLabel}`, JSON.stringify({
         review: current, reviewEvents: events, auditResult: result, agent: selectedAgent,
@@ -140,6 +131,7 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
     setAgent(detail.currentRun?.agent_kind === "faithful" || detail.currentRun?.agent_kind === "laundering"
       ? detail.currentRun.agent_kind : item.agent);
     setAuditResult(detail.currentRun?.status === "completed" ? detail.currentRun.result : null);
+    setAuditError("");
   }
 
   useEffect(() => {
@@ -184,7 +176,7 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
     return () => { active = false; };
   }, [localFixtures]);
 
-  function updateReview(next: CaseReview) { setReview(next); setAuditResult(null); setMessage(""); }
+  function updateReview(next: CaseReview) { setReview(next); setAuditResult(null); setAuditError(""); setMessage(""); }
   function updateField(id: FieldId, changes: Partial<CaseReview["fields"][FieldId]>) {
     updateReview({ ...review, fields: { ...review.fields, [id]: { ...review.fields[id], ...changes } } });
   }
@@ -221,7 +213,7 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
       const events = [...reviewEvents, { id: `${Date.now()}-${reviewEvents.length}`, observation_id: null,
         action: String(change.kind), before_value: changed.beforeValue, after_value: changed.afterValue,
         created_at: new Date().toISOString() }];
-      setReview(changed.visible); setSavedReview(changed.persisted); setReviewEvents(events); setAuditResult(null); setMessage("");
+      setReview(changed.visible); setSavedReview(changed.persisted); setReviewEvents(events); setAuditResult(null); setAuditError(""); setMessage("");
       persistLocal(changed.persisted, events, null);
       return;
     }
@@ -250,7 +242,7 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
   }
   async function runAudit() {
     if (problems.length) return;
-    setBusy("audit"); setMessage(""); setAuditResult(null);
+    setBusy("audit"); setMessage(""); setAuditResult(null); setAuditError("");
     try {
       const response = await fetch(localFixtures ? "/api/reasontrace/local/audit" : `/api/reasontrace/cases/${caseId}/audits`, {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -260,7 +252,7 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
       if (!response.ok) throw new Error(body.problems?.join(" ") || body.detail || body.error || "Audit failed");
       setAuditResult(body);
       if (localFixtures) persistLocal(review, reviewEvents, body, agent);
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Audit failed"); }
+    } catch (error) { setAuditError(error instanceof Error ? error.message : "Audit failed"); }
     finally { setBusy(null); }
   }
 
@@ -333,29 +325,10 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
         <ReasonTraceReviewHistory key={caseLabel} events={reviewEvents} />
       </section>
 
-      <section className="rt-panel rt-audit-panel" aria-labelledby="rt-audit-heading">
-        <div className="rt-panel-heading"><span>03 / TEST</span><h2 id="rt-audit-heading" tabIndex={-1}>Audit the explanation</h2><p>The Python harness runs matched counterfactuals. This is a known-answer scripted control, not a finding about a live model.</p></div>
-        <ReasonTraceReadiness issues={validation.issues} onNavigate={navigateToIssue} />
-        <label className="rt-agent-select">Scripted agent control
-          <select value={agent} onChange={e => { setAgent(e.target.value as typeof agent); setAuditResult(null); }}>
-            <option value="laundering">Planted reason-laundering defect</option>
-            <option value="faithful">Faithful policy control</option>
-          </select>
-        </label>
-        <GlareHover className="rt-run-glare">
-          <button className="rt-run" type="button" disabled={problems.length > 0 || busy !== null} onClick={runAudit}>{busy === "audit" ? "Running paired tests…" : "Run reason-validity audit →"}</button>
-        </GlareHover>
-        <AnimatePresence mode="wait">
-        {auditResult && <AnimatedContent key={`${caseLabel}-${auditResult.decision.trajectory_id}`} className="rt-results" ariaLive="polite">
-          <ReasonTraceReasonComparison decisionOutcome={auditResult.decision.outcome}
-            policyOutcome={auditResult.oracle.outcome}
-            statedReasons={auditResult.decision.reasons}
-            breachedCodes={auditResult.oracle.breached_codes} />
-          <ReasonTraceAuditChecks checks={auditResult.checks} />
-          <p className="rt-result-note">These controls test the audit machinery against known behavior. They do not establish a provider or lender violation.</p>
-        </AnimatedContent>}
-        </AnimatePresence>
-      </section>
+      <ReasonTraceAuditPanel caseLabel={caseLabel} issues={validation.issues} agent={agent}
+        onAgentChange={next => { setAgent(next); setAuditResult(null); setAuditError(""); }}
+        busy={busy !== null} running={busy === "audit"} onRun={() => { void runAudit(); }}
+        onNavigateIssue={navigateToIssue} result={auditResult} error={auditError} />
     </div>
     <aside className="rt-boundary"><strong>Product boundary</strong><p>Packet readiness and reason validity are separate decisions. This synthetic evaluation never approves a loan, issues an adverse-action notice, or certifies compliance.</p></aside>
   </main>;
