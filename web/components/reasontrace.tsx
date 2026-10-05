@@ -13,6 +13,7 @@ import { AnimatedContent } from "@/components/react-bits/animated-content";
 import { documentTabId, ReasonTraceDocumentTabs } from "@/components/reasontrace-document-tabs";
 import { ReasonTraceAuditChecks, type AuditCheck } from "@/components/reasontrace-audit-checks";
 import { ReasonTraceCasePicker } from "@/components/reasontrace-case-picker";
+import { ReasonTraceReviewHistory, type ReviewEvent } from "@/components/reasontrace-review-history";
 
 type AuditResult = {
   mode: string; policy: string; agent: string;
@@ -20,8 +21,8 @@ type AuditResult = {
   oracle: { outcome: string; breached_codes: string[] };
   supplied_synthetic_facts: Record<string, unknown>; checks: AuditCheck[];
 };
-type ReviewEvent = { id: string; observation_id: string | null; action: string; before_value: unknown; after_value: unknown; created_at: string };
-type CaseDetail = { case: { case_label: string }; review: CaseReview; documents: { kind: string; previewUrl: string | null }[]; reviewEvents: ReviewEvent[];
+type CaseDetail = { case: { case_label: string }; review: CaseReview; documents: { id: string; kind: string; previewUrl: string | null }[];
+  observations: { id: string; field_key: string }[]; reviewEvents: ReviewEvent[];
   currentRun?: { id: string; status: string; agent_kind: string; result: AuditResult | null } | null };
 
 async function fetchCase(id: string): Promise<CaseDetail> {
@@ -110,7 +111,18 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
     if (Object.keys(urls).length !== documents.length) throw new Error("One or more private document previews are unavailable.");
     setCaseId(id); setCaseLabel(item.label); setDocumentUrls(urls);
     setReview(detail.review); setSavedReview(detail.review);
-    setReviewEvents(detail.reviewEvents); setActiveDoc("credit-report");
+    const keyByObservation = new Map(detail.observations.map(row => [row.id, row.field_key]));
+    const documentById = new Map(detail.documents.map(doc => [doc.id, kinds[doc.kind]]));
+    setReviewEvents(detail.reviewEvents.map(event => {
+      const key = event.observation_id ? keyByObservation.get(event.observation_id) : undefined;
+      const fieldId = key && key in fieldDefinitions ? key as FieldId : undefined;
+      const after = event.after_value && typeof event.after_value === "object" ? event.after_value as Record<string, unknown> : {};
+      const docId = typeof after.document_id === "string" ? documentById.get(after.document_id) : undefined;
+      return { ...event, fieldId, subject: fieldId ? fieldDefinitions[fieldId].label
+        : key === "applicant_name" ? "Applicant name"
+          : docId ? documents.find(doc => doc.id === docId)?.title : undefined };
+    }));
+    setActiveDoc("credit-report");
     setAgent(detail.currentRun?.agent_kind === "faithful" || detail.currentRun?.agent_kind === "laundering"
       ? detail.currentRun.agent_kind : item.agent);
     setAuditResult(detail.currentRun?.status === "completed" ? detail.currentRun.result : null);
@@ -191,11 +203,16 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
     if (!caseId) return;
     if (localFixtures) {
       let next = review;
+      const previous = savedReview ?? review;
+      let beforeValue: Record<string, unknown> = {};
+      let afterValue: Record<string, unknown> = { ...change };
       if (change.kind === "document" && typeof change.documentId === "string" && change.documentId in review.documents) {
         const id = change.documentId as DocumentId;
         const included = typeof change.included === "boolean" ? change.included : review.documents[id].included;
         const reviewed = included && (typeof change.reviewed === "boolean" ? change.reviewed : review.documents[id].reviewed);
         next = { ...review, documents: { ...review.documents, [id]: { ...review.documents[id], included, reviewed } } };
+        beforeValue = { ...previous.documents[id] };
+        afterValue = { documentId: id, ...next.documents[id] };
       } else if (change.kind === "field" && typeof change.fieldId === "string" && change.fieldId in review.fields) {
         const id = change.fieldId as FieldId;
         const value = typeof change.value === "number" ? change.value : review.fields[id].value;
@@ -203,13 +220,17 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
           ...review.fields[id], value,
           confirmed: change.confirmed === true,
         } } };
+        beforeValue = { confirmed_value: previous.fields[id].value, confirmed: previous.fields[id].confirmed };
+        afterValue = { fieldId: id, confirmed_value: next.fields[id].value, confirmed: next.fields[id].confirmed };
       } else if (change.kind === "applicant_name" && typeof change.documentId === "string" &&
         change.documentId in review.documents && change.value === definition.applicantName) {
         const id = change.documentId as DocumentId;
         next = { ...review, documents: { ...review.documents, [id]: { ...review.documents[id], applicantName: definition.applicantName } } };
+        beforeValue = { applicant_name: previous.documents[id].applicantName };
+        afterValue = { documentId: id, applicant_name: definition.applicantName };
       } else { setMessage("This local fixture action is unavailable."); return; }
       const events = [...reviewEvents, { id: `${Date.now()}-${reviewEvents.length}`, observation_id: null,
-        action: String(change.kind), before_value: null, after_value: change, created_at: new Date().toISOString() }];
+        action: String(change.kind), before_value: beforeValue, after_value: afterValue, created_at: new Date().toISOString() }];
       setReview(next); setSavedReview(next); setReviewEvents(events); setAuditResult(null); setMessage("");
       persistLocal(next, events, null);
       return;
@@ -326,9 +347,7 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
           </article>;
         })}
         <div className="rt-supplied"><strong>Other policy inputs</strong><p>Loan amount, term, credit history, employment and other fields are supplied synthetic facts in the existing test policy. They are <em>not</em> attributed to these three documents.</p></div>
-        <details className="rt-review-history"><summary>Review history ({reviewEvents.length})</summary>
-          <ol>{reviewEvents.map(event => <li key={event.id}><strong>{event.action.replaceAll("_", " ")}</strong> · {new Date(event.created_at).toLocaleString()}</li>)}</ol>
-        </details>
+        <ReasonTraceReviewHistory key={caseLabel} events={reviewEvents} />
       </section>
 
       <section className="rt-panel rt-audit-panel" aria-labelledby="rt-audit-heading">

@@ -29,6 +29,18 @@
 .rt-check-summary{margin:10px 0 0}
 .rt-check-details{margin-top:12px;padding-top:10px;border-top:1px solid #e4ecee}
 @media(prefers-reduced-motion:reduce){.rt-check-chevron{transition:none}}
+.rt-review-history{padding:17px 20px;border-top:1px solid #e7ecee;background:#fbfcfb}
+.rt-review-history summary{display:flex;justify-content:space-between;gap:1rem;color:#274958;font-size:12px;font-weight:800;cursor:pointer;list-style:none}
+.rt-review-history summary::-webkit-details-marker{display:none}
+.rt-review-history summary span{color:#6d818c;font-size:11px;font-weight:600}
+.rt-review-history>p{margin:15px 0 0;color:#647987;font-size:11px}
+.rt-review-history ol{display:grid;gap:0;max-height:390px;overflow:auto;list-style:none;margin:17px 0 0;padding:0 0 0 18px;border-left:2px solid #d3e0df}
+.rt-review-history li{position:relative;display:grid;gap:4px;padding:0 10px 17px 13px;font-size:11px;line-height:1.4}
+.rt-review-history li::before{content:"";position:absolute;top:3px;left:-23px;width:8px;height:8px;border:2px solid #fff;border-radius:50%;background:#238878;box-shadow:0 0 0 1px #b7d6d0}
+.rt-review-history li strong{color:#2a4e5c;font-size:11px}
+.rt-review-history li span{color:#5b7080;overflow-wrap:anywhere}
+.rt-review-history time{color:#82929a;font-size:10px}
+.rt-review-history button{margin-top:10px;padding:7px 9px;border:1px solid #bfd5d4;border-radius:7px;background:#fff;color:#17675f;font-size:11px;font-weight:700}
 .rt-case-picker-wrap{max-width:1540px;margin:0 auto 18px}
 .rt-case-picker-meta{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;margin:0 0 9px;color:#526d78;font-size:11px}
 .rt-case-picker-meta strong{color:#244354;font-size:11px}
