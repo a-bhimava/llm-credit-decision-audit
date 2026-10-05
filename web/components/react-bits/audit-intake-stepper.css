@@ -1,0 +1,29 @@
+.audit-intake-count {
+  margin: 0 0 .65rem;
+  color: var(--dim);
+  font: 600 .64rem var(--mono);
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+.audit-intake-track {
+  height: 3px;
+  margin: 0 .6rem 1.15rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line-dark);
+}
+.audit-intake-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--cyan);
+  transition: width 280ms ease;
+}
+.audit-intake-stepper li.complete span { color: #82d5b0; }
+@media (max-width: 900px) {
+  .audit-intake-count { margin: .6rem 0 .5rem; }
+  .audit-intake-track { margin-bottom: .25rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .audit-intake-track span { transition: none; }
+}
