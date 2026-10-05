@@ -10,9 +10,10 @@ import { applyLocalReviewChange } from "@/lib/reasontrace/local-review";
 import { WorkflowStepper } from "@/components/react-bits/workflow-stepper";
 import { documentTabId } from "@/components/reasontrace-document-tabs";
 import { ReasonTraceCasePicker } from "@/components/reasontrace-case-picker";
-import { ReasonTraceReviewHistory, type ReviewEvent } from "@/components/reasontrace-review-history";
-import { ReasonTraceFieldReview } from "@/components/reasontrace-field-review";
+import type { ReviewEvent } from "@/components/reasontrace-review-history";
 import { ReasonTraceDocumentReview } from "@/components/reasontrace-document-review";
+import { ReasonTraceFactPanel } from "@/components/reasontrace-fact-panel";
+import { ReasonTraceExtractionToolbar } from "@/components/reasontrace-extraction-toolbar";
 import { ReasonTraceAuditPanel, type AuditResult, type ScriptedAgent } from "@/components/reasontrace-audit-panel";
 
 type CaseDetail = { case: { case_label: string }; review: CaseReview; documents: { id: string; kind: string; previewUrl: string | null }[];
@@ -275,17 +276,14 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
     <ReasonTraceCasePicker currentLabel={caseLabel} availableCases={availableCases}
       busy={busy !== null} onSelect={id => { void switchCase(id); }} />
 
-    <div className="rt-toolbar">
-      <div><strong>Extraction mode</strong><span>{localFixtures ? "Saved synthetic extraction; review progress stays in this browser." : "Fixed fixture is reproducible. Live mode calls Interfaze from the server."}</span></div>
-      <div className="rt-toolbar-actions">
-        <button type="button" onClick={() => {
-          if (review.extractionSource === "interfaze") void saveReview({ kind: "mode", mode: "fixture" });
-          else void reloadSavedCase().then(() => setMessage("Reloaded the saved synthetic case.")).catch(error => setMessage(error instanceof Error ? error.message : "Reload failed"));
-        }} disabled={busy !== null}>{review.extractionSource === "interfaze" ? "Use saved fixture" : "Reload saved case"}</button>
-        {!localFixtures && <button type="button" className="rt-outline" onClick={extractLive} disabled={busy !== null}>{busy === "extract" ? "Reading documents…" : "Run with Interfaze"}</button>}
-      </div>
-    </div>
-    {message && <p className="rt-message" role="status">{message}</p>}
+    <ReasonTraceExtractionToolbar localFixtures={localFixtures} source={review.extractionSource}
+      busy={busy !== null} extracting={busy === "extract"} message={message}
+      onReload={() => {
+        void reloadSavedCase().then(() => setMessage("Reloaded the saved synthetic case."))
+          .catch(error => setMessage(error instanceof Error ? error.message : "Reload failed"));
+      }}
+      onUseFixture={() => { void saveReview({ kind: "mode", mode: "fixture" }); }}
+      onExtractLive={() => { void extractLive(); }} />
 
     <div className="rt-workspace">
       <ReasonTraceDocumentReview activeDoc={activeDoc} onSelectDocument={setActiveDoc}
@@ -305,25 +303,14 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
         }}
         onRefreshPreview={reloadSavedCase} />
 
-      <section className="rt-panel rt-fact-panel" aria-labelledby="rt-fact-heading">
-        <div className="rt-panel-heading"><span>02 / REVIEW</span><h2 id="rt-fact-heading" tabIndex={-1}>Confirm the facts</h2><p>Corrections preserve the original extraction. No value enters the audit unconfirmed.</p></div>
-        <div className="rt-source-tag">Candidate source: {review.extractionSource === "fixture" ? "saved synthetic extraction" : "live Interfaze response"}</div>
-        {definition.fixtureCreditScore !== definition.creditScore && review.extractionSource === "fixture" &&
-          <p className="rt-injected-note">This saved fixture deliberately injects an extraction error. Compare the credit score with its page before confirming it.</p>}
-        {fieldIds.map(id => <ReasonTraceFieldReview key={id} id={id} field={review.fields[id]}
-          savedValue={savedReview?.fields[id].value}
-          sourceReady={review.documents[review.fields[id].documentId].included &&
-            review.documents[review.fields[id].documentId].reviewed}
-          busy={busy !== null}
-          onValueChange={value => updateField(id, { value, confirmed: false })}
-          onSaveCorrection={value => { void saveReview({ kind: "field", fieldId: id, value }); }}
-          onToggleConfirmation={(value, confirmed) => {
-            void saveReview({ kind: "field", fieldId: id, value, confirmed });
-          }}
-          onShowSource={showSourceDocument} />)}
-        <div className="rt-supplied"><strong>Other policy inputs</strong><p>Loan amount, term, credit history, employment and other fields are supplied synthetic facts in the existing test policy. They are <em>not</em> attributed to these three documents.</p></div>
-        <ReasonTraceReviewHistory key={caseLabel} events={reviewEvents} />
-      </section>
+      <ReasonTraceFactPanel definition={definition} review={review} savedReview={savedReview}
+        reviewEvents={reviewEvents} busy={busy !== null}
+        onValueChange={(id, value) => updateField(id, { value, confirmed: false })}
+        onSaveCorrection={(id, value) => { void saveReview({ kind: "field", fieldId: id, value }); }}
+        onToggleConfirmation={(id, value, confirmed) => {
+          void saveReview({ kind: "field", fieldId: id, value, confirmed });
+        }}
+        onShowSource={showSourceDocument} />
 
       <ReasonTraceAuditPanel caseLabel={caseLabel} issues={validation.issues} agent={agent}
         onAgentChange={next => { setAgent(next); setAuditResult(null); setAuditError(""); }}
