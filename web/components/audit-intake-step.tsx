@@ -1,33 +1,10 @@
 "use client";
 
 import type { EmploymentStatus, PublicRecordKind } from "@/lib/audit/contracts";
-
-export type AuditFieldStep = "income" | "credit" | "history" | "employment" | "review";
-export type AuditFormFacts = {
-  annualIncome: number;
-  monthlyDebt: number;
-  loanAmount: number;
-  loanTerm: number;
-  creditScore: number;
-  utilization: number;
-  delinq30: number;
-  delinq60: number;
-  delinq90: number;
-  publicRecordKind: PublicRecordKind | "NONE";
-  publicRecordMonthsAgo: number;
-  inquiries: number;
-  employmentMonths: number;
-  employmentStatus: EmploymentStatus;
-  incomeDocumented: boolean;
-};
-
-export const auditSteps: readonly AuditFieldStep[] = ["income", "credit", "history", "employment", "review"];
-export const initialAuditFacts: AuditFormFacts = {
-  annualIncome: 78000, monthlyDebt: 1150, loanAmount: 12000, loanTerm: 36,
-  creditScore: 688, utilization: 34, delinq30: 0, delinq60: 0, delinq90: 0,
-  publicRecordKind: "NONE", publicRecordMonthsAgo: 0, inquiries: 2,
-  employmentMonths: 42, employmentStatus: "FULL_TIME", incomeDocumented: true,
-};
+import { auditNumericLimits,
+  type AuditFieldStep, type AuditFormFacts, type AuditIntakeIssue, type AuditNumericField,
+} from "@/lib/audit/intake-form";
+import { AuditIntakeIssues } from "@/components/audit-intake-issues";
 
 type UpdateFacts = <K extends keyof AuditFormFacts>(key: K, value: AuditFormFacts[K]) => void;
 type FieldsProps = { facts: AuditFormFacts; update: UpdateFacts };
@@ -59,26 +36,26 @@ function dollars(value: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
 }
 
-function NumberInput({ label, value, onChange, min, max, step = 1, suffix }: {
-  label: string; value: number; onChange: (value: number) => void; min: number; max: number; step?: number; suffix?: string;
+function NumberInput({ field, facts, update, suffix }: FieldsProps & {
+  field: AuditNumericField; suffix?: string;
 }) {
-  return <label className="studioField"><span>{label}</span><div>
-    <input type="number" min={min} max={max} step={step} value={value}
-      onChange={event => onChange(Number(event.target.value))} />
+  const { label, min, max } = auditNumericLimits[field];
+  const value = facts[field];
+  const invalid = !Number.isSafeInteger(value) || value < min || value > max;
+  return <label className={`studioField${invalid ? " is-invalid" : ""}`}><span>{label}</span><div>
+    <input type="number" min={min} max={max} step={1} value={value} aria-invalid={invalid}
+      aria-describedby={invalid ? `audit-issue-${field}` : undefined}
+      onChange={event => update(field, Number(event.target.value))} />
     {suffix && <em>{suffix}</em>}
   </div></label>;
 }
 
 function IncomeFields({ facts, update, dti }: FieldsProps & { dti: number }) {
   return <div className="fieldGrid">
-    <NumberInput label="Annual income" value={facts.annualIncome} min={0} max={600000}
-      onChange={value => update("annualIncome", value)} suffix="USD / year" />
-    <NumberInput label="Monthly debt payments" value={facts.monthlyDebt} min={0} max={50000}
-      onChange={value => update("monthlyDebt", value)} suffix="USD / month" />
-    <NumberInput label="Requested amount" value={facts.loanAmount} min={1000} max={100000}
-      onChange={value => update("loanAmount", value)} suffix="USD" />
-    <NumberInput label="Requested term" value={facts.loanTerm} min={12} max={60}
-      onChange={value => update("loanTerm", value)} suffix="months" />
+    <NumberInput field="annualIncome" facts={facts} update={update} suffix="USD / year" />
+    <NumberInput field="monthlyDebt" facts={facts} update={update} suffix="USD / month" />
+    <NumberInput field="loanAmount" facts={facts} update={update} suffix="USD" />
+    <NumberInput field="loanTerm" facts={facts} update={update} suffix="months" />
     <div className="derivedMetric"><span>Debt-to-income</span><strong>{dti}%</strong>
       <small>Derived locally from the fictional values above.</small></div>
   </div>;
@@ -86,16 +63,11 @@ function IncomeFields({ facts, update, dti }: FieldsProps & { dti: number }) {
 
 function CreditFields({ facts, update }: FieldsProps) {
   return <div className="fieldGrid">
-    <NumberInput label="Credit score" value={facts.creditScore} min={300} max={850}
-      onChange={value => update("creditScore", value)} />
-    <NumberInput label="Revolving utilization" value={facts.utilization} min={0} max={100}
-      onChange={value => update("utilization", value)} suffix="%" />
-    <NumberInput label="30–59 day delinquencies" value={facts.delinq30} min={0} max={20}
-      onChange={value => update("delinq30", value)} suffix="in 24 months" />
-    <NumberInput label="60–89 day delinquencies" value={facts.delinq60} min={0} max={20}
-      onChange={value => update("delinq60", value)} suffix="in 24 months" />
-    <NumberInput label="90+ day delinquencies" value={facts.delinq90} min={0} max={20}
-      onChange={value => update("delinq90", value)} suffix="in 24 months" />
+    <NumberInput field="creditScore" facts={facts} update={update} />
+    <NumberInput field="utilization" facts={facts} update={update} suffix="%" />
+    <NumberInput field="delinq30" facts={facts} update={update} suffix="in 24 months" />
+    <NumberInput field="delinq60" facts={facts} update={update} suffix="in 24 months" />
+    <NumberInput field="delinq90" facts={facts} update={update} suffix="in 24 months" />
   </div>;
 }
 
@@ -110,18 +82,15 @@ function HistoryFields({ facts, update }: FieldsProps) {
         <option value="BANKRUPTCY_CH13">Bankruptcy Chapter 13</option>
       </select>
     </div></label>
-    {facts.publicRecordKind !== "NONE" && <NumberInput label="Months since record"
-      value={facts.publicRecordMonthsAgo} min={0} max={240}
-      onChange={value => update("publicRecordMonthsAgo", value)} suffix="months" />}
-    <NumberInput label="Hard inquiries" value={facts.inquiries} min={0} max={20}
-      onChange={value => update("inquiries", value)} suffix="in 6 months" />
+    {facts.publicRecordKind !== "NONE" && <NumberInput field="publicRecordMonthsAgo"
+      facts={facts} update={update} suffix="months" />}
+    <NumberInput field="inquiries" facts={facts} update={update} suffix="in 6 months" />
   </div>;
 }
 
 function EmploymentFields({ facts, update }: FieldsProps) {
   return <div className="fieldGrid">
-    <NumberInput label="Employment tenure" value={facts.employmentMonths} min={0} max={600}
-      onChange={value => update("employmentMonths", value)} suffix="months" />
+    <NumberInput field="employmentMonths" facts={facts} update={update} suffix="months" />
     <label className="studioField"><span>Employment status</span><div>
       <select value={facts.employmentStatus}
         onChange={event => update("employmentStatus", event.target.value as EmploymentStatus)}>
@@ -160,7 +129,7 @@ function AuditReview({ facts, dti, accepted, message, submissionError, onAccepte
   </div>;
 }
 
-export function AuditIntakeStep({ step, facts, dti, accepted, submissionError, message,
+export function AuditIntakeStep({ step, facts, dti, accepted, submissionError, message, issues,
   update, onAcceptedChange }: {
   step: AuditFieldStep;
   facts: AuditFormFacts;
@@ -168,6 +137,7 @@ export function AuditIntakeStep({ step, facts, dti, accepted, submissionError, m
   accepted: boolean;
   submissionError: boolean;
   message: string;
+  issues: readonly AuditIntakeIssue[];
   update: UpdateFacts;
   onAcceptedChange: (accepted: boolean) => void;
 }) {
@@ -179,6 +149,7 @@ export function AuditIntakeStep({ step, facts, dti, accepted, submissionError, m
       <p>{description}</p>
     </div></div>
     <div className="userComposer">
+      <AuditIntakeIssues issues={issues} />
       {step === "income" && <IncomeFields facts={facts} update={update} dti={dti} />}
       {step === "credit" && <CreditFields facts={facts} update={update} />}
       {step === "history" && <HistoryFields facts={facts} update={update} />}

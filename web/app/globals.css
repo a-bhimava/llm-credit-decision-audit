@@ -420,12 +420,17 @@ td { font-size: 0.86rem; }
 .userComposer { margin: 2.5rem 0 0 52px; max-width: 760px; }
 .fieldGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; border: 1px solid var(--line-dark); background: var(--line-dark); border-radius: 10px; overflow: hidden; }
 .studioField, .derivedMetric, .choiceRow { background: var(--card); min-height: 100px; padding: 1rem; display: block; }
+.studioField.is-invalid { box-shadow: inset 0 0 0 1px var(--destructive); }
+.studioField.is-invalid > span { color: var(--destructive); }
 .studioField > span, .derivedMetric > span { color: var(--dim); display: block; font: 500 0.7rem var(--sans); margin-bottom: 0.2rem; }
 .studioField div { display: flex; align-items: center; border-bottom: 1px solid var(--border); margin-top: 1rem; }
 .studioField input, .studioField select { appearance: none; color: var(--ink-light); border: 0; outline: 0; background: transparent; font: 500 1.1rem var(--sans); width: 100%; padding: 0 0 .35rem; }
 .studioField select { cursor: pointer; }
 .studioField select option { color: var(--card-foreground); }
 .studioField em { color: var(--muted-foreground); font: 0.68rem var(--sans); font-style: normal; white-space: nowrap; padding-bottom: .35rem; }
+.intakeIssues { margin-bottom: 1rem; padding: 1rem; border: 1px solid var(--destructive); border-radius: 10px; background: color-mix(in srgb, var(--destructive) 9%, var(--card)); color: var(--ink-light); }
+.intakeIssues strong { display: block; font: 600 .8rem var(--sans); }
+.intakeIssues ul { margin: .5rem 0 0; padding-left: 1.2rem; color: var(--dim); font: .78rem/1.55 var(--sans); }
 .derivedMetric strong { display:block; margin-top: 1rem; font: 600 1.3rem var(--sans); letter-spacing: -0.02em; }
 .derivedMetric small { color: var(--dim); font-size: .7rem; }
 .choiceRow { grid-column: 1/-1; display: flex; align-items: flex-start; gap: .75rem; cursor: pointer; }

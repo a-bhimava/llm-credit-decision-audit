@@ -7,8 +7,9 @@ import { AnimatedContent } from "@/components/react-bits/animated-content";
 import { AuditIntakeStepper } from "@/components/react-bits/audit-intake-stepper";
 import { AuditResultDashboard, AuditResultUnavailable } from "@/components/audit-result-dashboard";
 import { AuditExecutionView } from "@/components/audit-execution-view";
-import { AuditIntakeStep, auditSteps, initialAuditFacts,
-  type AuditFieldStep, type AuditFormFacts } from "@/components/audit-intake-step";
+import { AuditIntakeStep } from "@/components/audit-intake-step";
+import { auditDtiPercent, auditIntakeIssues, auditSteps, initialAuditFacts, updateAuditFact,
+  type AuditFieldStep, type AuditFormFacts } from "@/lib/audit/intake-form";
 
 // ── Tune this to change how long the frontend waits for the workflow ──────────
 // The LLM evaluation step makes multiple calls to the model and can take up to 3-4 minutes
@@ -104,9 +105,11 @@ export function AuditStudio() {
     }
   }, [submission, jobId, isDone]);
 
-  const update = <K extends keyof AuditFormFacts>(key: K, value: AuditFormFacts[K]) => setFacts((current) => ({ ...current, [key]: value }));
-  const monthlyIncome = facts.annualIncome / 12;
-  const dti = monthlyIncome ? Math.round((facts.monthlyDebt / monthlyIncome) * 10_000) / 100 : 0;
+  const update = <K extends keyof AuditFormFacts>(key: K, value: AuditFormFacts[K]) =>
+    setFacts(current => updateAuditFact(current, key, value));
+  const dti = auditDtiPercent(facts);
+  const intakeIssues = auditIntakeIssues(facts);
+  const stepIssues = intakeIssues.filter(issue => issue.step === step);
   const intake = useMemo<AuditIntake>(() => {
     const limit = 20_000;
     return {
@@ -124,7 +127,7 @@ export function AuditStudio() {
   }, [facts]);
 
   async function requestPreflight() {
-    if (!accepted) return;
+    if (!accepted || intakeIssues.length > 0) return;
     setSubmission("submitting");
     setMessage("");
     try {
@@ -162,11 +165,23 @@ export function AuditStudio() {
           <AnimatedContent key={step} className="conversationBody">
             <AuditIntakeStep step={step} facts={facts} dti={dti} accepted={accepted}
               submissionError={submission === "error"} message={message}
+              issues={step === "review" ? intakeIssues : stepIssues}
               update={update} onAcceptedChange={setAccepted} />
           </AnimatedContent>
         )}
 
-        {submission !== "launched" && <footer className="studioControls"><button type="button" className="backButton" disabled={currentStep === 0} onClick={() => setStep(auditSteps[currentStep - 1])}>Back</button>{step !== "review" ? <button type="button" className="nextButton" onClick={() => setStep(auditSteps[currentStep + 1])}>Continue <span>→</span></button> : <button type="button" className="nextButton" disabled={!accepted || submission === "submitting"} onClick={requestPreflight}>{submission === "submitting" ? "Creating preflight…" : "Create bounded preflight"} <span>→</span></button>}</footer>}
+        {submission !== "launched" && <footer className="studioControls">
+          <button type="button" className="backButton" disabled={currentStep === 0}
+            onClick={() => setStep(auditSteps[currentStep - 1])}>Back</button>
+          {step !== "review" ? <button type="button" className="nextButton"
+            disabled={stepIssues.length > 0}
+            onClick={() => setStep(auditSteps[currentStep + 1])}>Continue <span>→</span></button>
+            : <button type="button" className="nextButton"
+              disabled={!accepted || intakeIssues.length > 0 || submission === "submitting"}
+              onClick={requestPreflight}>
+              {submission === "submitting" ? "Creating preflight…" : "Create bounded preflight"} <span>→</span>
+            </button>}
+        </footer>}
       </div>
     </section>
   );
