@@ -18,6 +18,7 @@ import { ReasonTraceReviewHistory, type ReviewEvent } from "@/components/reasont
 import { ReasonTraceFieldReview } from "@/components/reasontrace-field-review";
 import { ReasonTraceDocumentReview } from "@/components/reasontrace-document-review";
 import { ReasonTraceReadiness } from "@/components/reasontrace-readiness";
+import { ReasonTraceReasonComparison } from "@/components/reasontrace-reason-comparison";
 
 type AuditResult = {
   mode: string; policy: string; agent: string;
@@ -35,8 +36,6 @@ async function fetchCase(id: string): Promise<CaseDetail> {
   if (!response.ok) throw new Error(detail.error || "The private case could not be loaded.");
   return detail;
 }
-
-const pretty = (code: string) => code.replaceAll("_", " ").toLowerCase();
 
 export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean }) {
   const [caseId, setCaseId] = useState<string | null>(null);
@@ -348,7 +347,10 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
         </GlareHover>
         <AnimatePresence mode="wait">
         {auditResult && <AnimatedContent key={`${caseLabel}-${auditResult.decision.trajectory_id}`} className="rt-results" ariaLive="polite">
-          <div className="rt-result-summary"><span>Scripted result</span><h3>{auditResult.decision.outcome}</h3><p>Agent stated: <strong>{auditResult.decision.reasons.map(pretty).join(", ") || "no adverse reason"}</strong></p><p>Policy oracle: <strong>{auditResult.oracle.breached_codes.map(pretty).join(", ") || "no breached rule"}</strong></p></div>
+          <ReasonTraceReasonComparison decisionOutcome={auditResult.decision.outcome}
+            policyOutcome={auditResult.oracle.outcome}
+            statedReasons={auditResult.decision.reasons}
+            breachedCodes={auditResult.oracle.breached_codes} />
           <ReasonTraceAuditChecks checks={auditResult.checks} />
           <p className="rt-result-note">These controls test the audit machinery against known behavior. They do not establish a provider or lender violation.</p>
         </AnimatedContent>}

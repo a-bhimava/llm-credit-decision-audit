@@ -24,11 +24,12 @@ export function ReasonTraceAuditChecks({ checks }: { checks: AuditCheck[] }) {
   );
   const failures = checks.filter(check => check.status === "fail").length;
   const passes = checks.filter(check => check.status === "pass").length;
+  const inapplicable = checks.filter(check => check.status === "inapplicable").length;
 
   return <>
     <div className="rt-check-overview">
       <h3 className="rt-check-title">Paired evidence</h3>
-      <span>{failures} failed · {passes} passed</span>
+      <span>{failures} failed · {passes} passed{inapplicable > 0 ? ` · ${inapplicable} inapplicable` : ""}</span>
     </div>
     {checks.map(check => {
       const expanded = openPair === check.pair_id;
