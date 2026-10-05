@@ -73,11 +73,11 @@ export function ReasonTraceDocumentReview({ activeDoc, onSelectDocument, documen
         onRefresh={onRefreshPreview} />
       <div className="rt-doc-footer">
         <div><strong>{selected.title}</strong><span>{selected.type} · page 1 of 1</span></div>
-        <label><input type="checkbox" checked={entry.included} disabled={busy}
+        <label><input id="rt-document-included" type="checkbox" checked={entry.included} disabled={busy}
           onChange={event => onToggleIncluded(activeDoc, event.target.checked)} />
           Included{initialExcludedDocument === activeDoc ? " (simulated missing page)" : ""}
         </label>
-        <button type="button" disabled={!entry.included || busy}
+        <button id="rt-document-reviewed" type="button" disabled={!entry.included || busy}
           onClick={() => onToggleReviewed(activeDoc, !entry.reviewed)}>
           {entry.reviewed ? "Reviewed ✓" : "Mark reviewed"}
         </button>

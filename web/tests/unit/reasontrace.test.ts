@@ -85,6 +85,21 @@ describe("local fixture isolation", () => {
 });
 
 describe("ReasonTrace readiness", () => {
+  it("pairs blocking messages with the source or field the reviewer can inspect", () => {
+    const missing = caseDefinitions[4];
+    const result = validateReview(fixtureReview(missing), missing.applicantName, missing.creditScore);
+    expect(result.issues.find(issue => issue.message === "Credit summary is missing.")?.target)
+      .toEqual({ kind: "document", id: "credit-report", control: "included" });
+    expect(result.issues.find(issue => issue.message === "Annual gross income has not been confirmed.")?.target)
+      .toEqual({ kind: "field", id: "annual_income_cents" });
+
+    const misread = caseDefinitions[3];
+    const correction = validateReview(fixtureReview(misread), misread.applicantName, misread.creditScore);
+    expect(correction.issues.find(issue => issue.message === "Credit score differs from the synthetic source page.")?.target)
+      .toEqual({ kind: "field", id: "credit_score" });
+    expect(correction.problems).toEqual(correction.issues.map(issue => issue.message));
+  });
+
   it("blocks unreviewed source pages and unconfirmed facts", () => {
     const { problems } = validateReview(fixtureReview(), caseDefinitions[0].applicantName);
     expect(problems.length).toBe(6);

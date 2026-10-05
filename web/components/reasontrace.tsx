@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import {
   documents, fieldDefinitions, fieldIds, fixtureReview, validateReview,
-  type CaseReview, type DocumentId, type FieldId,
+  type CaseReview, type DocumentId, type FieldId, type ReviewIssue,
 } from "@/lib/reasontrace/demo";
 import { caseDefinitions, getCaseDefinition } from "@/lib/reasontrace/cases";
 import { applyLocalReviewChange } from "@/lib/reasontrace/local-review";
@@ -17,6 +17,7 @@ import { ReasonTraceCasePicker } from "@/components/reasontrace-case-picker";
 import { ReasonTraceReviewHistory, type ReviewEvent } from "@/components/reasontrace-review-history";
 import { ReasonTraceFieldReview } from "@/components/reasontrace-field-review";
 import { ReasonTraceDocumentReview } from "@/components/reasontrace-document-review";
+import { ReasonTraceReadiness } from "@/components/reasontrace-readiness";
 
 type AuditResult = {
   mode: string; policy: string; agent: string;
@@ -52,8 +53,9 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
   const [busy, setBusy] = useState<"extract" | "audit" | "review" | "case" | null>(null);
   const [message, setMessage] = useState("");
   const definition = getCaseDefinition(caseLabel) ?? caseDefinitions[0];
-  const problems = useMemo(() => validateReview(review, definition.applicantName, definition.creditScore).problems,
+  const validation = useMemo(() => validateReview(review, definition.applicantName, definition.creditScore),
     [review, definition.applicantName, definition.creditScore]);
+  const problems = validation.problems;
   const reviewedDocuments = documents.filter(doc => review.documents[doc.id].included && review.documents[doc.id].reviewed).length;
   const confirmedFields = fieldIds.filter(id => {
     const field = review.fields[id];
@@ -63,6 +65,22 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
   function showSourceDocument(id: DocumentId) {
     setActiveDoc(id);
     requestAnimationFrame(() => document.getElementById(documentTabId(id))?.focus());
+  }
+
+  function navigateToIssue(issue: ReviewIssue) {
+    const target = issue.target;
+    if (!target) return;
+    if (target.kind === "document") setActiveDoc(target.id);
+    requestAnimationFrame(() => {
+      const id = target.kind === "field" ? `rt-${target.id}`
+        : target.control === "included" ? "rt-document-included"
+          : target.control === "reviewed" ? "rt-document-reviewed" : "rt-applicant-name";
+      const element = document.getElementById(id);
+      if (!element) return;
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      element.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "center" });
+      element.focus({ preventScroll: true });
+    });
   }
 
   function applyLocalCase(label: string, selectedDocument: DocumentId = "credit-report") {
@@ -318,10 +336,7 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
 
       <section className="rt-panel rt-audit-panel" aria-labelledby="rt-audit-heading">
         <div className="rt-panel-heading"><span>03 / TEST</span><h2 id="rt-audit-heading" tabIndex={-1}>Audit the explanation</h2><p>The Python harness runs matched counterfactuals. This is a known-answer scripted control, not a finding about a live model.</p></div>
-        <div className={problems.length ? "rt-readiness blocked" : "rt-readiness ready"}>
-          <strong>{problems.length ? "Needs review" : "Ready for audit"}</strong>
-          {problems.length ? <ul>{problems.map(problem => <li key={problem}>{problem}</li>)}</ul> : <p>All three documents and decision-relevant extracted values are confirmed.</p>}
-        </div>
+        <ReasonTraceReadiness issues={validation.issues} onNavigate={navigateToIssue} />
         <label className="rt-agent-select">Scripted agent control
           <select value={agent} onChange={e => { setAgent(e.target.value as typeof agent); setAuditResult(null); }}>
             <option value="laundering">Planted reason-laundering defect</option>

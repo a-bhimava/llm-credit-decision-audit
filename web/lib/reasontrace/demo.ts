@@ -32,6 +32,11 @@ export type CaseReview = {
   fields: Record<FieldId, ReviewField>;
   extractionSource: ExtractionSource;
 };
+export type ReviewIssue = {
+  message: string;
+  target?: { kind: "document"; id: DocumentId; control: "included" | "reviewed" | "name" } |
+    { kind: "field"; id: FieldId };
+};
 
 export function fixtureReview(item: CaseDefinition = caseDefinitions[0]): CaseReview {
   return {
@@ -55,18 +60,26 @@ export function fixtureReview(item: CaseDefinition = caseDefinitions[0]): CaseRe
 }
 
 export function validateReview(input: unknown, expectedName: string,
-  expectedFixtureScore?: number): { review: CaseReview | null; problems: string[] } {
-  const problems: string[] = [];
-  if (!input || typeof input !== "object") return { review: null, problems: ["No case review was supplied."] };
+  expectedFixtureScore?: number): { review: CaseReview | null; problems: string[]; issues: ReviewIssue[] } {
+  const issues: ReviewIssue[] = [];
+  const add = (message: string, target?: ReviewIssue["target"]) => { issues.push({ message, target }); };
+  const finish = (review: CaseReview | null) => ({ review, problems: issues.map(issue => issue.message), issues });
+  if (!input || typeof input !== "object") {
+    add("No case review was supplied.");
+    return finish(null);
+  }
   const review = input as CaseReview;
   if (!review.documents || !review.fields || !["fixture", "interfaze"].includes(review.extractionSource)) {
-    return { review: null, problems: ["The case review is incomplete."] };
+    add("The case review is incomplete.");
+    return finish(null);
   }
   for (const doc of documents) {
     const entry = review.documents[doc.id];
-    if (!entry?.included) problems.push(`${doc.title} is missing.`);
-    else if (!entry.reviewed) problems.push(`${doc.title} has not been reviewed.`);
-    if (entry?.included && entry.applicantName !== expectedName) problems.push(`${doc.title} has a conflicting applicant name.`);
+    if (!entry?.included) add(`${doc.title} is missing.`, { kind: "document", id: doc.id, control: "included" });
+    else if (!entry.reviewed) add(`${doc.title} has not been reviewed.`, { kind: "document", id: doc.id, control: "reviewed" });
+    if (entry?.included && entry.applicantName !== expectedName) {
+      add(`${doc.title} has a conflicting applicant name.`, { kind: "document", id: doc.id, control: "name" });
+    }
   }
   const ranges: Record<FieldId, [number, number]> = {
     annual_income_cents: [0, 60_000_000], monthly_debt_cents: [0, 5_000_000], credit_score: [300, 850],
@@ -74,20 +87,22 @@ export function validateReview(input: unknown, expectedName: string,
   for (const id of fieldIds) {
     const field = review.fields[id];
     if (!field || field.documentId !== fieldDefinitions[id].documentId) {
-      problems.push(`${fieldDefinitions[id].label} has no valid source.`);
+      add(`${fieldDefinitions[id].label} has no valid source.`, { kind: "field", id });
       continue;
     }
     if (!Number.isSafeInteger(field.value) || field.value < ranges[id][0] || field.value > ranges[id][1]) {
-      problems.push(`${fieldDefinitions[id].label} is outside the allowed range.`);
+      add(`${fieldDefinitions[id].label} is outside the allowed range.`, { kind: "field", id });
     }
-    if (!field.confirmed) problems.push(`${fieldDefinitions[id].label} has not been confirmed.`);
-    if (field.source !== review.extractionSource) problems.push(`${fieldDefinitions[id].label} has inconsistent extraction provenance.`);
+    if (!field.confirmed) add(`${fieldDefinitions[id].label} has not been confirmed.`, { kind: "field", id });
+    if (field.source !== review.extractionSource) {
+      add(`${fieldDefinitions[id].label} has inconsistent extraction provenance.`, { kind: "field", id });
+    }
     if (id === "credit_score" && review.extractionSource === "fixture" &&
       expectedFixtureScore !== undefined && field.value !== expectedFixtureScore) {
-      problems.push("Credit score differs from the synthetic source page.");
+      add("Credit score differs from the synthetic source page.", { kind: "field", id });
     }
   }
-  return { review, problems };
+  return finish(review);
 }
 
 export function displayValue(id: FieldId, value: number): string {
