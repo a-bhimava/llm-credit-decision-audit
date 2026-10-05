@@ -1,18 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import type { AuditIntake, EmploymentStatus, PublicRecordKind } from "@/lib/audit/contracts";
 import type { Trajectory } from "@/lib/audit/records";
 import { AnimatedContent } from "@/components/react-bits/animated-content";
 import { AuditIntakeStepper } from "@/components/react-bits/audit-intake-stepper";
 import { AuditResultDashboard, AuditResultUnavailable } from "@/components/audit-result-dashboard";
-
-const AuditGraph = dynamic(
-  () => import("@/components/audit-graph").then((m) => m.AuditGraph),
-  { ssr: false }
-);
+import { AuditExecutionView } from "@/components/audit-execution-view";
 
 type FieldStep = "income" | "credit" | "history" | "employment" | "review";
 type FormFacts = {
@@ -195,24 +190,7 @@ export function AuditStudio() {
 
       <div className={`studioConversation${submission === "launched" ? " is-launched" : ""}`}>
         <header className="studioTopbar"><a href="/">← Exit studio</a><span>Session-only · expires in 60 min</span></header>
-        {submission === "launched" && !isDone && (
-          <div className="launchReaction" style={{ position: "relative", width: "100%", height: "100%" }}>
-            <AuditGraph liveProgress={liveProgress} isDone={isDone} />
-            <div style={{
-              position: "absolute", top: 0, left: 0, right: 0, zIndex: 20,
-              padding: "1.5rem 2rem",
-              background: "linear-gradient(to bottom, rgba(9,10,23,0.92) 55%, transparent)",
-              pointerEvents: "none"
-            }}>
-              <div style={{ color: "var(--cyan)", fontFamily: "var(--mono)", fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.14em", opacity: 0.75, marginBottom: "0.3rem" }}>
-                Live Audit Execution
-              </div>
-              <div style={{ color: "var(--dim)", fontFamily: "var(--mono)", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                {liveProgress}
-              </div>
-            </div>
-          </div>
-        )}
+        {submission === "launched" && !isDone && <AuditExecutionView progress={liveProgress} />}
         
         {submission === "launched" && isDone && result && <AuditResultDashboard
           result={result} requestedAmount={facts.loanAmount} creditScore={facts.creditScore} dti={dti}
