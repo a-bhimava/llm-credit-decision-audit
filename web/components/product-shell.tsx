@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ProductNavigation } from "@/components/product-navigation";
 
 export function ProductShell({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
@@ -8,10 +9,7 @@ export function ProductShell({ children }: Readonly<{ children: React.ReactNode 
           <span className="productMarkDot" aria-hidden="true" />
           <span>causal audit infrastructure</span>
         </Link>
-        <nav aria-label="Product navigation">
-          <Link href="/audit">Audit studio</Link>
-          <Link href="/evidence">Evidence ledger</Link>
-        </nav>
+        <ProductNavigation />
       </header>
       {children}
       <footer className="productFooter">

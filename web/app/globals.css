@@ -334,9 +334,11 @@ td { font-size: 0.86rem; }
 .productShell { max-width: none; padding: 0 clamp(1.1rem, 5vw, 6rem); overflow: hidden; }
 .productHeader, .productFooter { max-width: 1440px; margin: auto; display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
 .productHeader { min-height: 78px; border-bottom: 1px solid var(--line-dark); }
-.productHeader nav { display: flex; gap: 1.35rem; font: 600 .74rem var(--mono); text-transform: uppercase; letter-spacing: .06em; }
-.productHeader nav a { color: var(--dim); text-decoration: none; }
+.productHeader nav { display: flex; align-items: center; gap: 1.35rem; font: 600 .74rem var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+.productHeader nav a { display: inline-flex; align-items: center; min-height: 44px; border-bottom: 2px solid transparent; color: var(--dim); text-decoration: none; }
 .productHeader nav a:hover { color: var(--cyan); }
+.productHeader nav a[aria-current="page"] { color: var(--ink-light); border-bottom-color: var(--cyan); }
+.productNavShort { display: none; }
 .productMark { display: inline-flex; align-items: center; gap: .6rem; color: var(--ink-light); text-decoration: none; font: 700 .78rem var(--mono); letter-spacing: .045em; text-transform: uppercase; }
 .productMarkDot { width: .7rem; height: .7rem; display: inline-block; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 18px var(--cyan); }
 .productMain { max-width: 1800px; margin: auto; }
@@ -589,4 +591,13 @@ td { font-size: 0.86rem; }
 @keyframes slideUpFade {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 620px) {
+  .productHeader { display: grid; grid-template-columns: minmax(0, 1fr); align-items: stretch; justify-content: stretch; gap: .35rem; padding-top: .55rem; }
+  .productMark { min-height: 44px; font-size: .72rem; white-space: nowrap; }
+  .productHeader nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; gap: .35rem; border-top: 1px solid var(--line-dark); font-size: .72rem; }
+  .productHeader nav a { justify-content: center; min-height: 44px; white-space: nowrap; }
+  .productNavLong { display: none; }
+  .productNavShort { display: inline; }
 }
