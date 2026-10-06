@@ -1,10 +1,12 @@
 "use client";
 
 import type { ExtractionSource } from "@/lib/reasontrace/demo";
+import { ReasonTraceCaseReset } from "@/components/reasontrace-case-reset";
 
-export function ReasonTraceExtractionToolbar({ localFixtures, source, busy, extracting, message,
-  onReload, onUseFixture, onExtractLive }: {
+export function ReasonTraceExtractionToolbar({ localFixtures, caseLabel, source, busy, extracting, message,
+  onReload, onUseFixture, onExtractLive, onRestartCase }: {
   localFixtures: boolean;
+  caseLabel: string;
   source: ExtractionSource;
   busy: boolean;
   extracting: boolean;
@@ -12,6 +14,7 @@ export function ReasonTraceExtractionToolbar({ localFixtures, source, busy, extr
   onReload: () => void;
   onUseFixture: () => void;
   onExtractLive: () => void;
+  onRestartCase: () => void;
 }) {
   const liveCandidates = source === "interfaze";
   const description = localFixtures
@@ -27,6 +30,8 @@ export function ReasonTraceExtractionToolbar({ localFixtures, source, busy, extr
         <button type="button" onClick={liveCandidates ? onUseFixture : onReload} disabled={busy}>
           {liveCandidates ? "Use saved fixture" : "Reload saved case"}
         </button>
+        {localFixtures && <ReasonTraceCaseReset key={caseLabel} caseLabel={caseLabel}
+          busy={busy} onRestart={onRestartCase} />}
         {!localFixtures && <button type="button" className="rt-outline" onClick={onExtractLive} disabled={busy}>
           {extracting ? "Reading documents…" : "Run with Interfaze"}
         </button>}

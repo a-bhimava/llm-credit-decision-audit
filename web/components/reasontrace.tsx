@@ -28,6 +28,8 @@ async function fetchCase(id: string): Promise<CaseDetail> {
   return detail;
 }
 
+const localCaseStorageKey = (label: string) => `reasontrace-local-${label}`;
+
 export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean }) {
   const [caseId, setCaseId] = useState<string | null>(null);
   const [caseLabel, setCaseLabel] = useState(caseDefinitions[0].label);
@@ -74,12 +76,15 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
     });
   }
 
-  function applyLocalCase(label: string, selectedDocument: DocumentId = "credit-report") {
+  function applyLocalCase(label: string, selectedDocument: DocumentId = "credit-report",
+    ignoreSaved = false) {
     const item = getCaseDefinition(label);
     if (!item) throw new Error("Unknown synthetic case.");
     let saved: { review?: CaseReview; reviewEvents?: ReviewEvent[]; auditResult?: AuditResult; agent?: ScriptedAgent } = {};
-    try { saved = JSON.parse(window.localStorage.getItem(`reasontrace-local-${label}`) || "{}"); }
-    catch { saved = {}; }
+    if (!ignoreSaved) {
+      try { saved = JSON.parse(window.localStorage.getItem(localCaseStorageKey(label)) || "{}"); }
+      catch { saved = {}; }
+    }
     const candidate = saved.review;
     const validShape = candidate?.documents && candidate?.fields && documents.every(doc => candidate.documents[doc.id]) &&
       fieldIds.every(id => candidate.fields[id]) && candidate.extractionSource === "fixture";
@@ -100,7 +105,7 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
   function persistLocal(current: CaseReview, events: ReviewEvent[], result: AuditResult | null,
     selectedAgent: ScriptedAgent = agent) {
     try {
-      window.localStorage.setItem(`reasontrace-local-${caseLabel}`, JSON.stringify({
+      window.localStorage.setItem(localCaseStorageKey(caseLabel), JSON.stringify({
         review: current, reviewEvents: events, auditResult: result, agent: selectedAgent,
       }));
     } catch { setMessage("Browser storage is unavailable; this review will last only until the page closes."); }
@@ -189,6 +194,15 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
     if (localFixtures) { applyLocalCase(caseLabel, activeDoc); return; }
     const detail = await fetchCase(caseId);
     applyDetail(caseId, detail, activeDoc);
+  }
+  function restartLocalCase() {
+    if (!localFixtures) return;
+    let stored = true;
+    try { window.localStorage.removeItem(localCaseStorageKey(caseLabel)); }
+    catch { stored = false; }
+    applyLocalCase(caseLabel, "credit-report", true);
+    setMessage(stored ? `Restarted ${caseLabel} from its fictional source packet.`
+      : "The case restarted for this session, but browser storage could not be cleared. Reloading may restore the earlier review.");
   }
   async function switchCase(id: string) {
     if (busy || id === caseId) return;
@@ -280,14 +294,14 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
     <ReasonTraceCasePicker currentLabel={caseLabel} availableCases={availableCases}
       busy={busy !== null} onSelect={id => { void switchCase(id); }} />
 
-    <ReasonTraceExtractionToolbar localFixtures={localFixtures} source={review.extractionSource}
+    <ReasonTraceExtractionToolbar localFixtures={localFixtures} caseLabel={caseLabel} source={review.extractionSource}
       busy={busy !== null} extracting={busy === "extract"} message={message}
       onReload={() => {
         void reloadSavedCase().then(() => setMessage("Reloaded the saved synthetic case."))
           .catch(error => setMessage(error instanceof Error ? error.message : "Reload failed"));
       }}
       onUseFixture={() => { void saveReview({ kind: "mode", mode: "fixture" }); }}
-      onExtractLive={() => { void extractLive(); }} />
+      onExtractLive={() => { void extractLive(); }} onRestartCase={restartLocalCase} />
 
     <div className="rt-workspace">
       <ReasonTraceDocumentReview activeDoc={activeDoc} onSelectDocument={setActiveDoc}
