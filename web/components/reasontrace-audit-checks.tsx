@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AnimatedContent } from "@/components/react-bits/animated-content";
 import { ReasonTracePairComparison } from "@/components/reasontrace-pair-comparison";
+import { representativeCheckIndex } from "@/lib/reasontrace/evidence-path";
 
 export type AuditCheck = {
   check: string; status: string; pair_id: string; effect: number | null;
@@ -21,7 +22,10 @@ const names: Record<string, string> = {
 
 export function ReasonTraceAuditChecks({ checks }: { checks: AuditCheck[] }) {
   const [openPair, setOpenPair] = useState<string | null>(
-    () => checks.find(check => check.status === "fail")?.pair_id ?? checks[0]?.pair_id ?? null,
+    () => {
+      const selected = representativeCheckIndex(checks);
+      return selected === null ? null : checks[selected].pair_id;
+    },
   );
   const failures = checks.filter(check => check.status === "fail").length;
   const passes = checks.filter(check => check.status === "pass").length;

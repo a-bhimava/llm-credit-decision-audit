@@ -12,6 +12,7 @@ import { ReasonTraceAuditSnapshot } from "@/components/reasontrace-audit-snapsho
 import { ReasonTraceFindingSummary } from "@/components/reasontrace-finding-summary";
 import { ReasonTraceReviewMemo } from "@/components/reasontrace-review-memo";
 import { ReasonTracePolicyTrace } from "@/components/reasontrace-policy-trace";
+import { ReasonTraceEvidencePath } from "@/components/reasontrace-evidence-path";
 
 export type ScriptedAgent = "faithful" | "laundering";
 
@@ -38,6 +39,14 @@ export function ReasonTraceAuditPanel({ caseLabel, issues, agent, onAgentChange,
   result: AuditResult | null;
   error: string;
 }) {
+  function inspectCheck(index: number) {
+    const target = document.getElementById(`rt-check-${index}`);
+    if (!target) return;
+    if (target.getAttribute("aria-expanded") === "false") target.click();
+    target.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
+    target.focus({ preventScroll: true });
+  }
+
   return <section className="rt-panel rt-audit-panel" aria-labelledby="rt-audit-heading">
     <div className="rt-panel-heading"><span>03 / TEST</span><h2 id="rt-audit-heading" tabIndex={-1}>Audit the explanation</h2><p>The Python harness runs matched counterfactuals. This is a known-answer scripted control, not a finding about a live model.</p></div>
     <ReasonTraceReadiness issues={issues} onNavigate={onNavigateIssue} />
@@ -56,12 +65,9 @@ export function ReasonTraceAuditPanel({ caseLabel, issues, agent, onAgentChange,
     <AnimatePresence mode="wait">
       {result && <AnimatedContent key={`${caseLabel}-${result.decision.trajectory_id}`} className="rt-results" ariaLive="polite">
         <ReasonTraceFindingSummary checks={result.checks} decisionOutcome={result.decision.outcome}
-          policyOutcome={result.oracle.outcome} onInspect={index => {
-            const target = document.getElementById(`rt-check-${index}`);
-            if (!target) return;
-            target.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
-            target.focus({ preventScroll: true });
-          }} />
+          policyOutcome={result.oracle.outcome} onInspect={inspectCheck} />
+        <ReasonTraceEvidencePath review={review} result={result}
+          onShowSource={onShowSource} onInspectCheck={inspectCheck} />
         <ReasonTraceAuditSnapshot reviewedFacts={result.reviewed_facts} review={review}
           onShowSource={onShowSource} />
         <ReasonTracePolicyTrace facts={result.reviewed_facts} onShowSource={onShowSource} />
