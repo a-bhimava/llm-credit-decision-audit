@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { displayDate, type RunIndexEntry } from "@/lib/evidence";
+import { RunNavigation } from "@/components/run-navigation";
 
 export function Shell({
   children,
@@ -32,15 +33,7 @@ export function Shell({
 }
 
 export function RunNav({ run }: Readonly<{ run: RunIndexEntry }>) {
-  return (
-    <nav className="runNav" aria-label="Run navigation">
-      <Link href={"/r/" + encodeURIComponent(run.run_id)}>Overview</Link>
-      <Link href={"/r/" + encodeURIComponent(run.run_id) + "/checks"}>Checks</Link>
-      <Link href={"/r/" + encodeURIComponent(run.run_id) + "/defects"}>Validation</Link>
-      <Link href={"/r/" + encodeURIComponent(run.run_id) + "/integrity"}>Integrity</Link>
-      <Link href={"/r/" + encodeURIComponent(run.run_id) + "/methods"}>Methods</Link>
-    </nav>
-  );
+  return <RunNavigation runId={run.run_id} />;
 }
 
 export function EvidenceLabel({ run }: Readonly<{ run: RunIndexEntry }>) {

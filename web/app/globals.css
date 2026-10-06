@@ -193,14 +193,18 @@ code { font-size: 0.82em; overflow-wrap: anywhere; }
 .runStamp { color: var(--quiet); display: flex; gap: 0.45rem; font: 0.72rem var(--mono); text-align: right; }
 .siteFooter { color: var(--quiet); border-top: 1px solid var(--line); display: flex; gap: 1rem; justify-content: space-between; margin-top: 5rem; padding: 1.5rem 0 2rem; font-size: 0.82rem; }
 
-.runNav { border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 1.25rem; padding: 0.75rem 0; font: 0.75rem var(--mono); text-transform: uppercase; }
-.runNav a { text-decoration: none; }
-.runNav a:hover { border-bottom: 2px solid var(--signal); }
+.runNav { border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 1.25rem; font: 0.75rem var(--mono); text-transform: uppercase; }
+.runNav a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 .2rem; border-bottom: 3px solid transparent; color: var(--quiet); text-decoration: none; }
+.runNav a:hover { color: var(--signal); border-bottom-color: var(--signal); }
+.runNav a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--signal); font-weight: 700; }
 
 main { padding: 3rem 0; }
 .hero { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(280px, 0.65fr); gap: 4rem; padding: 2.5rem 0 4rem; border-bottom: 6px solid var(--ink); }
+.shell main { padding-top: 2rem; }
+.shell .hero { padding-top: 1.25rem; padding-bottom: 3rem; }
 h1, h2, h3, p { margin-top: 0; }
 h1 { font: 500 clamp(2.6rem, 6vw, 6rem)/0.95 var(--serif); letter-spacing: -0.05em; max-width: 13ch; }
+.page h1 { overflow-wrap: anywhere; }
 h2 { font: 500 clamp(1.8rem, 3vw, 3rem)/1.05 var(--serif); letter-spacing: -0.04em; }
 h3 { font: 600 1rem/1.25 var(--sans); }
 .heroDeck, .lead { color: #294550; font-size: 1.15rem; max-width: 58ch; }
@@ -301,6 +305,11 @@ td { font-size: 0.86rem; }
 @media (max-width: 800px) {
   .shell { padding: 0 1rem; }
   .siteHeader, .siteFooter { align-items: flex-start; flex-direction: column; gap: 0.7rem; }
+  .runNav { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .2rem 0; }
+  .runNav a { grid-column: span 2; justify-content: center; min-height: 44px; padding: 0 .25rem; font-size: .68rem; }
+  .runNav a:nth-child(n+4) { grid-column: span 3; }
+  .shell main { padding-top: 1.25rem; }
+  .shell .hero { padding-top: 1rem; padding-bottom: 2.5rem; }
   .hero, .splitSection, .forestRow, .twoColumn { grid-template-columns: 1fr; gap: 1.5rem; }
   .headlineGrid, .checkGrid { grid-template-columns: 1fr; }
   .operationalStrip, .metricGrid, .pairMetricGrid, .mcnemar { grid-template-columns: repeat(2, 1fr); }
