@@ -472,12 +472,19 @@ td { font-size: 0.86rem; }
 .assistantMessage p:not(.messageMeta) { color: var(--dim); line-height: 1.65; max-width: 60ch; font-size: 0.9rem; }
 .userComposer { margin: 2.5rem 0 0 52px; max-width: 760px; }
 .fieldGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; border: 1px solid var(--line-dark); background: var(--line-dark); border-radius: 10px; overflow: hidden; }
+.fieldGrid > :last-child:nth-child(odd) { grid-column: 1 / -1; }
 .studioField, .derivedMetric, .choiceRow { background: var(--card); min-height: 100px; padding: 1rem; display: block; }
+.studioField:focus-within, .choiceRow:focus-within, .scopeCheck:focus-within { position: relative; z-index: 1; outline: 3px solid #b1d9ff; outline-offset: -3px; }
 .studioField.is-invalid { box-shadow: inset 0 0 0 1px var(--destructive); }
+.studioField.is-invalid:focus-within { outline-color: var(--destructive); }
 .studioField.is-invalid > span { color: var(--destructive); }
+.studioField:focus-within > span { color: #b1d9ff; }
+.studioField.is-invalid:focus-within > span { color: var(--destructive); }
 .studioField > span, .derivedMetric > span { color: var(--dim); display: block; font: 500 0.7rem var(--sans); margin-bottom: 0.2rem; }
 .studioField div { display: flex; align-items: center; border-bottom: 1px solid var(--border); margin-top: 1rem; }
 .studioField input, .studioField select { appearance: none; color: var(--ink-light); border: 0; outline: 0; background: transparent; font: 500 1.1rem var(--sans); width: 100%; padding: 0 0 .35rem; }
+.studioField input[type="number"] { appearance: textfield; -moz-appearance: textfield; }
+.studioField input[type="number"]::-webkit-inner-spin-button, .studioField input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .studioField select { cursor: pointer; }
 .studioField select option { color: var(--card-foreground); }
 .studioField em { color: var(--muted-foreground); font: 0.68rem var(--sans); font-style: normal; white-space: nowrap; padding-bottom: .35rem; }
