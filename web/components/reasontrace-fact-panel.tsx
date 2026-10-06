@@ -5,14 +5,15 @@ import { fieldIds, type CaseReview, type DocumentId, type FieldId } from "@/lib/
 import { ReasonTraceFieldReview } from "@/components/reasontrace-field-review";
 import { ReasonTraceReviewHistory, type ReviewEvent } from "@/components/reasontrace-review-history";
 
-export function ReasonTraceFactPanel({ definition, review, savedReview, reviewEvents, busy,
+export function ReasonTraceFactPanel({ definition, review, savedReview, reviewEvents, resetKey, busy,
   onValueChange, onSaveCorrection, onToggleConfirmation, onShowSource }: {
   definition: CaseDefinition;
   review: CaseReview;
   savedReview: CaseReview | null;
   reviewEvents: readonly ReviewEvent[];
+  resetKey: number;
   busy: boolean;
-  onValueChange: (id: FieldId, value: number) => void;
+  onValueChange: (id: FieldId, value: number | null) => void;
   onSaveCorrection: (id: FieldId, value: number) => void;
   onToggleConfirmation: (id: FieldId, value: number, confirmed: boolean) => void;
   onShowSource: (id: DocumentId) => void;
@@ -22,7 +23,7 @@ export function ReasonTraceFactPanel({ definition, review, savedReview, reviewEv
     <div className="rt-source-tag">Candidate source: {review.extractionSource === "fixture" ? "saved synthetic extraction" : "live Interfaze response"}</div>
     {definition.fixtureCreditScore !== definition.creditScore && review.extractionSource === "fixture" &&
       <p className="rt-injected-note">This saved fixture deliberately injects an extraction error. Compare the credit score with its page before confirming it.</p>}
-    {fieldIds.map(id => <ReasonTraceFieldReview key={id} id={id} field={review.fields[id]}
+    {fieldIds.map(id => <ReasonTraceFieldReview key={`${definition.label}:${resetKey}:${id}`} id={id} field={review.fields[id]}
       savedValue={savedReview?.fields[id].value}
       sourceReady={review.documents[review.fields[id].documentId].included &&
         review.documents[review.fields[id].documentId].reviewed}

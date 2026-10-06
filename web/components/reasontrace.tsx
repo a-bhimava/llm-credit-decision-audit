@@ -8,6 +8,7 @@ import {
 import { caseDefinitions, getCaseDefinition } from "@/lib/reasontrace/cases";
 import { applyLocalReviewChange } from "@/lib/reasontrace/local-review";
 import { auditMatchesReview } from "@/lib/reasontrace/audit-result";
+import { retainFieldDrafts } from "@/lib/reasontrace/review-drafts";
 import { WorkflowStepper } from "@/components/react-bits/workflow-stepper";
 import { documentTabId } from "@/components/reasontrace-document-tabs";
 import { ReasonTraceCasePicker } from "@/components/reasontrace-case-picker";
@@ -37,6 +38,7 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
   const [caseError, setCaseError] = useState("");
   const [documentUrls, setDocumentUrls] = useState<Partial<Record<DocumentId, string>>>({});
   const [review, setReview] = useState<CaseReview>(() => fixtureReview());
+  const [reviewEpoch, setReviewEpoch] = useState(0);
   const [savedReview, setSavedReview] = useState<CaseReview | null>(null);
   const [reviewEvents, setReviewEvents] = useState<ReviewEvent[]>([]);
   const [activeDoc, setActiveDoc] = useState<DocumentId>("credit-report");
@@ -91,6 +93,7 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
     const current = validShape ? candidate : fixtureReview(item);
     setCaseId(label); setCaseLabel(label);
     setReview(current); setSavedReview(current);
+    setReviewEpoch(value => value + 1);
     setReviewEvents(Array.isArray(saved.reviewEvents) ? saved.reviewEvents : []);
     setAuditResult(saved.auditResult && auditMatchesReview(current, saved.auditResult)
       ? saved.auditResult : null);
@@ -111,7 +114,8 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
     } catch { setMessage("Browser storage is unavailable; this review will last only until the page closes."); }
   }
 
-  function applyDetail(id: string, detail: CaseDetail, selectedDocument: DocumentId = "credit-report") {
+  function applyDetail(id: string, detail: CaseDetail, selectedDocument: DocumentId = "credit-report",
+    preserveFieldDrafts = false) {
     const item = getCaseDefinition(detail.case.case_label);
     if (!item) throw new Error("Unknown synthetic case returned by the server.");
     const kinds: Record<string, DocumentId> = {
@@ -122,8 +126,11 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
       if (kinds[doc.kind] && typeof doc.previewUrl === "string") urls[kinds[doc.kind]] = doc.previewUrl;
     }
     if (Object.keys(urls).length !== documents.length) throw new Error("One or more private document previews are unavailable.");
+    const visibleReview = preserveFieldDrafts
+      ? retainFieldDrafts(review, savedReview, detail.review) : detail.review;
     setCaseId(id); setCaseLabel(item.label); setDocumentUrls(urls);
-    setReview(detail.review); setSavedReview(detail.review);
+    setReview(visibleReview); setSavedReview(detail.review);
+    if (!preserveFieldDrafts) setReviewEpoch(value => value + 1);
     const keyByObservation = new Map(detail.observations.map(row => [row.id, row.field_key]));
     const documentById = new Map(detail.documents.map(doc => [doc.id, kinds[doc.kind]]));
     setReviewEvents(detail.reviewEvents.map(event => {
@@ -139,7 +146,7 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
     setAgent(detail.currentRun?.agent_kind === "faithful" || detail.currentRun?.agent_kind === "laundering"
       ? detail.currentRun.agent_kind : item.agent);
     setAuditResult(detail.currentRun?.status === "completed" &&
-      auditMatchesReview(detail.review, detail.currentRun.result) ? detail.currentRun.result : null);
+      auditMatchesReview(visibleReview, detail.currentRun.result) ? detail.currentRun.result : null);
     setAuditError("");
   }
 
@@ -189,11 +196,11 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
   function updateField(id: FieldId, changes: Partial<CaseReview["fields"][FieldId]>) {
     updateReview({ ...review, fields: { ...review.fields, [id]: { ...review.fields[id], ...changes } } });
   }
-  async function reloadSavedCase() {
+  async function reloadSavedCase(preserveFieldDrafts = false) {
     if (!caseId) return;
     if (localFixtures) { applyLocalCase(caseLabel, activeDoc); return; }
     const detail = await fetchCase(caseId);
-    applyDetail(caseId, detail, activeDoc);
+    applyDetail(caseId, detail, activeDoc, preserveFieldDrafts);
   }
   function restartLocalCase() {
     if (!localFixtures) return;
@@ -243,7 +250,7 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "Review could not be saved");
-      await reloadSavedCase();
+      await reloadSavedCase(change.kind === "document" || change.kind === "applicant_name");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Review could not be saved"); }
     finally { setBusy(null); }
   }
@@ -322,8 +329,9 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
         onRefreshPreview={reloadSavedCase} />
 
       <ReasonTraceFactPanel definition={definition} review={review} savedReview={savedReview}
-        reviewEvents={reviewEvents} busy={busy !== null}
-        onValueChange={(id, value) => updateField(id, { value, confirmed: false })}
+        reviewEvents={reviewEvents} resetKey={reviewEpoch} busy={busy !== null}
+        onValueChange={(id, value) => updateField(id, value === null
+          ? { confirmed: false } : { value, confirmed: false })}
         onSaveCorrection={(id, value) => { void saveReview({ kind: "field", fieldId: id, value }); }}
         onToggleConfirmation={(id, value, confirmed) => {
           void saveReview({ kind: "field", fieldId: id, value, confirmed });

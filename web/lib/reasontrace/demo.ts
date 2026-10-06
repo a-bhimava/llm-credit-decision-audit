@@ -24,6 +24,9 @@ export const fieldDefinitions: Record<FieldId, {
   },
 };
 export const fieldIds = Object.keys(fieldDefinitions) as FieldId[];
+export const reviewFieldRanges: Record<FieldId, readonly [number, number]> = {
+  annual_income_cents: [0, 60_000_000], monthly_debt_cents: [0, 5_000_000], credit_score: [300, 850],
+};
 
 export type ReviewField = { value: number; quote: string; documentId: DocumentId; confirmed: boolean; source: ExtractionSource; originalValue: number };
 export type ReviewDocument = { included: boolean; reviewed: boolean; applicantName: string };
@@ -81,16 +84,13 @@ export function validateReview(input: unknown, expectedName: string,
       add(`${doc.title} has a conflicting applicant name.`, { kind: "document", id: doc.id, control: "name" });
     }
   }
-  const ranges: Record<FieldId, [number, number]> = {
-    annual_income_cents: [0, 60_000_000], monthly_debt_cents: [0, 5_000_000], credit_score: [300, 850],
-  };
   for (const id of fieldIds) {
     const field = review.fields[id];
     if (!field || field.documentId !== fieldDefinitions[id].documentId) {
       add(`${fieldDefinitions[id].label} has no valid source.`, { kind: "field", id });
       continue;
     }
-    if (!Number.isSafeInteger(field.value) || field.value < ranges[id][0] || field.value > ranges[id][1]) {
+    if (!Number.isSafeInteger(field.value) || field.value < reviewFieldRanges[id][0] || field.value > reviewFieldRanges[id][1]) {
       add(`${fieldDefinitions[id].label} is outside the allowed range.`, { kind: "field", id });
     }
     if (!field.confirmed) add(`${fieldDefinitions[id].label} has not been confirmed.`, { kind: "field", id });

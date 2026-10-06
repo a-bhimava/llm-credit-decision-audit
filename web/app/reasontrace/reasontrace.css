@@ -194,3 +194,6 @@
 .rt-agent-options small{color:#5d7480;font-size:10px;line-height:1.4}
 .rt-agent-choice p{margin:8px 0 0;color:#667b83;font-size:10px;line-height:1.4}
 .rt-agent-choice:disabled .rt-agent-options label{cursor:not-allowed;opacity:.65}
+.rt-field-input input[aria-invalid="true"]{border-color:#c77d63;background:#fffaf7}
+.rt-field-input input:disabled{background:#f0f4f3;color:#64747d}
+.rt-field-error{margin:6px 0 0;color:#954a35;font-size:11px;line-height:1.45}

@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { fieldDefinitions, type DocumentId, type FieldId } from "@/lib/reasontrace/demo";
+import { fieldDefinitions, reviewFieldRanges, type DocumentId, type FieldId } from "@/lib/reasontrace/demo";
 import { getCaseDefinition } from "@/lib/reasontrace/cases";
 
 export const dynamic = "force-dynamic";
 const headers = { "Cache-Control": "private, no-store" };
 const kinds: Record<DocumentId, string> = {
   "pay-stub": "pay_statement", "bank-statement": "bank_statement", "credit-report": "credit_summary",
-};
-const ranges: Record<FieldId, [number, number]> = {
-  annual_income_cents: [0, 60_000_000], monthly_debt_cents: [0, 5_000_000], credit_score: [300, 850],
 };
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -94,7 +91,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (observation.error || !observation.data) {
       return NextResponse.json({ error: "Source observation not found" }, { status: 404, headers });
     }
-    const [min, max] = ranges[fieldId];
+    const [min, max] = reviewFieldRanges[fieldId];
     const value = body.value === undefined
       ? observation.data.confirmed_value ?? observation.data.parsed_value : body.value;
     if (!Number.isSafeInteger(value) || (value as number) < min || (value as number) > max) {
