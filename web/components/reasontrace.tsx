@@ -9,7 +9,7 @@ import { caseDefinitions, getCaseDefinition } from "@/lib/reasontrace/cases";
 import { applyLocalReviewChange } from "@/lib/reasontrace/local-review";
 import { auditMatchesReview } from "@/lib/reasontrace/audit-result";
 import { retainFieldDrafts } from "@/lib/reasontrace/review-drafts";
-import { WorkflowStepper } from "@/components/react-bits/workflow-stepper";
+import { ReasonTraceIntro } from "@/components/reasontrace-intro";
 import { documentTabId } from "@/components/reasontrace-document-tabs";
 import { ReasonTraceCasePicker } from "@/components/reasontrace-case-picker";
 import type { ReviewEvent } from "@/components/reasontrace-review-history";
@@ -289,14 +289,9 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
   </section></main>;
 
   return <main className="rt">
-    <section className="rt-hero">
-      <div className="rt-kicker"><span className="rt-live-dot" /> ReasonTrace / synthetic case {caseLabel}</div>
-      <h1>Can we trust the reason<br />behind this credit decision?</h1>
-      <p>Trace three reviewed values from fictional documents into a real paired reason-validity test. The audit engine uses the repository’s unchanged <strong>Meridian Personal Loan</strong> policy.</p>
-      {localFixtures && <p className="rt-local-notice">Local saved-fixture mode · no Supabase sign-in or Interfaze request</p>}
-      <WorkflowStepper reviewedDocuments={reviewedDocuments} confirmedFields={confirmedFields}
-        ready={problems.length === 0} audited={auditResult !== null} />
-    </section>
+    <ReasonTraceIntro caseLabel={caseLabel} localFixtures={localFixtures}
+      reviewedDocuments={reviewedDocuments} confirmedFields={confirmedFields}
+      ready={problems.length === 0} audited={auditResult !== null} />
 
     <ReasonTraceCasePicker currentLabel={caseLabel} availableCases={availableCases}
       busy={busy !== null} onSelect={id => { void switchCase(id); }} />
