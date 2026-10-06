@@ -1,40 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import { documents, type CaseReview, type DocumentId } from "@/lib/reasontrace/demo";
 import { documentTabId, ReasonTraceDocumentTabs } from "@/components/reasontrace-document-tabs";
-
-function SourceDocumentPreview({ src, alt, onRefresh }: {
-  src: string | undefined;
-  alt: string;
-  onRefresh: () => Promise<void>;
-}) {
-  const [failed, setFailed] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [refreshError, setRefreshError] = useState("");
-
-  async function refresh() {
-    setRefreshing(true); setRefreshError("");
-    try {
-      await onRefresh();
-      setFailed(false);
-    } catch (error) {
-      setRefreshError(error instanceof Error ? error.message : "The document preview could not be refreshed.");
-    } finally { setRefreshing(false); }
-  }
-
-  return <div className="rt-doc-frame">
-    {src && !failed ? <img src={src} alt={alt} onError={() => setFailed(true)} /> :
-      <div className="rt-doc-preview-error" role="alert">
-        <strong>Document preview unavailable</strong>
-        <p>The private preview may have expired. Refresh the case to get a new link.</p>
-        <button type="button" disabled={refreshing} onClick={() => { void refresh(); }}>
-          {refreshing ? "Refreshing…" : "Refresh document preview"}
-        </button>
-        {refreshError && <p>{refreshError}</p>}
-      </div>}
-  </div>;
-}
+import { ReasonTraceDocumentPreview } from "@/components/reasontrace-document-preview";
 
 export function ReasonTraceDocumentReview({ activeDoc, onSelectDocument, documentUrls, review, savedReview,
   applicantName, initialExcludedDocument, busy, onToggleIncluded, onToggleReviewed, onApplicantNameChange,
@@ -67,8 +35,9 @@ export function ReasonTraceDocumentReview({ activeDoc, onSelectDocument, documen
     <div className="rt-panel-heading"><span>01 / SOURCE</span><h2 id="rt-doc-heading" tabIndex={-1}>Document packet</h2><p>Select a page to compare its text with extracted values.</p></div>
     <ReasonTraceDocumentTabs items={tabs} selectedId={activeDoc} onSelect={onSelectDocument} />
     <div id="rt-document-panel" role="tabpanel" aria-labelledby={documentTabId(activeDoc)} tabIndex={0}>
-      <SourceDocumentPreview key={`${activeDoc}:${documentUrls[activeDoc] ?? "missing"}`}
+      <ReasonTraceDocumentPreview key={`${activeDoc}:${documentUrls[activeDoc] ?? "missing"}`}
         src={documentUrls[activeDoc]}
+        title={selected.title}
         alt={`${selected.title}, a visibly synthetic one-page document for ${applicantName}`}
         onRefresh={onRefreshPreview} />
       <div className="rt-doc-footer">
