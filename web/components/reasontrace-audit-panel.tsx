@@ -1,12 +1,14 @@
 "use client";
 
 import { AnimatePresence } from "framer-motion";
-import type { ReviewIssue } from "@/lib/reasontrace/demo";
+import type { CaseReview, DocumentId, ReviewIssue } from "@/lib/reasontrace/demo";
+import type { ReviewedFacts } from "@/lib/reasontrace/audit-result";
 import { AnimatedContent } from "@/components/react-bits/animated-content";
 import { GlareHover } from "@/components/react-bits/glare-hover";
 import { ReasonTraceAuditChecks, type AuditCheck } from "@/components/reasontrace-audit-checks";
 import { ReasonTraceReadiness } from "@/components/reasontrace-readiness";
 import { ReasonTraceReasonComparison } from "@/components/reasontrace-reason-comparison";
+import { ReasonTraceAuditSnapshot } from "@/components/reasontrace-audit-snapshot";
 
 export type ScriptedAgent = "faithful" | "laundering";
 
@@ -14,11 +16,12 @@ export type AuditResult = {
   mode: string; policy: string; agent: string;
   decision: { outcome: string; reasons: string[]; trajectory_id: string };
   oracle: { outcome: string; breached_codes: string[] };
+  reviewed_facts: ReviewedFacts;
   supplied_synthetic_facts: Record<string, unknown>; checks: AuditCheck[];
 };
 
 export function ReasonTraceAuditPanel({ caseLabel, issues, agent, onAgentChange, busy, running,
-  onRun, onNavigateIssue, result, error }: {
+  onRun, onNavigateIssue, onShowSource, review, result, error }: {
   caseLabel: string;
   issues: readonly ReviewIssue[];
   agent: ScriptedAgent;
@@ -27,6 +30,8 @@ export function ReasonTraceAuditPanel({ caseLabel, issues, agent, onAgentChange,
   running: boolean;
   onRun: () => void;
   onNavigateIssue: (issue: ReviewIssue) => void;
+  onShowSource: (document: DocumentId) => void;
+  review: CaseReview;
   result: AuditResult | null;
   error: string;
 }) {
@@ -47,6 +52,8 @@ export function ReasonTraceAuditPanel({ caseLabel, issues, agent, onAgentChange,
     {error && <p className="rt-audit-error" role="alert">The audit could not finish. {error} You can try again.</p>}
     <AnimatePresence mode="wait">
       {result && <AnimatedContent key={`${caseLabel}-${result.decision.trajectory_id}`} className="rt-results" ariaLive="polite">
+        <ReasonTraceAuditSnapshot reviewedFacts={result.reviewed_facts} review={review}
+          onShowSource={onShowSource} />
         <ReasonTraceReasonComparison decisionOutcome={result.decision.outcome}
           policyOutcome={result.oracle.outcome}
           statedReasons={result.decision.reasons}

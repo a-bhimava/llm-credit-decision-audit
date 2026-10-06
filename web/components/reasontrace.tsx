@@ -7,6 +7,7 @@ import {
 } from "@/lib/reasontrace/demo";
 import { caseDefinitions, getCaseDefinition } from "@/lib/reasontrace/cases";
 import { applyLocalReviewChange } from "@/lib/reasontrace/local-review";
+import { auditMatchesReview } from "@/lib/reasontrace/audit-result";
 import { WorkflowStepper } from "@/components/react-bits/workflow-stepper";
 import { documentTabId } from "@/components/reasontrace-document-tabs";
 import { ReasonTraceCasePicker } from "@/components/reasontrace-case-picker";
@@ -86,7 +87,8 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
     setCaseId(label); setCaseLabel(label);
     setReview(current); setSavedReview(current);
     setReviewEvents(Array.isArray(saved.reviewEvents) ? saved.reviewEvents : []);
-    setAuditResult(saved.auditResult ?? null);
+    setAuditResult(saved.auditResult && auditMatchesReview(current, saved.auditResult)
+      ? saved.auditResult : null);
     setAuditError("");
     setAgent(saved.agent === "faithful" || saved.agent === "laundering" ? saved.agent : item.agent);
     setActiveDoc(selectedDocument);
@@ -131,7 +133,8 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
     setActiveDoc(selectedDocument);
     setAgent(detail.currentRun?.agent_kind === "faithful" || detail.currentRun?.agent_kind === "laundering"
       ? detail.currentRun.agent_kind : item.agent);
-    setAuditResult(detail.currentRun?.status === "completed" ? detail.currentRun.result : null);
+    setAuditResult(detail.currentRun?.status === "completed" &&
+      auditMatchesReview(detail.review, detail.currentRun.result) ? detail.currentRun.result : null);
     setAuditError("");
   }
 
@@ -251,6 +254,7 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.problems?.join(" ") || body.detail || body.error || "Audit failed");
+      if (!auditMatchesReview(review, body)) throw new Error("The returned audit facts do not match the confirmed review.");
       setAuditResult(body);
       if (localFixtures) persistLocal(review, reviewEvents, body, agent);
     } catch (error) { setAuditError(error instanceof Error ? error.message : "Audit failed"); }
@@ -315,7 +319,8 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
       <ReasonTraceAuditPanel caseLabel={caseLabel} issues={validation.issues} agent={agent}
         onAgentChange={next => { setAgent(next); setAuditResult(null); setAuditError(""); }}
         busy={busy !== null} running={busy === "audit"} onRun={() => { void runAudit(); }}
-        onNavigateIssue={navigateToIssue} result={auditResult} error={auditError} />
+        onNavigateIssue={navigateToIssue} onShowSource={showSourceDocument}
+        review={review} result={auditResult} error={auditError} />
     </div>
     <aside className="rt-boundary"><strong>Product boundary</strong><p>Packet readiness and reason validity are separate decisions. This synthetic evaluation never approves a loan, issues an adverse-action notice, or certifies compliance.</p></aside>
   </main>;

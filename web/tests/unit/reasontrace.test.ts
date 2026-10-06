@@ -4,6 +4,7 @@ import { prepareSnapshot } from "../../lib/reasontrace/readiness";
 import { caseDefinitions, fixtureObservationsFor } from "../../lib/reasontrace/cases";
 import { localFixturesEnabled } from "../../lib/reasontrace/local-mode";
 import { applyLocalReviewChange } from "../../lib/reasontrace/local-review";
+import { auditMatchesReview } from "../../lib/reasontrace/audit-result";
 
 describe("five synthetic case packets", () => {
   it("has five distinct eight-observation fixtures with matching source quotes", () => {
@@ -81,6 +82,31 @@ describe("local fixture isolation", () => {
     });
     expect(confirmed?.beforeValue).toMatchObject({ confirmed_value: fixture.fixtureCreditScore });
     expect(confirmed?.afterValue).toMatchObject({ confirmed_value: fixture.creditScore });
+  });
+});
+
+describe("saved audit snapshot linkage", () => {
+  it("shows a result only for the exact confirmed reviewed facts", () => {
+    const item = caseDefinitions[3];
+    const review = fixtureReview(item);
+    for (const id of fieldIds) review.fields[id].confirmed = true;
+    review.fields.credit_score.value = item.creditScore;
+    const result = {
+      reviewed_facts: {
+        annual_income_cents: item.annualIncomeCents,
+        monthly_debt_cents: item.monthlyDebtCents,
+        credit_score: item.creditScore,
+      },
+      decision: { trajectory_id: "scripted-1", reasons: [] },
+      oracle: { breached_codes: [] },
+      checks: [],
+    };
+    expect(auditMatchesReview(review, result)).toBe(true);
+    expect(auditMatchesReview(fixtureReview(item), result)).toBe(false);
+    expect(auditMatchesReview(review, { ...result, reviewed_facts: {
+      ...result.reviewed_facts, credit_score: item.fixtureCreditScore,
+    } })).toBe(false);
+    expect(auditMatchesReview(review, { reviewed_facts: result.reviewed_facts })).toBe(false);
   });
 });
 

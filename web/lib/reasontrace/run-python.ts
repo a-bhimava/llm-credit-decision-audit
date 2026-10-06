@@ -21,11 +21,17 @@ export function runPython(reviewed: Record<string, number>, agent: "faithful" | 
       clearTimeout(timer);
       if (settled) return;
       if (code !== 0) return fail(error || `Audit process exited ${code}`);
-      try {
-        const parsed = JSON.parse(output);
-        if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.checks)) throw new Error("Invalid audit result");
-        settled = true; resolveResult(parsed);
-      } catch { fail("Audit returned invalid JSON"); }
+      let parsed: Record<string, unknown>;
+      try { parsed = JSON.parse(output); }
+      catch { return fail("Audit returned invalid JSON"); }
+      if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.checks) ||
+        !parsed.reviewed_facts || typeof parsed.reviewed_facts !== "object" ||
+        Object.keys(parsed.reviewed_facts).length !== Object.keys(reviewed).length ||
+        Object.entries(reviewed).some(([key, value]) =>
+          (parsed.reviewed_facts as Record<string, unknown>)[key] !== value)) {
+        return fail("Audit returned an invalid result");
+      }
+      settled = true; resolveResult(parsed);
     });
     child.stdin.end(JSON.stringify({ reviewed, agent, case_label: caseLabel, applicant_name: applicantName }));
   });
