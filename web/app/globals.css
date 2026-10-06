@@ -353,7 +353,39 @@ td { font-size: 0.86rem; }
 .primaryAction span, .nextButton span { font-size: 1.3rem; line-height: 0; }
 .textAction { color: var(--dim); font: 600 .78rem var(--mono); text-transform: uppercase; letter-spacing: .04em; }
 .textAction:hover { color: var(--cyan); }
-.heroSystem { align-self: center; border: 1px solid var(--line-dark); background: linear-gradient(140deg, rgba(36, 36, 68, .75), rgba(12, 12, 27, .84)); padding: 1rem; box-shadow: inset 0 0 70px rgba(125, 105, 255, .06); }
+.heroSystem { align-self: center; border: 1px solid #51536b; border-radius: 24px; background: radial-gradient(circle at 50% 50%, rgba(94, 86, 146, .28), transparent 72%), #24242e; padding: 1rem; box-shadow: inset 0 0 70px rgba(125, 105, 255, .06), 0 24px 56px rgba(0, 0, 0, .13); }
+.auditFlow { position: relative; min-height: 400px; isolation: isolate; }
+.auditFlowPaths { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.auditFlowPaths.mobile { display: none; }
+.auditFlowPath { fill: none; stroke-width: .72; stroke-linecap: round; opacity: .83; }
+.auditFlowPath.baseline { stroke: #aebefa; }
+.auditFlowPath.platform { stroke: #d7a3c8; }
+.auditFlowNode { position: absolute; z-index: 1; width: clamp(84px, 24%, 150px); min-height: 122px; display: flex; flex-direction: column; justify-content: center; gap: .45rem; padding: .8rem; border: 1px solid #85879c; border-radius: 14px; background: #181923; box-shadow: 0 13px 27px rgba(0, 0, 0, .35); transform: translate(-50%, -50%); }
+.auditFlowNode.source { left: 15%; top: 50%; border-color: #a7b7c6; }
+.auditFlowNode.baseline { left: 50%; top: 24%; border-color: #aebefa; }
+.auditFlowNode.platform { left: 50%; top: 76%; border-color: #d7a3c8; }
+.auditFlowNode.trace { left: 85%; top: 50%; border-color: #b5dfde; }
+.auditFlowNodeTop { display: flex; align-items: center; justify-content: space-between; gap: .3rem; color: #c4d2ed; }
+.auditFlowNode.platform .auditFlowNodeTop { color: #ebbbd9; }
+.auditFlowNode.trace .auditFlowNodeTop { color: #b5dfde; }
+.auditFlowNodeTop span { color: #aeb6c7; font: 700 .56rem var(--mono); letter-spacing: .03em; white-space: nowrap; }
+.auditFlowNode strong { color: #f2f3f8; font: 700 .76rem/1.18 var(--sans); }
+.auditFlowNode small { color: #b9c2d2; font: .62rem/1.25 var(--sans); }
+@media (max-width: 620px) {
+  .auditFlow { min-height: 440px; }
+  .heroSystem { padding: .55rem; }
+  .auditFlowPaths.desktop { display: none; }
+  .auditFlowPaths.mobile { display: block; }
+  .auditFlowNode { min-height: 91px; width: 42%; padding: .7rem; gap: .3rem; }
+  .auditFlowNode.source, .auditFlowNode.trace { left: 50%; width: 64%; }
+  .auditFlowNode.source { top: 15%; }
+  .auditFlowNode.baseline { left: 25%; top: 50%; }
+  .auditFlowNode.platform { left: 75%; top: 50%; }
+  .auditFlowNode.trace { top: 85%; }
+  .auditFlowNode strong { font-size: .72rem; }
+  .auditFlowNode small { font-size: .59rem; }
+  .auditFlowNodeTop span { font-size: .5rem; }
+}
 .signalPanel { display: grid; grid-template-columns: 1fr auto; gap: .25rem 1rem; padding: 1rem; border: 1px solid rgba(130, 245, 255, .21); background: rgba(6, 8, 19, .54); }
 .signalKicker { color: var(--cyan); font: .68rem var(--mono); text-transform: uppercase; letter-spacing: .08em; }
 .signalPanel strong { font: 600 1rem var(--sans); }

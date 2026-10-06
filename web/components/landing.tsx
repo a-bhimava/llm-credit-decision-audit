@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AnimatedBeamHero } from "@/components/animated-beam-hero";
+import { AuditFlowDiagram } from "@/components/audit-flow-diagram";
 import { ProductShell } from "@/components/product-shell";
 import { SpotlightCard } from "@/components/react-bits/spotlight-card";
 
@@ -19,8 +19,8 @@ export function Landing() {
             </div>
           </div>
           
-          <div className="heroSystem" aria-label="Audit system overview" style={{ background: 'radial-gradient(circle at center, rgba(132, 119, 255, 0.05) 0%, transparent 70%)', borderRadius: '24px', border: '1px solid var(--line-dark)' }}>
-            <AnimatedBeamHero />
+          <div className="heroSystem">
+            <AuditFlowDiagram />
           </div>
         </section>
 
