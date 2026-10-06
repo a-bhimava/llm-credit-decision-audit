@@ -3,6 +3,7 @@
 import { documents, type CaseReview, type DocumentId } from "@/lib/reasontrace/demo";
 import { documentTabId, ReasonTraceDocumentTabs } from "@/components/reasontrace-document-tabs";
 import { ReasonTraceDocumentPreview } from "@/components/reasontrace-document-preview";
+import { ReasonTracePanelHeading } from "@/components/reasontrace-panel-heading";
 
 export function ReasonTraceDocumentReview({ activeDoc, onSelectDocument, documentUrls, review, savedReview,
   applicantName, initialExcludedDocument, busy, onToggleIncluded, onToggleReviewed, onApplicantNameChange,
@@ -32,7 +33,8 @@ export function ReasonTraceDocumentReview({ activeDoc, onSelectDocument, documen
   }));
 
   return <section className="rt-panel rt-doc-panel" aria-labelledby="rt-doc-heading">
-    <div className="rt-panel-heading"><span>01 / SOURCE</span><h2 id="rt-doc-heading" tabIndex={-1}>Document packet</h2><p>Select a page to compare its text with extracted values.</p></div>
+    <ReasonTracePanelHeading id="rt-doc-heading" step="01" phase="Source" title="Document packet"
+      description="Select a page to compare its text with extracted values." />
     <ReasonTraceDocumentTabs items={tabs} selectedId={activeDoc} onSelect={onSelectDocument} />
     <div id="rt-document-panel" role="tabpanel" aria-labelledby={documentTabId(activeDoc)} tabIndex={0}>
       <ReasonTraceDocumentPreview key={`${activeDoc}:${documentUrls[activeDoc] ?? "missing"}`}

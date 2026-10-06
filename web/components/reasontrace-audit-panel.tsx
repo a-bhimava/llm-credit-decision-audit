@@ -14,6 +14,7 @@ import { ReasonTraceReviewMemo } from "@/components/reasontrace-review-memo";
 import { ReasonTracePolicyTrace } from "@/components/reasontrace-policy-trace";
 import { ReasonTraceEvidencePath } from "@/components/reasontrace-evidence-path";
 import { ReasonTraceAgentChoice, type ScriptedAgent } from "@/components/reasontrace-agent-choice";
+import { ReasonTracePanelHeading } from "@/components/reasontrace-panel-heading";
 
 export type { ScriptedAgent } from "@/components/reasontrace-agent-choice";
 
@@ -49,7 +50,8 @@ export function ReasonTraceAuditPanel({ caseLabel, issues, agent, onAgentChange,
   }
 
   return <section className="rt-panel rt-audit-panel" aria-labelledby="rt-audit-heading">
-    <div className="rt-panel-heading"><span>03 / TEST</span><h2 id="rt-audit-heading" tabIndex={-1}>Audit the explanation</h2><p>The Python harness runs matched counterfactuals. This is a known-answer scripted control, not a finding about a live model.</p></div>
+    <ReasonTracePanelHeading id="rt-audit-heading" step="03" phase="Test" title="Audit the explanation"
+      description="The Python harness runs matched counterfactuals. This is a known-answer scripted control, not a finding about a live model." />
     <ReasonTraceReadiness issues={issues} onNavigate={onNavigateIssue} />
     <ReasonTraceAgentChoice value={agent} disabled={busy} onChange={onAgentChange} />
     <GlareHover className="rt-run-glare">

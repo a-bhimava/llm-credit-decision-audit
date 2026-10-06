@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, type KeyboardEvent } from "react";
+import { useRef, type KeyboardEvent } from "react";
 import type { DocumentId } from "@/lib/reasontrace/demo";
 
 type DocumentTab = {
@@ -17,15 +17,6 @@ export function ReasonTraceDocumentTabs({ items, selectedId, onSelect }: {
   onSelect: (id: DocumentId) => void;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
-    const list = listRef.current;
-    const active = document.getElementById(documentTabId(selectedId));
-    if (!list || !active) return;
-    const bounds = list.getBoundingClientRect();
-    const tabBounds = active.getBoundingClientRect();
-    if (tabBounds.left < bounds.left) list.scrollLeft += tabBounds.left - bounds.left - 4;
-    else if (tabBounds.right > bounds.right) list.scrollLeft += tabBounds.right - bounds.right + 4;
-  }, [selectedId]);
 
   function onTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     let next = index;
@@ -49,7 +40,7 @@ export function ReasonTraceDocumentTabs({ items, selectedId, onSelect }: {
       onClick={() => onSelect(item.id)} onKeyDown={event => onTabKeyDown(event, index)}>
       <span>{item.title}</span>
       <small className={`rt-doc-tab-status ${item.status}`}>
-        {item.status === "missing" ? "Missing" : item.status === "reviewed" ? "Reviewed" : "To review"}
+        {item.status === "missing" ? "Missing" : item.status === "reviewed" ? "Reviewed" : "Pending"}
       </small>
     </button>)}
   </div>;

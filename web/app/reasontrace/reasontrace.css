@@ -212,3 +212,20 @@
   .rt-hero-loaded h1{margin:15px 0 14px;font-size:clamp(31px,8vw,37px);line-height:1.04}
   .rt-hero-loaded .rt-hero-context>p:first-child{font-size:13px;line-height:1.55;margin-bottom:5px}
 }
+.rt-panel-heading{min-height:180px;padding:21px 22px 19px;background:linear-gradient(180deg,#fff,#fbfcfb)}
+.rt-panel-heading-step{display:flex;align-items:center;gap:9px;color:#126f69;letter-spacing:.12em;text-transform:uppercase}
+.rt-panel-heading-step span{display:grid;place-items:center;width:25px;height:25px;border:1px solid #bcdbd3;border-radius:8px;background:#eaf5f0;font-size:10px;font-weight:800;letter-spacing:0}
+.rt-panel-heading-step strong{font-size:10px;font-weight:800}
+.rt-panel-heading h2{margin:10px 0 6px;font-size:26px;line-height:1.1}
+.rt-panel-heading p{font-size:13px;line-height:1.5}
+.rt-doc-tabs button{font-size:12px}
+.rt-doc-tab-status{font-size:10px}
+.rt-doc-footer strong,.rt-field h3{font-size:14px}
+.rt-doc-footer span,.rt-doc-footer label,.rt-source-link,.rt-field-hint,.rt-supplied p{font-size:12px}
+.rt-source-tag,.rt-status{font-size:11px}
+.rt-readiness,.rt-run{font-size:13px}
+.rt-agent-options strong,.rt-check-toggle strong,.rt-check h4{font-size:13px}
+.rt-agent-options small,.rt-check p,.rt-check li,.rt-evidence-path li p{font-size:12px}
+@media(max-width:1150px){.rt-panel-heading{min-height:0}}
+.rt-doc-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;overflow:visible}
+.rt-doc-tabs button[role="tab"]{min-width:0;min-height:59px;align-content:center;white-space:normal;overflow-wrap:normal}

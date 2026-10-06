@@ -4,6 +4,7 @@ import type { CaseDefinition } from "@/lib/reasontrace/cases";
 import { fieldIds, type CaseReview, type DocumentId, type FieldId } from "@/lib/reasontrace/demo";
 import { ReasonTraceFieldReview } from "@/components/reasontrace-field-review";
 import { ReasonTraceReviewHistory, type ReviewEvent } from "@/components/reasontrace-review-history";
+import { ReasonTracePanelHeading } from "@/components/reasontrace-panel-heading";
 
 export function ReasonTraceFactPanel({ definition, review, savedReview, reviewEvents, resetKey, busy,
   onValueChange, onSaveCorrection, onToggleConfirmation, onShowSource }: {
@@ -19,7 +20,8 @@ export function ReasonTraceFactPanel({ definition, review, savedReview, reviewEv
   onShowSource: (id: DocumentId) => void;
 }) {
   return <section className="rt-panel rt-fact-panel" aria-labelledby="rt-fact-heading">
-    <div className="rt-panel-heading"><span>02 / REVIEW</span><h2 id="rt-fact-heading" tabIndex={-1}>Confirm the facts</h2><p>Corrections preserve the original extraction. No value enters the audit unconfirmed.</p></div>
+    <ReasonTracePanelHeading id="rt-fact-heading" step="02" phase="Review" title="Confirm the facts"
+      description="Corrections preserve the original extraction. No value enters the audit unconfirmed." />
     <div className="rt-source-tag">Candidate source: {review.extractionSource === "fixture" ? "saved synthetic extraction" : "live Interfaze response"}</div>
     {definition.fixtureCreditScore !== definition.creditScore && review.extractionSource === "fixture" &&
       <p className="rt-injected-note">This saved fixture deliberately injects an extraction error. Compare the credit score with its page before confirming it.</p>}
