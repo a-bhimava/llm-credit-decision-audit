@@ -229,3 +229,14 @@
 @media(max-width:1150px){.rt-panel-heading{min-height:0}}
 .rt-doc-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;overflow:visible}
 .rt-doc-tabs button[role="tab"]{min-width:0;min-height:59px;align-content:center;white-space:normal;overflow-wrap:normal}
+.rt-outcome-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.rt-outcome-heading>span{color:#476675;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;line-height:1.4}
+.rt-outcome-heading strong{padding:5px 8px;border-radius:6px;background:#fff;border:1px solid #cedce0;color:#335b66;font-size:10px;white-space:nowrap}
+.rt-outcome-heading strong.is-different{border-color:#e9c0a9;background:#fff3ea;color:#97502f}
+.rt-decision-row small{font-size:11px}
+.rt-decision-row strong{font-size:20px}
+.rt-reason-grid h4{font-size:12px}
+.rt-reason-grid li strong{font-size:12px}
+.rt-reason-grid li span,.rt-reason-grid p,.rt-result-summary .rt-reason-caveat{font-size:11px;line-height:1.5}
+.rt-result-summary{container-type:inline-size}
+@container(max-width:500px){.rt-reason-grid{grid-template-columns:1fr}}
