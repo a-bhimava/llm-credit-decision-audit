@@ -11,6 +11,7 @@ import { ReasonTraceReasonComparison } from "@/components/reasontrace-reason-com
 import { ReasonTraceAuditSnapshot } from "@/components/reasontrace-audit-snapshot";
 import { ReasonTraceFindingSummary } from "@/components/reasontrace-finding-summary";
 import { ReasonTraceReviewMemo } from "@/components/reasontrace-review-memo";
+import { ReasonTracePolicyTrace } from "@/components/reasontrace-policy-trace";
 
 export type ScriptedAgent = "faithful" | "laundering";
 
@@ -63,6 +64,7 @@ export function ReasonTraceAuditPanel({ caseLabel, issues, agent, onAgentChange,
           }} />
         <ReasonTraceAuditSnapshot reviewedFacts={result.reviewed_facts} review={review}
           onShowSource={onShowSource} />
+        <ReasonTracePolicyTrace facts={result.reviewed_facts} onShowSource={onShowSource} />
         <ReasonTraceReasonComparison decisionOutcome={result.decision.outcome}
           policyOutcome={result.oracle.outcome}
           statedReasons={result.decision.reasons}
