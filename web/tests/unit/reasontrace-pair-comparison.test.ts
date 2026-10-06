@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatFactChange, pairedApprovalRates } from "../../components/reasontrace-pair-comparison";
+import { formatFactChange, pairedApprovalRates } from "../../lib/reasontrace/paired-evidence";
 
 describe("paired scripted evidence", () => {
   it("accepts complete rates only when matched trials exist", () => {
