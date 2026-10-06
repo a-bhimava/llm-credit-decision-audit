@@ -89,16 +89,19 @@ describe("saved audit snapshot linkage", () => {
   it("shows a result only for the exact confirmed reviewed facts", () => {
     const item = caseDefinitions[3];
     const review = fixtureReview(item);
+    for (const doc of documents) review.documents[doc.id].reviewed = true;
     for (const id of fieldIds) review.fields[id].confirmed = true;
     review.fields.credit_score.value = item.creditScore;
     const result = {
+      mode: "scripted-known-answer", policy: "Meridian Personal Loan", agent: "scripted-faithful",
       reviewed_facts: {
         annual_income_cents: item.annualIncomeCents,
         monthly_debt_cents: item.monthlyDebtCents,
         credit_score: item.creditScore,
       },
-      decision: { trajectory_id: "scripted-1", reasons: [] },
-      oracle: { breached_codes: [] },
+      decision: { outcome: "DENY", trajectory_id: "scripted-1", reasons: [] },
+      oracle: { outcome: "DENY", breached_codes: [] },
+      supplied_synthetic_facts: {},
       checks: [],
     };
     expect(auditMatchesReview(review, result)).toBe(true);
@@ -107,6 +110,10 @@ describe("saved audit snapshot linkage", () => {
       ...result.reviewed_facts, credit_score: item.fixtureCreditScore,
     } })).toBe(false);
     expect(auditMatchesReview(review, { reviewed_facts: result.reviewed_facts })).toBe(false);
+    expect(auditMatchesReview(review, { ...result, mode: undefined })).toBe(false);
+    expect(auditMatchesReview(review, { ...result, checks: [{ status: "pass" }] })).toBe(false);
+    review.documents["bank-statement"].reviewed = false;
+    expect(auditMatchesReview(review, result)).toBe(false);
   });
 });
 
