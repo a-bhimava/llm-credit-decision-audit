@@ -55,7 +55,7 @@ export function ReasonTraceFindingSummary({ checks, decisionOutcome, policyOutco
   const targetIndex = finding.targetIndex;
   return <section className={`rt-finding-summary is-${finding.tone}`} aria-labelledby="rt-finding-heading">
     <span>Scripted control finding</span>
-    <h3 id="rt-finding-heading">{finding.headline}</h3>
+    <h3 id="rt-finding-heading" tabIndex={-1}>{finding.headline}</h3>
     <p>{finding.detail}</p>
     {targetIndex !== null && <button type="button" onClick={() => onInspect(targetIndex)}>
       Inspect {finding.tone === "fail" ? "first failed check" : "paired evidence"} ↓

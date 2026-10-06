@@ -16,7 +16,8 @@ import type { ReviewEvent } from "@/components/reasontrace-review-history";
 import { ReasonTraceDocumentReview } from "@/components/reasontrace-document-review";
 import { ReasonTraceFactPanel } from "@/components/reasontrace-fact-panel";
 import { ReasonTraceExtractionToolbar } from "@/components/reasontrace-extraction-toolbar";
-import { ReasonTraceAuditPanel, type AuditResult, type ScriptedAgent } from "@/components/reasontrace-audit-panel";
+import { ReasonTraceAuditPanel, type ScriptedAgent } from "@/components/reasontrace-audit-panel";
+import { ReasonTraceResultDashboard, type AuditResult } from "@/components/reasontrace-result-dashboard";
 
 type CaseDetail = { case: { case_label: string }; review: CaseReview; documents: { id: string; kind: string; previewUrl: string | null }[];
   observations: { id: string; field_key: string }[]; reviewEvents: ReviewEvent[];
@@ -44,6 +45,7 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
   const [activeDoc, setActiveDoc] = useState<DocumentId>("credit-report");
   const [agent, setAgent] = useState<ScriptedAgent>("laundering");
   const [auditResult, setAuditResult] = useState<AuditResult | null>(null);
+  const [revealAuditResult, setRevealAuditResult] = useState(false);
   const [auditError, setAuditError] = useState("");
   const [busy, setBusy] = useState<"extract" | "audit" | "review" | "case" | null>(null);
   const [message, setMessage] = useState("");
@@ -192,6 +194,20 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
     return () => { active = false; };
   }, [localFixtures]);
 
+  useEffect(() => {
+    if (!auditResult || !revealAuditResult) return;
+    const frame = requestAnimationFrame(() => {
+      const heading = document.getElementById("rt-finding-heading");
+      heading?.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+        block: "start",
+      });
+      heading?.focus({ preventScroll: true });
+      setRevealAuditResult(false);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [auditResult, revealAuditResult]);
+
   function updateReview(next: CaseReview) { setReview(next); setAuditResult(null); setAuditError(""); setMessage(""); }
   function updateField(id: FieldId, changes: Partial<CaseReview["fields"][FieldId]>) {
     updateReview({ ...review, fields: { ...review.fields, [id]: { ...review.fields[id], ...changes } } });
@@ -277,8 +293,9 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
       if (!response.ok) throw new Error(body.problems?.join(" ") || body.detail || body.error || "Audit failed");
       if (!auditMatchesReview(review, body)) throw new Error("The returned audit facts do not match the confirmed review.");
       setAuditResult(body);
+      setRevealAuditResult(true);
       if (localFixtures) persistLocal(review, reviewEvents, body, agent);
-    } catch (error) { setAuditError(error instanceof Error ? error.message : "Audit failed"); }
+    } catch (error) { setAuditError(error instanceof Error ? error.message : "Audit failed"); setRevealAuditResult(false); }
     finally { setBusy(null); }
   }
 
@@ -336,9 +353,10 @@ export function ReasonTrace({ localFixtures = false }: { localFixtures?: boolean
       <ReasonTraceAuditPanel caseLabel={caseLabel} issues={validation.issues} agent={agent}
         onAgentChange={next => { setAgent(next); setAuditResult(null); setAuditError(""); }}
         busy={busy !== null} running={busy === "audit"} onRun={() => { void runAudit(); }}
-        onNavigateIssue={navigateToIssue} onShowSource={showSourceDocument}
-        review={review} result={auditResult} error={auditError} />
+        onNavigateIssue={navigateToIssue} hasResult={auditResult !== null} error={auditError} />
     </div>
+    {auditResult && <ReasonTraceResultDashboard caseLabel={caseLabel} review={review}
+      result={auditResult} onShowSource={showSourceDocument} />}
     <aside className="rt-boundary"><strong>Product boundary</strong><p>Packet readiness and reason validity are separate decisions. This synthetic evaluation never approves a loan, issues an adverse-action notice, or certifies compliance.</p></aside>
   </main>;
 }
