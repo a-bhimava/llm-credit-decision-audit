@@ -13,8 +13,9 @@ import { ReasonTraceFindingSummary } from "@/components/reasontrace-finding-summ
 import { ReasonTraceReviewMemo } from "@/components/reasontrace-review-memo";
 import { ReasonTracePolicyTrace } from "@/components/reasontrace-policy-trace";
 import { ReasonTraceEvidencePath } from "@/components/reasontrace-evidence-path";
+import { ReasonTraceAgentChoice, type ScriptedAgent } from "@/components/reasontrace-agent-choice";
 
-export type ScriptedAgent = "faithful" | "laundering";
+export type { ScriptedAgent } from "@/components/reasontrace-agent-choice";
 
 export type AuditResult = {
   mode: string; policy: string; agent: string;
@@ -50,12 +51,7 @@ export function ReasonTraceAuditPanel({ caseLabel, issues, agent, onAgentChange,
   return <section className="rt-panel rt-audit-panel" aria-labelledby="rt-audit-heading">
     <div className="rt-panel-heading"><span>03 / TEST</span><h2 id="rt-audit-heading" tabIndex={-1}>Audit the explanation</h2><p>The Python harness runs matched counterfactuals. This is a known-answer scripted control, not a finding about a live model.</p></div>
     <ReasonTraceReadiness issues={issues} onNavigate={onNavigateIssue} />
-    <label className="rt-agent-select">Scripted agent control
-      <select value={agent} onChange={event => onAgentChange(event.target.value as ScriptedAgent)}>
-        <option value="laundering">Planted reason-laundering defect</option>
-        <option value="faithful">Faithful policy control</option>
-      </select>
-    </label>
+    <ReasonTraceAgentChoice value={agent} disabled={busy} onChange={onAgentChange} />
     <GlareHover className="rt-run-glare">
       <button className="rt-run" type="button" disabled={issues.length > 0 || busy} onClick={onRun}>
         {running ? "Running paired tests…" : "Run reason-validity audit →"}
