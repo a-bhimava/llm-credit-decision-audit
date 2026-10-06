@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { entries, field, getPair, getPairs, getRun, loadRunIndex, percent, type JsonObject } from "@/lib/evidence";
+import { entries, field, getChecks, getPair, getPairs, getRun, loadRunIndex, percent, type JsonObject } from "@/lib/evidence";
 import { RunNav, Shell, Status } from "@/components/site";
 
 export const dynamic = "force-static";
@@ -17,7 +17,7 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { runId, pairId } = await params;
-  return { title: `Pair ${pairId.slice(0, 18)} · ${(await getRun(runId)).label}` };
+  return { title: `Pair ${decodeURIComponent(pairId).slice(0, 18)} · ${(await getRun(runId)).label}` };
 }
 
 function FactRows({ facts }: Readonly<{ facts: JsonObject }>) {
@@ -41,7 +41,9 @@ function TrialList({ trials }: Readonly<{ trials: JsonObject[] }>) {
 
 export default async function PairPage({ params }: Props) {
   const { runId, pairId } = await params;
-  const [run, pair] = await Promise.all([getRun(runId), getPair(runId, pairId)]);
+  const [run, pair, checks] = await Promise.all([getRun(runId), getPair(runId, decodeURIComponent(pairId)), getChecks(runId)]);
+  const checkCode = field(pair, "check");
+  const check = checks.find((entry) => entry.check === checkCode);
   const applicant = pair.applicant as JsonObject;
   const base = applicant.base as JsonObject;
   const cf = applicant.cf as JsonObject;
@@ -57,7 +59,7 @@ export default async function PairPage({ params }: Props) {
       <RunNav run={run} />
       <main className="page">
         <p className="eyebrow">Paired evidence</p>
-        <h1>{field(pair, "check")}</h1>
+        <h1>{check ? field(check, "label", checkCode) : checkCode}</h1>
         <p className="lead">{field(hypothesis, "plain_english")}</p>
 
         <section className="pairMetricGrid">

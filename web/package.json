@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build && node scripts/assert-security-boundaries.mjs",
+    "build": "next build && node scripts/assert-security-boundaries.mjs && node scripts/assert-evidence-pages.mjs",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "check": "pnpm typecheck && pnpm build"
