@@ -49,7 +49,7 @@
 .rt-doc-preview-error{display:grid;justify-items:start;gap:9px;min-height:190px;padding:24px;background:#f7f8f6;color:#31505e}
 .rt-doc-preview-error strong{font-size:13px}
 .rt-doc-preview-error p{margin:0;font-size:11px;line-height:1.5;color:#5d7080}
-.rt-doc-preview-error button{border:0;border-radius:7px;padding:9px 11px;background:#e5eeed;color:#075b56;font-size:11px;font-weight:700}
+.rt-doc-preview-error button{min-height:44px;border:0;border-radius:7px;padding:9px 11px;background:#e5eeed;color:#075b56;font-size:11px;font-weight:700}
 .rt-name-mismatch{flex-basis:100%;margin:0;color:#8b4e30;font-size:11px;line-height:1.4}
 .rt-readiness ul{list-style:none;padding-left:0;max-height:none;overflow:visible}
 .rt-readiness li+li{border-top:1px solid #e8d8ba}
@@ -111,7 +111,7 @@
 @media(prefers-reduced-motion:reduce){.rt-case-tile{transition:none}.rt-case-tile:hover{transform:none}}
 @media(hover:none){.rt-case-tile:hover{transform:none}}
 .rt-doc-preview-actions{display:flex;justify-content:flex-end;padding:8px 18px 0}
-.rt-doc-preview-actions button{border:0;background:none;color:#146d68;font-size:11px;font-weight:700;text-decoration:underline;text-underline-offset:3px;padding:5px 0}
+.rt-doc-preview-actions button{display:inline-flex;align-items:center;min-height:44px;border:0;background:none;color:#146d68;font-size:11px;font-weight:700;text-decoration:underline;text-underline-offset:3px;padding:8px 0}
 .rt-doc-dialog{width:min(1100px,calc(100vw - 24px));max-width:none;max-height:calc(100dvh - 24px);margin:auto;padding:0;border:1px solid #c9d7db;border-radius:14px;box-shadow:0 28px 90px #10293866;color:#173d48;background:#fff;overflow:hidden}
 .rt-doc-dialog[open]{display:flex;flex-direction:column}
 .rt-doc-dialog::backdrop{background:#102837ba}
@@ -120,7 +120,7 @@
 .rt-doc-dialog-header strong{font-size:14px}
 .rt-doc-dialog-header span{color:#5d7080;font-size:11px}
 .rt-doc-dialog-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
-.rt-doc-dialog-actions button{border:1px solid #c9dad9;border-radius:7px;background:#f1f7f5;color:#155e5a;padding:8px 10px;font-size:11px;font-weight:700;white-space:nowrap}
+.rt-doc-dialog-actions button{min-height:44px;border:1px solid #c9dad9;border-radius:7px;background:#f1f7f5;color:#155e5a;padding:8px 10px;font-size:11px;font-weight:700;white-space:nowrap}
 .rt-doc-dialog-page{min-height:0;overflow:auto;display:grid;place-items:start center;padding:12px;background:#e8edee}
 .rt-doc-dialog-page img{display:block;width:auto;max-width:100%;height:auto;max-height:calc(100dvh - 130px);object-fit:contain;box-shadow:0 8px 25px #10293826}
 .rt-doc-dialog-page.is-zoomed{display:block}

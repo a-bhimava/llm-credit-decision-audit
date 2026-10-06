@@ -15,6 +15,8 @@ export function ReasonTraceDocumentPreview({ src, title, alt, onRefresh }: {
   const [zoomed, setZoomed] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const recoveryRef = useRef<HTMLButtonElement>(null);
+  const focusRecoveryOnClose = useRef(false);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -34,6 +36,7 @@ export function ReasonTraceDocumentPreview({ src, title, alt, onRefresh }: {
   }
 
   function imageFailed() {
+    focusRecoveryOnClose.current = dialogRef.current?.open ?? false;
     setFailed(true);
     setExpanded(false);
   }
@@ -43,8 +46,8 @@ export function ReasonTraceDocumentPreview({ src, title, alt, onRefresh }: {
       {src && !failed ? <img src={src} alt={alt} onError={imageFailed} /> :
         <div className="rt-doc-preview-error" role="alert">
           <strong>Document preview unavailable</strong>
-          <p>The private preview may have expired. Refresh the case to get a new link.</p>
-          <button type="button" disabled={refreshing} onClick={() => { void refresh(); }}>
+          <p>The source image could not be loaded. Refresh the case to try again.</p>
+          <button ref={recoveryRef} type="button" disabled={refreshing} onClick={() => { void refresh(); }}>
             {refreshing ? "Refreshing…" : "Refresh document preview"}
           </button>
           {refreshError && <p>{refreshError}</p>}
@@ -56,7 +59,13 @@ export function ReasonTraceDocumentPreview({ src, title, alt, onRefresh }: {
       </button>
     </div>}
     <dialog ref={dialogRef} className="rt-doc-dialog" aria-labelledby="rt-doc-dialog-title"
-      onClose={() => { setExpanded(false); triggerRef.current?.focus(); }}>
+      onClose={() => {
+        setExpanded(false);
+        if (focusRecoveryOnClose.current) {
+          focusRecoveryOnClose.current = false;
+          requestAnimationFrame(() => recoveryRef.current?.focus());
+        } else triggerRef.current?.focus();
+      }}>
       <div className="rt-doc-dialog-header">
         <div><strong id="rt-doc-dialog-title">{title}</strong><span>Fictional source page · inspect the original text</span></div>
         <div className="rt-doc-dialog-actions">
