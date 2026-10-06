@@ -74,6 +74,9 @@
 .rt-case-picker-wrap{max-width:1540px;margin:0 auto 18px}
 .rt-case-picker-meta{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;margin:0 0 9px;color:#526d78;font-size:11px}
 .rt-case-picker-meta strong{color:#244354;font-size:11px}
+.rt-case-picker-controls{display:flex;align-items:center;gap:4px;white-space:nowrap}
+.rt-case-picker-controls button{display:none;place-items:center;width:44px;height:44px;border:1px solid #bcd2d2;border-radius:9px;background:#fff;color:#176f69}
+.rt-case-picker-controls button:hover:not(:disabled){background:#e7f5f1}
 .rt-case-picker{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
 .rt-case-tile{border:1px solid var(--rt-line);border-radius:12px;background:#fff;box-shadow:0 5px 18px #24405209;transition:border-color .2s ease,box-shadow .2s ease,transform .2s ease}
 .rt-case-tile:hover{border-color:#8bbab0;box-shadow:0 12px 26px #2440521c;transform:translateY(-2px)}
@@ -87,7 +90,7 @@
 .rt-injected-note{margin:14px 20px 0;padding:10px 12px;border:1px solid #e4c7a8;border-radius:8px;background:#fff8ee;color:#765224;font-size:12px;line-height:1.45}
 .rt-hero .rt-local-notice{display:inline-block;margin:0;padding:7px 10px;border-radius:7px;background:#e2f1eb;color:#226357;font-size:11px;font-weight:700}
 @media(max-width:1150px){.rt-case-picker{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:720px){.rt-case-picker{display:flex;overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:4px}.rt-case-tile{flex:0 0 min(78vw,260px);scroll-snap-align:start}}
+@media(max-width:720px){.rt-case-picker-meta{align-items:center;gap:8px}.rt-case-picker-meta strong{line-height:1.3}.rt-case-picker-controls button{display:grid}.rt-case-picker{display:flex;overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:4px}.rt-case-tile{flex:0 0 min(78vw,260px);scroll-snap-align:start}}
 .rt-run-glare{margin:0 20px 22px;background:#133e4b;box-shadow:0 8px 18px #143d4b27}
 .rt-run-glare .rt-run{position:relative;z-index:2;width:100%;margin:0;background:transparent}
 .rt-run-glare:has(.rt-run:disabled){box-shadow:none;opacity:.6}

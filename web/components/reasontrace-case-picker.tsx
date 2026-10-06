@@ -1,6 +1,7 @@
 "use client";
 
 import { useLayoutEffect, useRef, type KeyboardEvent } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { caseDefinitions } from "@/lib/reasontrace/cases";
 import { SpotlightCard } from "@/components/react-bits/spotlight-card";
 
@@ -14,6 +15,14 @@ export function ReasonTraceCasePicker({ currentLabel, availableCases, busy, onSe
 }) {
   const listRef = useRef<HTMLElement>(null);
   const currentIndex = Math.max(0, caseDefinitions.findIndex(item => item.label === currentLabel));
+
+  function selectAdjacent(direction: -1 | 1) {
+    for (let offset = 1; offset < caseDefinitions.length; offset++) {
+      const index = (currentIndex + direction * offset + caseDefinitions.length) % caseDefinitions.length;
+      const match = availableCases.find(entry => entry.label === caseDefinitions[index].label);
+      if (match) { onSelect(match.id); return; }
+    }
+  }
 
   useLayoutEffect(() => {
     const list = listRef.current;
@@ -39,7 +48,15 @@ export function ReasonTraceCasePicker({ currentLabel, availableCases, busy, onSe
   }
 
   return <div className="rt-case-picker-wrap">
-    <div className="rt-case-picker-meta"><strong>Choose a synthetic case</strong><span>Case {currentIndex + 1} of {caseDefinitions.length}</span></div>
+    <div className="rt-case-picker-meta"><strong>Choose a case</strong>
+      <div className="rt-case-picker-controls">
+        <button type="button" aria-label="Previous synthetic case" disabled={busy || availableCases.length < 2}
+          onClick={() => selectAdjacent(-1)}><ChevronLeft size={18} aria-hidden="true" /></button>
+        <span aria-live="polite">Case {currentIndex + 1} of {caseDefinitions.length}</span>
+        <button type="button" aria-label="Next synthetic case" disabled={busy || availableCases.length < 2}
+          onClick={() => selectAdjacent(1)}><ChevronRight size={18} aria-hidden="true" /></button>
+      </div>
+    </div>
     <nav ref={listRef} className="rt-case-picker" aria-label="Select a synthetic interview case">
       {caseDefinitions.map((item, index) => {
         const match = availableCases.find(entry => entry.label === item.label);
