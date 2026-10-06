@@ -123,3 +123,10 @@
 .rt-doc-dialog-page.is-zoomed{display:block}
 .rt-doc-dialog-page.is-zoomed img{width:200%;max-width:none;max-height:none}
 @media(max-width:720px){.rt-doc-dialog-header{align-items:flex-start;flex-direction:column}.rt-doc-dialog-actions{justify-content:flex-start}.rt-doc-dialog-page img{max-height:calc(100dvh - 170px)}}
+.rt-finding-summary{padding:17px 20px 18px;border-bottom:1px solid #dce5e8;border-left:4px solid #8ea4ac;background:#f5f8f8}
+.rt-finding-summary.is-fail{border-left-color:#b86448;background:#fff5f0}
+.rt-finding-summary.is-pass{border-left-color:#268566;background:#edf8f1}
+.rt-finding-summary>span{color:#536e79;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.rt-finding-summary h3{margin:6px 0 4px;color:#193d48;font-size:16px;line-height:1.3}
+.rt-finding-summary p{margin:0;color:#4d6873;font-size:12px;line-height:1.5}
+.rt-finding-summary button{margin-top:10px;padding:0;border:0;background:none;color:#17675f;font-size:12px;font-weight:700;text-align:left;text-decoration:underline;text-underline-offset:3px}

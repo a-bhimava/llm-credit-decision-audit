@@ -9,6 +9,7 @@ import { ReasonTraceAuditChecks, type AuditCheck } from "@/components/reasontrac
 import { ReasonTraceReadiness } from "@/components/reasontrace-readiness";
 import { ReasonTraceReasonComparison } from "@/components/reasontrace-reason-comparison";
 import { ReasonTraceAuditSnapshot } from "@/components/reasontrace-audit-snapshot";
+import { ReasonTraceFindingSummary } from "@/components/reasontrace-finding-summary";
 
 export type ScriptedAgent = "faithful" | "laundering";
 
@@ -52,6 +53,13 @@ export function ReasonTraceAuditPanel({ caseLabel, issues, agent, onAgentChange,
     {error && <p className="rt-audit-error" role="alert">The audit could not finish. {error} You can try again.</p>}
     <AnimatePresence mode="wait">
       {result && <AnimatedContent key={`${caseLabel}-${result.decision.trajectory_id}`} className="rt-results" ariaLive="polite">
+        <ReasonTraceFindingSummary checks={result.checks} decisionOutcome={result.decision.outcome}
+          policyOutcome={result.oracle.outcome} onInspect={index => {
+            const target = document.getElementById(`rt-check-${index}`);
+            if (!target) return;
+            target.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
+            target.focus({ preventScroll: true });
+          }} />
         <ReasonTraceAuditSnapshot reviewedFacts={result.reviewed_facts} review={review}
           onShowSource={onShowSource} />
         <ReasonTraceReasonComparison decisionOutcome={result.decision.outcome}

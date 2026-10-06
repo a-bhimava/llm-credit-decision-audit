@@ -31,10 +31,10 @@ export function ReasonTraceAuditChecks({ checks }: { checks: AuditCheck[] }) {
       <h3 className="rt-check-title">Paired evidence</h3>
       <span>{failures} failed · {passes} passed{inapplicable > 0 ? ` · ${inapplicable} inapplicable` : ""}</span>
     </div>
-    {checks.map(check => {
+    {checks.map((check, index) => {
       const expanded = openPair === check.pair_id;
       return <article className="rt-check" key={check.pair_id}>
-        <button type="button" className="rt-check-toggle" aria-expanded={expanded}
+        <button id={`rt-check-${index}`} type="button" className="rt-check-toggle" aria-expanded={expanded}
           onClick={() => setOpenPair(expanded ? null : check.pair_id)}>
           <span className={`rt-check-status ${check.status}`}>{check.status}</span>
           <strong>{names[check.check] || check.check}</strong>
