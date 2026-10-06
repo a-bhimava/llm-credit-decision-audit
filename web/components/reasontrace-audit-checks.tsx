@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AnimatedContent } from "@/components/react-bits/animated-content";
+import { ReasonTracePairComparison } from "@/components/reasontrace-pair-comparison";
 
 export type AuditCheck = {
   check: string; status: string; pair_id: string; effect: number | null;
@@ -43,8 +44,7 @@ export function ReasonTraceAuditChecks({ checks }: { checks: AuditCheck[] }) {
         <p className="rt-check-summary">{check.notes || check.expected}</p>
         {expanded && <AnimatedContent key={check.pair_id} className="rt-check-details">
           <div role="region" aria-label={`${names[check.check] || check.check} evidence`}>
-            {check.changes.length > 0 && <ul>{check.changes.map(change => <li key={change.field}>{change.field.replaceAll("_", " ")}: {change.before} → {change.after}</li>)}</ul>}
-            {typeof check.observed.base_approve_rate === "number" && <p className="rt-pair">Base approved {Math.round(check.observed.base_approve_rate * 100)}% → repaired approved {Math.round(Number(check.observed.cf_approve_rate) * 100)}% · {String(check.observed.matched_trials)} matched trials</p>}
+            <ReasonTracePairComparison observed={check.observed} changes={check.changes} />
             <details><summary>Inspect trace IDs</summary><code>Pair {check.pair_id}<br />Original {check.base_trajectory_ids[0]}<br />Repaired {check.cf_trajectory_ids[0] || "not applicable"}</code></details>
           </div>
         </AnimatedContent>}

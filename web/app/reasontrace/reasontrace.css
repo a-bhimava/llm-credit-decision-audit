@@ -137,3 +137,13 @@
 .rt-case-reset-confirm div{display:flex;gap:7px;flex-wrap:wrap}
 .rt-case-reset-confirm div button:first-child{background:#a84636;color:#fff}
 @media(max-width:720px){.rt-toolbar-actions,.rt-case-reset{width:100%}.rt-case-reset-confirm{position:static;width:100%;max-width:none;margin-top:8px;box-shadow:none}}
+.rt-pair-comparison{display:grid;gap:10px;margin:4px 0 10px}
+.rt-pair-change,.rt-pair-rates{padding:10px;border:1px solid #dce8e6;border-radius:8px;background:#f8fbfa}
+.rt-pair-comparison strong{display:block;margin-bottom:7px;color:#315760;font-size:11px}
+.rt-pair-comparison ul{margin:0 0 5px;padding-left:17px}
+.rt-pair-comparison li{overflow-wrap:anywhere}
+.rt-pair-comparison small{display:block;margin-top:6px;color:#647b83;font-size:10px;line-height:1.45}
+.rt-pair-rate{display:grid;grid-template-columns:minmax(75px,105px) minmax(0,1fr) 34px;align-items:center;gap:7px;margin:7px 0;color:#486875;font-size:10px}
+.rt-pair-rate>div{height:8px;overflow:hidden;border-radius:20px;background:#dfe9e8}
+.rt-pair-rate>div>span{display:block;height:100%;border-radius:20px;background:#268a78}
+.rt-pair-rate b{text-align:right;color:#234f5a;font-size:10px}
