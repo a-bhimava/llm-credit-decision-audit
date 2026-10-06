@@ -11,6 +11,7 @@ import {
   type RunIndexEntry,
 } from "@/lib/evidence";
 import { DefinitionList, EvidenceLabel, RunNav, Shell, Status } from "@/components/site";
+import { ReproCommand } from "@/components/repro-command";
 
 function Headline({ headline, run }: Readonly<{ headline: JsonObject; run: RunIndexEntry }>) {
   const support = headline.support as JsonObject | undefined;
@@ -121,13 +122,10 @@ export async function RunOverview({ run }: Readonly<{ run: RunIndexEntry }>) {
         ) : null}
 
         <section className="section reproBlock">
-          <p className="eyebrow">Reproduce</p>
-          <h2>Check the published claims yourself</h2>
-          <pre>{`credit-audit verify --run ${run.run_id} --strict`}</pre>
+          <ReproCommand command={`credit-audit verify --run ${run.run_id} --strict`} />
           <Link href={`/r/${encodeURIComponent(run.run_id)}/methods`}>Read the method and limits</Link>
         </section>
       </main>
     </Shell>
   );
 }
-

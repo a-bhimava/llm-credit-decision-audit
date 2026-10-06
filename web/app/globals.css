@@ -218,9 +218,9 @@ h3 { font: 600 1rem/1.25 var(--sans); }
 .section { margin-top: 4rem; }
 .sectionTitle { border-bottom: 1px solid var(--line); display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 1.25rem; }
 .headlineGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-left: 1px solid var(--line); }
-.headline { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 1.25rem; min-height: 270px; display: flex; flex-direction: column; align-items: flex-start; }
+.headline { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 1.25rem; min-width: 0; min-height: 270px; display: flex; flex-direction: column; align-items: flex-start; }
 .headline strong { font: 500 3.4rem/1 var(--serif); letter-spacing: -0.06em; margin: 1rem 0; }
-.headline p { color: #344e57; font-size: 0.9rem; flex: 1; }
+.headline p { color: #344e57; font-size: 0.9rem; flex: 1; overflow-wrap: anywhere; }
 .headline a { font: 0.75rem var(--mono); }
 
 .splitSection { border-top: 1px solid var(--line); display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; padding-top: 2rem; }
@@ -235,7 +235,15 @@ h3 { font: 600 1rem/1.25 var(--sans); }
 .operationalStrip strong, .metricGrid strong, .pairMetricGrid strong { display: block; font: 500 1.5rem var(--serif); margin-top: 0.25rem; }
 .reproBlock { background: var(--ink); color: var(--paper); padding: 2rem; }
 .reproBlock .eyebrow { color: #9fc5cf; }
+.reproHeader { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+.reproHeader .eyebrow { margin: 0; }
+.reproCopy { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 44px; padding: .45rem .7rem; border: 1px solid rgba(255, 255, 255, .5); background: transparent; color: var(--paper); cursor: pointer; font: 700 .72rem var(--mono); white-space: nowrap; }
+.reproCopy:hover { background: var(--paper); color: var(--ink); }
 .reproBlock pre { background: #1d3540; color: #e5f0f1; overflow-x: auto; padding: 1rem; }
+.reproBlock pre code { font-size: inherit; }
+.reproStatus { color: #e5f0f1; font-size: .78rem; margin: 0 0 1rem; }
+.reproStatus:empty { display: none; }
+.reproStatusCopied { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 .page { max-width: 1180px; }
 .checkGrid { border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(3, 1fr); }
@@ -310,8 +318,10 @@ td { font-size: 0.86rem; }
   .runNav a:nth-child(n+4) { grid-column: span 3; }
   .shell main { padding-top: 1.25rem; }
   .shell .hero { padding-top: 1rem; padding-bottom: 2.5rem; }
+  .sectionTitle { align-items: flex-start; flex-direction: column; gap: .35rem; padding-bottom: .7rem; }
+  .sectionTitle > * { margin-bottom: 0; }
   .hero, .splitSection, .forestRow, .twoColumn { grid-template-columns: 1fr; gap: 1.5rem; }
-  .headlineGrid, .checkGrid { grid-template-columns: 1fr; }
+  .headlineGrid, .checkGrid { grid-template-columns: minmax(0, 1fr); }
   .operationalStrip, .metricGrid, .pairMetricGrid, .mcnemar { grid-template-columns: repeat(2, 1fr); }
   .diffLedger { grid-template-columns: 1fr; }
   .interventionColumn { border: none; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
