@@ -12,7 +12,7 @@ These are invented **Meridian Personal Loan** cases. The pages are not real borr
 
 ## Three-minute path
 
-- Open case 1. Show the credit summary's 635 score, confirm facts, run the planted-defect control, and point to the fabricated income reason and omitted credit-score reason. Expand the review memo to show the full source-to-finding chain.
+- Open case 1. Show the credit summary's 635 score, confirm facts, run the planted-defect control, and follow **Source to finding** from the page quote to the omitted credit-score replay. The path opens the representative paired check; use the separate finding action to inspect the fabricated income reason. Expand the review memo if a full text record is useful.
 - Open case 4. Show 820 in the saved extraction against 620 on the page; explain why the audit stays blocked and make the correction.
 - Open case 5. Show that excluding the credit page blocks the audit; restore it, review it, and show that an approval has no adverse reason to test.
 - Use cases 2 and 3 for follow-up questions about one versus two binding reasons and paired counterfactual checks.
