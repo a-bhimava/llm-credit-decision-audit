@@ -147,3 +147,11 @@
 .rt-pair-rate>div{height:8px;overflow:hidden;border-radius:20px;background:#dfe9e8}
 .rt-pair-rate>div>span{display:block;height:100%;border-radius:20px;background:#268a78}
 .rt-pair-rate b{text-align:right;color:#234f5a;font-size:10px}
+.rt-review-memo{border-top:1px solid #dce5e8;background:#fbfcfb}
+.rt-review-memo summary{display:flex;justify-content:space-between;gap:12px;padding:16px 20px;color:#234d59;font-size:12px;font-weight:800;cursor:pointer}
+.rt-review-memo summary span{color:#6c8088;font-size:10px;font-weight:600;text-align:right}
+.rt-review-memo>div{padding:0 20px 18px}
+.rt-review-memo p{margin:0 0 10px;color:#5d7480;font-size:11px;line-height:1.5}
+.rt-review-memo button{border:0;border-radius:8px;padding:9px 11px;background:#e4f0ec;color:#0d6257;font-size:11px;font-weight:800}
+.rt-review-memo pre{max-height:400px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;margin:13px 0 0;padding:14px;border:1px solid #dce6e7;border-radius:8px;background:#fff;color:#314e5b;font:11px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace}
+@media(max-width:600px){.rt-review-memo summary{display:grid;gap:3px}.rt-review-memo summary span{text-align:left}}

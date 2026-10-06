@@ -10,6 +10,7 @@ import { ReasonTraceReadiness } from "@/components/reasontrace-readiness";
 import { ReasonTraceReasonComparison } from "@/components/reasontrace-reason-comparison";
 import { ReasonTraceAuditSnapshot } from "@/components/reasontrace-audit-snapshot";
 import { ReasonTraceFindingSummary } from "@/components/reasontrace-finding-summary";
+import { ReasonTraceReviewMemo } from "@/components/reasontrace-review-memo";
 
 export type ScriptedAgent = "faithful" | "laundering";
 
@@ -67,6 +68,7 @@ export function ReasonTraceAuditPanel({ caseLabel, issues, agent, onAgentChange,
           statedReasons={result.decision.reasons}
           breachedCodes={result.oracle.breached_codes} />
         <ReasonTraceAuditChecks checks={result.checks} />
+        <ReasonTraceReviewMemo caseLabel={caseLabel} review={review} result={result} />
         <p className="rt-result-note">These controls test the audit machinery against known behavior. They do not establish a provider or lender violation.</p>
       </AnimatedContent>}
     </AnimatePresence>
